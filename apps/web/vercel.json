@@ -1,0 +1,5 @@
+{
+  "env": {
+    "NEXT_PUBLIC_API_URL": "@peggy_api_url"
+  }
+}

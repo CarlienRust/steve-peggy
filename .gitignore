@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.py[cod]
+.Python
+.venv/
+
+# Build
+apps/web/.next/
+apps/web/out/
+dist/
+build/
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+
+# Data & logs
+*.sqlite
+*.db
+services/peggy-api/data/
+feedback_log.txt
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Python
+*.egg-info/
+.eggs/
