@@ -4,6 +4,8 @@
 
 Each user sees only their own corpus, ingest jobs, and chat history. Replace hardcoded `client_id: "web"` with authenticated `user_id`.
 
+**Today (stub):** `components/ResearcherProfile.tsx` stores display name, researcher ID, and focus in `localStorage`; **Log out** clears the stub session. Wire to Supabase in Phase A below.
+
 ## Recommended approach: Supabase Auth + JWT on API
 
 Supabase Auth integrates cleanly with **Next.js on Vercel** and **Postgres** for the catalog (see [DATABASE.md](DATABASE.md)).

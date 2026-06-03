@@ -47,10 +47,19 @@ async def upload_document(
     source_type: str = Form("literature"),
     title: str = Form("Uploaded document"),
 ):
-    content = (await file.read()).decode("utf-8", errors="replace")
-    meta = {"doc_id": file.filename or title, "title": title}
-    n = await jobs.ingest_text_document(content, meta, source_type=source_type)
-    return {"status": "ok", "chunks": n, "filename": file.filename}
+    raw = await file.read()
+    doc_title = title if title != "Uploaded document" else (file.filename or title)
+    try:
+        n = await jobs.ingest_upload_bytes(
+            raw,
+            file.filename,
+            file.content_type,
+            doc_title,
+            source_type=source_type,
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+    return {"status": "ok", "chunks": n, "filename": file.filename, "title": doc_title}
 
 
 @router.post("/findings")

@@ -126,14 +126,14 @@ export function DashboardPage() {
         <Grid item xs={12} md={4}>
           <ActionCard
             href="/ingest"
-            title="Add literature"
-            description="Paste PMIDs, DOIs, or run a PubMed query."
+            title="Manage corpus"
+            description="View, edit, and add PubMed IDs, PDFs, or datasets."
           />
         </Grid>
         <Grid item xs={12} md={4}>
           <ActionCard
             href="/chat"
-            title="Ask the corpus"
+            title="Ask Peggy"
             description="Grounded answers with visible citations."
           />
         </Grid>

@@ -1,0 +1,24 @@
+---
+description: MUI-only UI for Peggy web app — no Tailwind
+globs: apps/web/**/*
+alwaysApply: false
+---
+
+# Peggy UI — Material UI
+
+UI stack is MUI only — never add Tailwind.
+
+- Theme: `theme/peggyTheme.ts` (`eyebrowSx`, `monoSx`, `cardHoverSx`).
+- Shell: `AppShell`, `DashboardPage`, `ResearcherProfile`.
+- Nav: Dashboard, **Corpus**, **Ask Peggy**, Gap Analysis, Comparison.
+- Corpus: `CorpusManagement` + **Add to corpus** modal (`IngestModal`, `IngestForm`).
+- Pages: `PageHeader` + MUI `Paper`.
+- Fonts: Inter + JetBrains Mono via `next/font` in `app/layout.tsx`.
+
+## Demo vs live data
+
+When corpus is empty, use demo placeholder stats (142 papers, 94% indexed) and the demo activity feed.
+
+When corpus has data, show live API data.
+
+Workspace copy: `NEXT_PUBLIC_WORKSPACE_TITLE`, `NEXT_PUBLIC_WORKSPACE_FOCUS` in `apps/web/.env.local`.

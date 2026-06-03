@@ -50,19 +50,24 @@ Used by `docker compose` to pass secrets into `peggy-api`.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NEXT_PUBLIC_API_URL` | **Yes** | `http://localhost:8000` | Peggy API base URL |
+| `NEXT_PUBLIC_WORKSPACE_TITLE` | No | — | Dashboard title |
+| `NEXT_PUBLIC_WORKSPACE_FOCUS` | No | — | Dashboard focus line |
 | `NEXT_PUBLIC_SUPABASE_URL` | Auth phase | — | |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth phase | — | |
 
-## Verify
+## Verify (native — default)
 
 ```bash
-docker compose up --build -d
+./scripts/install-qdrant.sh   # once
+./scripts/start-qdrant.sh     # terminal 1
+./scripts/start-api.sh        # terminal 2
 curl http://localhost:8000/health
-cd apps/web && npm run dev
-# Open http://localhost:3000
+cd apps/web && npm run dev    # terminal 3
 ```
 
-Health response should show `"qdrant": true` when Qdrant is running.
+Health should show `"qdrant": true` and `"llm_configured": true` when configured.
+
+**Optional Docker verify:** `docker compose up -d` — see [DOCKER.md](DOCKER.md).
 
 ## Production (Vercel + API host)
 

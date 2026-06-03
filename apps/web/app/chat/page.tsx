@@ -6,8 +6,8 @@ export default function ChatPage() {
   return (
     <>
       <PageHeader
-        eyebrow="03 · Synthesis chat"
-        title="Synthesis chat"
+        eyebrow="03 · Ask Peggy"
+        title="Ask Peggy"
         description="Grounded answers with visible citations, confidence scores, and stated limitations."
       />
       <Paper sx={{ p: 3 }}>

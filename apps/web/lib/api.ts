@@ -38,9 +38,14 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export type PaperRecord = {
+  id?: number;
   title?: string;
   source_type?: string;
   pmid?: string;
+  doi?: string;
+  authors?: string;
+  year?: string;
+  ingested_at?: string;
 };
 
 export const peggyApi = {
@@ -59,6 +64,16 @@ export const peggyApi = {
     const q = sourceType ? `?source_type=${sourceType}` : "";
     return apiFetch<{ papers: PaperRecord[]; count: number }>(`/corpus${q}`);
   },
+
+  getPaper: (id: number) => apiFetch<PaperRecord>(`/corpus/${id}`),
+
+  updatePaper: (id: number, data: Partial<PaperRecord>) =>
+    apiFetch<PaperRecord>(`/corpus/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  deletePaper: (id: number) =>
+    apiFetch<{ status: string; paper_id: number; vectors_purged: boolean }>(`/corpus/${id}`, {
+      method: "DELETE",
+    }),
 
   chat: (query: string, sourceTypes?: string[]) =>
     apiFetch<ChatResponse>("/chat", {
@@ -89,6 +104,22 @@ export const peggyApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  uploadDocument: async (
+    file: File,
+    options?: { title?: string; sourceType?: "literature" | "own_findings" }
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("title", options?.title ?? file.name.replace(/\.pdf$/i, ""));
+    form.append("source_type", options?.sourceType ?? "literature");
+    const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", body: form });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || res.statusText);
+    }
+    return res.json() as Promise<{ status: string; chunks: number; filename: string; title: string }>;
+  },
 };
 
 export const queryKeys = {

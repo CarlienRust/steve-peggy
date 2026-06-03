@@ -22,8 +22,8 @@ flowchart TB
 | Layer | Local now | Scale to |
 |-------|-----------|----------|
 | Frontend | `npm run dev` | **Vercel** (`apps/web`) |
-| API | Docker `:8000` | **Railway / Render / Fly** |
-| Vectors | Docker Qdrant | **Qdrant Cloud** |
+| API | Host `:8000` (`start-api.sh`) | **Railway / Render / Fly** |
+| Vectors | Native Qdrant (`install-qdrant.sh`) | **Qdrant Cloud** |
 | Catalog DB | SQLite volume | **Supabase Postgres** |
 | Auth | None | **Supabase Auth** |
 | File uploads | API multipart | **Supabase Storage** |
@@ -70,4 +70,4 @@ flowchart TB
 - **FastAPI** structure in `services/peggy-api/`
 - **Workflow JSON schemas** (gap, compare, etc.)
 
-Design choices today (SQLite, no auth, docker compose) are **local-dev shortcuts**, not dead ends — each has a documented swap in [DATABASE.md](DATABASE.md) and [AUTH.md](AUTH.md).
+Design choices today (SQLite, profile stub in `localStorage`, native processes) are **local-dev shortcuts**, not dead ends — each has a documented swap in [DATABASE.md](DATABASE.md) and [AUTH.md](AUTH.md).

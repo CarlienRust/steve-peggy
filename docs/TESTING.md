@@ -45,7 +45,8 @@ pytest -v
 |-------|------|
 | `lib/api.test.ts` | URL building, error handling |
 | `components/SourceCards.test.tsx` | Renders citations, confidence chip |
-| `features/ingest/IngestFeature.test.tsx` | Form validation (Zod), submit calls API |
+| `features/ingest/IngestForm.test.tsx` | Form validation (Zod), submit calls API |
+| `features/ingest/CorpusManagement.test.tsx` | Table actions, modal open |
 | MSW handlers | Mock `/health`, `/ingest/pubmed`, `/workflows/gap-analysis` |
 
 **Run:**

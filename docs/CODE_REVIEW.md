@@ -9,7 +9,8 @@ Clean Peggy-only layout: Next.js frontend + FastAPI backend. No duplicate `peggy
 ## Frontend (`apps/web/`)
 
 - TanStack Query for server state (corpus, jobs, mutations)
-- MUI + react-hook-form + Zod on ingest forms
+- MUI + react-hook-form + Zod on ingest modal (`IngestForm`)
+- Corpus page: `CorpusManagement` + table CRUD; profile stub in sidebar
 - Feature folders; pages compose features
 - Central `lib/api.ts` client with `queryKeys` factory
 
@@ -18,6 +19,7 @@ Clean Peggy-only layout: Next.js frontend + FastAPI backend. No duplicate `peggy
 - Swappable LLM provider (OpenAI / Anthropic / Ollama)
 - PubMed ingest with rate-limit fallback (Upstash or in-memory)
 - Qdrant collections split by `source_type`
+- Corpus API: list / get / patch / delete (vector purge on delete still TODO)
 - No n8n, Kwacha, or self-hosted Redis in active code
 
 ## Legacy

@@ -1,4 +1,4 @@
-import { IngestFeature } from "@/features/ingest/IngestFeature";
+import { CorpusManagement } from "@/features/ingest/CorpusManagement";
 import { PageHeader } from "@/components/PageHeader";
 import { Paper } from "@mui/material";
 
@@ -6,12 +6,12 @@ export default function IngestPage() {
   return (
     <>
       <PageHeader
-        eyebrow="02 · Ingest corpus"
-        title="Ingest corpus"
-        description="Paste PMIDs, DOIs, or run a PubMed search. Upload internal datasets as narrative findings."
+        eyebrow="02 · Corpus"
+        title="Research corpus"
+        description="View, edit, and remove ingested literature and internal datasets. Add new sources via the ingest dialog."
       />
       <Paper sx={{ p: 3 }}>
-        <IngestFeature />
+        <CorpusManagement />
       </Paper>
     </>
   );

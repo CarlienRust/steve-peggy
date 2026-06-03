@@ -4,14 +4,15 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Box, Typography, alpha } from "@mui/material";
 import type { ReactNode } from "react";
-import { peggyColors, monoSx, eyebrowSx } from "@/theme/peggyTheme";
+import { peggyColors, monoSx } from "@/theme/peggyTheme";
+import { ResearcherProfile } from "@/components/ResearcherProfile";
 
 const SIDEBAR_W = 256;
 
 const nav = [
   { num: "01", label: "Dashboard", href: "/" },
-  { num: "02", label: "Ingest Corpus", href: "/ingest" },
-  { num: "03", label: "Synthesis Chat", href: "/chat" },
+  { num: "02", label: "Corpus", href: "/ingest" },
+  { num: "03", label: "Ask Peggy", href: "/chat" },
   { num: "04", label: "Gap Analysis", href: "/gaps" },
   { num: "05", label: "Comparison", href: "/compare" },
 ] as const;
@@ -90,11 +91,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </Box>
 
-        <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
-          <Typography sx={eyebrowSx}>Researcher</Typography>
-          <Typography sx={{ ...monoSx, fontSize: 12, mt: 0.5 }}>DR_E_VANCE_092</Typography>
-          <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>Gut Microbiome · T2D</Typography>
-        </Box>
+        <ResearcherProfile />
       </Box>
 
       <Box

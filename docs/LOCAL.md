@@ -1,92 +1,103 @@
 # Local development (start here)
 
-Peggy runs entirely on your machine: **Docker** (API + Qdrant) + **npm** (Next.js UI).
+Peggy runs on your machine with **no Docker required**:
 
-## One-command setup
+1. **Qdrant** — `./scripts/install-qdrant.sh` then `./scripts/start-qdrant.sh`
+2. **peggy-api** — `./scripts/start-api.sh` (port 8000)
+3. **apps/web** — `npm run dev` (port 3000)
+
+## One-time setup
 
 ```bash
-chmod +x scripts/setup-local.sh
+chmod +x scripts/*.sh
 ./scripts/setup-local.sh
+./scripts/install-qdrant.sh
 ```
 
-Then edit `.env` at the repo root:
+Edit secrets in repo `.env` and/or `services/peggy-api/.env`:
 
 ```env
-OPENAI_API_KEY=sk-...
+OPENAI_API_KEY=sk-...          # or LLM_PROVIDER=ollama — see .env.example
 NCBI_EMAIL=you@university.ac.za
+QDRANT_URL=http://localhost:6333
 ```
 
-Restart the API after editing secrets:
+Optional dashboard copy in `apps/web/.env.local`:
+
+```env
+NEXT_PUBLIC_WORKSPACE_TITLE=Gut Microbiome & Type-2 Diabetes
+NEXT_PUBLIC_WORKSPACE_FOCUS=Bacteroidetes/Firmicutes ratios and butyrate production
+```
+
+## Daily workflow (three terminals)
+
+**Terminal 1 — Qdrant**
 
 ```bash
-docker compose restart peggy-api
+./scripts/start-qdrant.sh
 ```
 
-Start the UI:
+**Terminal 2 — API**
+
+```bash
+./scripts/start-api.sh
+```
+
+**Terminal 3 — UI**
 
 ```bash
 cd apps/web && npm run dev
 ```
 
-Open http://localhost:3000 — the home page shows API/Qdrant/LLM status.
+Open http://localhost:3000 — dashboard shows Qdrant / LLM health.
 
-## Daily workflow
+If the UI is blank or static assets 404: `cd apps/web && npm run dev:clean`, then hard-refresh (Cmd+Shift+R).
+
+## Add literature
+
+**UI (recommended):** http://localhost:3000/ingest → **Add to corpus** (PubMed, PDF, or internal dataset).
+
+**CLI batch PDFs:**
 
 ```bash
-docker compose up -d          # API + Qdrant
-cd apps/web && npm run dev    # UI
+python3 scripts/ingest-test-pdfs.py
 ```
 
-Stop:
-
-```bash
-docker compose down
-```
-
-## First real ingest
-
-1. Go to **Ingest** → enter a PMID (e.g. `32275259`) → Start ingest
-2. Wait for job status **completed**
-3. Go to **Gaps** or **Chat** and ask about the topic
+**API:** http://localhost:8000/docs → `POST /ingest/upload`, `POST /ingest/pubmed`.
 
 ## Local stack
 
-| Component | Where | Data persists |
-|-----------|-------|----------------|
-| Qdrant | Docker `:6333` | `qdrant_data` volume |
-| Peggy API | Docker `:8000` | `peggy_data` volume (SQLite) |
+| Component | Default | Data |
+|-----------|---------|------|
+| Qdrant | Native `:6333` | `data/qdrant/` |
+| Peggy API | Host `:8000` | `services/peggy-api/data/peggy.db` |
 | Next.js | Host `:3000` | — |
 
-## Run API without Docker (optional)
+## Optional: Docker Compose
 
-For Python debugging only:
-
-```bash
-cd services/peggy-api
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-# Qdrant must still be running: docker compose up qdrant -d
-cp .env.example .env   # set QDRANT_URL=http://localhost:6333
-uvicorn main:app --reload --port 8000
-```
+Only if you already use Docker: [DOCKER.md](DOCKER.md). **Docker Desktop is not required.**
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
-| Health shows `qdrant: false` | `docker compose up qdrant -d` |
-| Health shows `llm_configured: false` | Set `OPENAI_API_KEY` in `.env`, restart API |
-| Health shows `embeddings: hash-fallback` | Rebuild API image: `docker compose build peggy-api` |
-| Generic / template answers | API key missing — not a bug |
-| PubMed ingest fails | Set real `NCBI_EMAIL`; add `NCBI_API_KEY` for batch ingest |
-| CORS errors | `CORS_ORIGINS=http://localhost:3000` in compose env |
+| `Qdrant not found` | `./scripts/install-qdrant.sh` |
+| Health shows `qdrant: false` | Run `./scripts/start-qdrant.sh` |
+| Health shows `llm_configured: false` | Set `OPENAI_API_KEY`, or `LLM_PROVIDER=ollama` + Ollama |
+| Health shows `embeddings: hash-fallback` | `pip install sentence-transformers` in API venv |
+| `pip: command not found` | Use `python3 -m pip` or API venv after `setup-local.sh`; never `npm install pip` |
+| PubMed ingest fails | Set real `NCBI_EMAIL` |
+| Port 8000 in use | Stop other process or change uvicorn port |
+| UI blank / `/_next/static/...` 404 | `npm run dev:clean` in `apps/web`, hard-refresh |
+| Webpack `vendor-chunks` warnings | Stale `.next` — same as above |
+| iCloud sync issues | Prefer `~/Projects/steve+peggy` clone; `.next` in `.gitignore` |
 
 ## Tests
 
 ```bash
 cd services/peggy-api
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+source .venv/bin/activate
+pip install -r requirements-dev.txt
 pytest -v
 ```
 
@@ -95,7 +106,8 @@ See [TESTING.md](TESTING.md).
 ## What stays local for now
 
 - **SQLite** catalog (not Supabase Postgres)
-- **No auth** (`client_id: web`)
+- **Profile / logout** — browser `localStorage` stub (see [AUTH.md](AUTH.md))
 - **BackgroundTasks** for ingest (not Inngest)
+- **Delete corpus** — removes SQLite row; Qdrant vectors not purged yet
 
-These are intentional — see [SCALE.md](SCALE.md) for the Vercel/Supabase path.
+See [SCALE.md](SCALE.md) for production hosting.

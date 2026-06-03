@@ -63,6 +63,34 @@ async def insert_paper(pmid: str, doi: str, title: str, authors: str, year: str,
         await db.commit()
 
 
+async def get_paper(paper_id: int) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM papers WHERE id = ?", (paper_id,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def update_paper(paper_id: int, fields: dict) -> dict | None:
+    allowed = {"pmid", "doi", "title", "authors", "year", "source_type"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        return await get_paper(paper_id)
+    cols = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [paper_id]
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(f"UPDATE papers SET {cols} WHERE id = ?", values)
+        await db.commit()
+    return await get_paper(paper_id)
+
+
+async def delete_paper(paper_id: int) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute("DELETE FROM papers WHERE id = ?", (paper_id,))
+        await db.commit()
+        return cur.rowcount > 0
+
+
 async def list_papers(source_type: str | None = None) -> list[dict]:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row

@@ -11,7 +11,8 @@
 ```
 apps/web/                 Next.js → Vercel
 services/peggy-api/       FastAPI → Railway / Render / Fly.io
-docker-compose.yml        Local: peggy-api + qdrant
+scripts/ + tools/qdrant/  Local: native Qdrant + API (default)
+docker-compose.yml        Optional local containers
 ```
 
 ## Legacy (out of scope)
@@ -49,10 +50,13 @@ All archived code is under [`legacy/`](legacy/README.md):
 |----------|---------|
 | `POST /ingest/pubmed` | PMID / DOI / search → background job |
 | `GET /ingest/jobs/{id}` | Poll ingest status |
-| `POST /ingest/upload` | Text/markdown file |
+| `POST /ingest/upload` | PDF or text/markdown file |
 | `POST /ingest/findings` | Structured own-findings JSON |
 | `GET /corpus` | List ingested papers |
-| `POST /chat` | Grounded Q&A |
+| `GET /corpus/{id}` | Single paper metadata |
+| `PATCH /corpus/{id}` | Edit catalog fields |
+| `DELETE /corpus/{id}` | Remove from catalog (Qdrant purge stub) |
+| `POST /chat` | Grounded Q&A (Ask Peggy) |
 | `POST /workflows/gap-analysis` | Structured gaps |
 | `POST /workflows/compare` | Finding vs literature |
 | `POST /workflows/future-design` | Study design draft |
@@ -78,10 +82,11 @@ Hand-authored or exported findings (no Steve pipeline required):
 
 ## Local development
 
-```bash
-docker compose up --build
-cd apps/web && npm install && npm run dev
-```
+Native (default): see [LOCAL.md](LOCAL.md) — Qdrant binary + `./scripts/start-api.sh` + `npm run dev`.
+
+Optional: `docker compose up --build` — see [DOCKER.md](DOCKER.md).
 
 API: http://localhost:8000/docs  
-Web: http://localhost:3000
+Web: http://localhost:3000  
+
+**Web routes:** `/` dashboard · `/ingest` corpus management · `/chat` Ask Peggy · `/gaps` · `/compare`

@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass
 
 from core.ingest.chunker import chunk_text, paper_to_chunks
+from core.ingest.pdf import extract_text_from_pdf, is_pdf
 from core.ingest.pubmed import fetch_by_pmid, resolve_doi, search_pubmed
 from core.store import catalog, qdrant_store
 
@@ -59,6 +60,31 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
 def schedule_ingest(job_id: str, payload: dict) -> None:
     """Fire-and-forget background task (local dev / no Inngest)."""
     asyncio.create_task(run_ingest_job(job_id, payload))
+
+
+async def ingest_upload_bytes(
+    raw: bytes,
+    filename: str | None,
+    content_type: str | None,
+    title: str,
+    source_type: str = "literature",
+) -> int:
+    """Ingest uploaded file bytes (PDF or UTF-8 text/markdown)."""
+    doc_id = filename or title
+    if is_pdf(filename, content_type):
+        try:
+            text, pages = extract_text_from_pdf(raw)
+        except Exception as e:
+            raise ValueError(f"PDF extraction failed: {e}") from e
+        if not text.strip():
+            raise ValueError("No extractable text in PDF (scanned pages may need OCR later)")
+        meta = {"doc_id": doc_id, "title": title, "filename": doc_id, "pages": pages}
+    else:
+        text = raw.decode("utf-8", errors="replace")
+        if not text.strip():
+            raise ValueError("Empty document")
+        meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
+    return await ingest_text_document(text, meta, source_type=source_type)
 
 
 async def ingest_text_document(

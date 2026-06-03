@@ -1,14 +1,18 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
 import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
-  Divider,
+  IconButton,
+  List,
+  ListItem,
+  ListItemSecondaryAction,
+  ListItemText,
   Stack,
   Tab,
   Tabs,
@@ -16,11 +20,12 @@ import {
   Typography,
   Paper,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { Controller, useForm } from "react-hook-form";
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { peggyApi, queryKeys } from "@/lib/api";
-import { monoSx } from "@/theme/peggyTheme";
+import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const pubmedSchema = z.object({
   pmids: z.string().optional(),
@@ -34,9 +39,15 @@ const findingsSchema = z.object({
   cohort: z.string().optional(),
 });
 
-export function IngestFeature() {
+type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
+
+export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }) {
   const [tab, setTab] = useState(0);
   const [jobId, setJobId] = useState<string | null>(null);
+  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
+  const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const pubmedForm = useForm({
     resolver: zodResolver(pubmedSchema),
@@ -47,8 +58,6 @@ export function IngestFeature() {
     defaultValues: { title: "", narrative: "", cohort: "" },
   });
 
-  const corpus = useQuery({ queryKey: queryKeys.corpus(), queryFn: () => peggyApi.listCorpus() });
-
   const pubmedMut = useMutation({
     mutationFn: (v: z.infer<typeof pubmedSchema>) =>
       peggyApi.ingestPubmed({
@@ -56,7 +65,9 @@ export function IngestFeature() {
         dois: v.dois?.split(/[\s,]+/).filter(Boolean),
         search_query: v.search_query || undefined,
       }),
-    onSuccess: (d) => setJobId(d.job_id),
+    onSuccess: (d) => {
+      setJobId(d.job_id);
+    },
   });
 
   const jobQuery = useQuery({
@@ -67,15 +78,70 @@ export function IngestFeature() {
       q.state.data?.status === "completed" || q.state.data?.status === "failed" ? false : 2000,
   });
 
+  const invalidateCorpus = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.corpus() });
+    onIngestSuccess?.();
+  };
+
+  useEffect(() => {
+    if (jobQuery.data?.status === "completed") {
+      invalidateCorpus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once per completed job
+  }, [jobQuery.data?.status]);
+
   const findingsMut = useMutation({
     mutationFn: (v: z.infer<typeof findingsSchema>) => peggyApi.uploadFindings(v),
-    onSuccess: () => corpus.refetch(),
+    onSuccess: invalidateCorpus,
   });
+
+  const pdfMut = useMutation({
+    mutationFn: async (files: File[]) => {
+      const results: UploadResult[] = [];
+      for (const file of files) {
+        try {
+          const res = await peggyApi.uploadDocument(file);
+          results.push({ name: file.name, ok: true, chunks: res.chunks });
+        } catch (e) {
+          results.push({ name: file.name, ok: false, error: (e as Error).message });
+        }
+      }
+      return results;
+    },
+    onSuccess: (results) => {
+      setUploadResults(results);
+      setPdfFiles([]);
+      invalidateCorpus();
+    },
+  });
+
+  const addPdfFiles = useCallback((incoming: FileList | File[]) => {
+    const pdfs = Array.from(incoming).filter(
+      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+    );
+    if (pdfs.length === 0) return;
+    setPdfFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name));
+      return [...prev, ...pdfs.filter((f) => !names.has(f.name))];
+    });
+    setUploadResults([]);
+  }, []);
+
+  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) addPdfFiles(e.target.files);
+    e.target.value = "";
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files?.length) addPdfFiles(e.dataTransfer.files);
+  };
 
   return (
     <Stack spacing={3}>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
         <Tab label="PubMed / DOI" />
+        <Tab label="PDF upload" />
         <Tab label="Internal dataset" />
       </Tabs>
 
@@ -110,6 +176,95 @@ export function IngestFeature() {
       )}
 
       {tab === 1 && (
+        <Stack spacing={2}>
+          <Typography sx={eyebrowSx}>Local PDF files</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Upload one or more PDFs from your machine. Text is extracted and indexed for chat and gap analysis.
+          </Typography>
+
+          <Paper
+            variant="outlined"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={onDrop}
+            onClick={() => fileInputRef.current?.click()}
+            sx={{
+              p: 4,
+              textAlign: "center",
+              cursor: "pointer",
+              borderStyle: "dashed",
+              borderColor: peggyColors.border,
+              bgcolor: peggyColors.muted,
+              "&:hover": { borderColor: peggyColors.accent },
+            }}
+          >
+            <UploadFileIcon sx={{ fontSize: 40, color: "text.secondary", mb: 1 }} />
+            <Typography variant="body2" fontWeight={500}>
+              Drop PDFs here or click to browse
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+              .pdf only — multiple files supported
+            </Typography>
+          </Paper>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            hidden
+            onChange={onFileInputChange}
+          />
+
+          {pdfFiles.length > 0 && (
+            <List dense component={Paper} variant="outlined" disablePadding>
+              {pdfFiles.map((file) => (
+                <ListItem key={file.name} divider>
+                  <ListItemText
+                    primary={file.name}
+                    secondary={`${(file.size / 1024 / 1024).toFixed(2)} MB`}
+                    primaryTypographyProps={{ noWrap: true }}
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      size="small"
+                      aria-label={`Remove ${file.name}`}
+                      onClick={() => setPdfFiles((prev) => prev.filter((f) => f.name !== file.name))}
+                    >
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          )}
+
+          <Button
+            variant="contained"
+            disabled={pdfFiles.length === 0 || pdfMut.isPending}
+            onClick={() => pdfMut.mutate(pdfFiles)}
+            sx={{ alignSelf: "flex-start" }}
+          >
+            {pdfMut.isPending ? (
+              <CircularProgress size={22} color="inherit" />
+            ) : (
+              `Upload ${pdfFiles.length || ""} PDF${pdfFiles.length === 1 ? "" : "s"}`.trim()
+            )}
+          </Button>
+
+          {uploadResults.length > 0 && (
+            <Stack spacing={1}>
+              {uploadResults.map((r) => (
+                <Alert key={r.name} severity={r.ok ? "success" : "error"}>
+                  {r.ok ? `${r.name} — ${r.chunks} chunks indexed` : `${r.name} — ${r.error}`}
+                </Alert>
+              ))}
+            </Stack>
+          )}
+        </Stack>
+      )}
+
+      {tab === 2 && (
         <Box component="form" onSubmit={findingsForm.handleSubmit((d) => findingsMut.mutate(d))}>
           <Stack spacing={2}>
             <Controller
@@ -155,37 +310,6 @@ export function IngestFeature() {
         </Box>
       )}
 
-      <Box sx={{ pt: 2 }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 2 }}>
-          <Typography variant="h2">Corpus</Typography>
-          <Typography sx={{ ...monoSx, fontSize: 12, color: "text.secondary" }}>
-            {corpus.data?.count ?? 0} total
-          </Typography>
-        </Stack>
-        <Paper sx={{ overflow: "hidden" }}>
-          {(corpus.data?.papers?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
-              No papers ingested yet.
-            </Typography>
-          ) : (
-            corpus.data?.papers.slice(0, 10).map((p, i) => (
-              <Box key={i}>
-                {i > 0 && <Divider />}
-                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ px: 2, py: 1.5, gap: 2 }}>
-                  <Typography variant="body2" noWrap sx={{ flex: 1 }}>
-                    {p.title ?? "Untitled"}
-                  </Typography>
-                  <Chip
-                    label={p.source_type === "own_findings" ? "Internal" : "Literature"}
-                    size="small"
-                    variant="outlined"
-                  />
-                </Stack>
-              </Box>
-            ))
-          )}
-        </Paper>
-      </Box>
     </Stack>
   );
 }
