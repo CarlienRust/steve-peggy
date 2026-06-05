@@ -11,11 +11,24 @@ export type SourceCitation = {
   pmid?: string | null;
 };
 
+export type ChatMode = "auto" | "chat" | "gap_analysis" | "compare";
+
 export type ChatResponse = {
+  mode: string;
   response: string;
+  body?: Record<string, unknown> | null;
   sources: SourceCitation[];
   confidence: string;
   limitations: string[];
+};
+
+export type UploadResponse = {
+  status: string;
+  chunks?: number;
+  paper_id?: number;
+  message?: string;
+  filename?: string;
+  title?: string;
 };
 
 export type WorkflowResponse = {
@@ -49,7 +62,16 @@ export type PaperRecord = {
 };
 
 export const peggyApi = {
-  health: () => apiFetch<{ status: string; qdrant: boolean; llm_provider: string; llm_configured: boolean; embeddings?: string }>("/health"),
+  health: () =>
+    apiFetch<{
+      status: string;
+      qdrant: boolean;
+      llm_provider: string;
+      llm_configured: boolean;
+      llm_reachable?: boolean;
+      ollama_reachable?: boolean | null;
+      embeddings?: string;
+    }>("/health"),
 
   ingestPubmed: (body: {
     pmids?: string[];
@@ -75,16 +97,21 @@ export const peggyApi = {
       method: "DELETE",
     }),
 
-  chat: (query: string, sourceTypes?: string[]) =>
+  chat: (query: string, options?: { sourceTypes?: string[]; mode?: ChatMode }) =>
     apiFetch<ChatResponse>("/chat", {
       method: "POST",
-      body: JSON.stringify({ query, client_id: "web", source_types: sourceTypes }),
+      body: JSON.stringify({
+        query,
+        client_id: "web",
+        mode: options?.mode ?? "auto",
+        source_types: options?.sourceTypes,
+      }),
     }),
 
-  gapAnalysis: (query: string) =>
+  gapAnalysis: (query: string, sourceTypes?: string[]) =>
     apiFetch<WorkflowResponse>("/workflows/gap-analysis", {
       method: "POST",
-      body: JSON.stringify({ query }),
+      body: JSON.stringify({ query, source_types: sourceTypes }),
     }),
 
   compare: (finding: string, sourceTypes = ["literature", "own_findings"]) =>
@@ -100,7 +127,7 @@ export const peggyApi = {
     }),
 
   uploadFindings: (data: { title: string; narrative?: string; findings?: unknown[]; cohort?: string }) =>
-    apiFetch<{ status: string; chunks: number }>("/ingest/findings", {
+    apiFetch<UploadResponse>("/ingest/findings", {
       method: "POST",
       body: JSON.stringify(data),
     }),
@@ -118,7 +145,7 @@ export const peggyApi = {
       const text = await res.text();
       throw new Error(text || res.statusText);
     }
-    return res.json() as Promise<{ status: string; chunks: number; filename: string; title: string }>;
+    return res.json() as Promise<UploadResponse>;
   },
 };
 

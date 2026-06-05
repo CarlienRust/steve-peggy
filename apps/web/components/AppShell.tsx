@@ -12,9 +12,10 @@ const SIDEBAR_W = 256;
 const nav = [
   { num: "01", label: "Dashboard", href: "/" },
   { num: "02", label: "Corpus", href: "/ingest" },
-  { num: "03", label: "Ask Peggy", href: "/chat" },
-  { num: "04", label: "Gap Analysis", href: "/gaps" },
-  { num: "05", label: "Comparison", href: "/compare" },
+  { num: "03", label: "Our findings", href: "/findings" },
+  { num: "04", label: "Ask Peggy", href: "/chat" },
+  { num: "05", label: "Gap Analysis", href: "/gaps" },
+  { num: "06", label: "Comparison", href: "/compare" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {

@@ -64,7 +64,9 @@ async def run_gap_analysis(query: str, source_types: list[str] | None = None) ->
 
 
 async def run_compare(finding: str, source_types: list[str] | None = None) -> dict:
-    sources = qdrant_store.search(finding, source_types=source_types or ["literature"])
+    sources = qdrant_store.search(
+        finding, source_types=source_types or ["literature", "own_findings"]
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),

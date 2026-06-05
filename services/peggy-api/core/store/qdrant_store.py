@@ -23,7 +23,7 @@ _embedding_mode: str = "uninitialized"
 def get_client() -> QdrantClient:
     global _client
     if _client is None:
-        _client = QdrantClient(url=config.QDRANT_URL)
+        _client = QdrantClient(url=config.QDRANT_URL, check_compatibility=False)
     return _client
 
 
@@ -126,14 +126,14 @@ def search(
         collection = collection_for_source(st)
         if not client.collection_exists(collection):
             continue
-        result = client.search(
+        response = client.query_points(
             collection_name=collection,
-            query_vector=vector,
+            query=vector,
             limit=limit,
             score_threshold=threshold,
             with_payload=True,
         )
-        for hit in result:
+        for hit in response.points:
             p = hit.payload or {}
             hits.append({
                 "chunk_id": p.get("chunk_id", str(hit.id)),

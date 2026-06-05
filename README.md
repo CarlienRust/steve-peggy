@@ -24,7 +24,7 @@ Evidence-grounded research synthesis: ingest literature (PubMed, local PDFs), ad
 | Compare | Your finding vs ingested literature |
 | Profile (stub) | Sidebar edit + logout; `localStorage` until [AUTH.md](docs/AUTH.md) |
 | Embeddings | `sentence-transformers` locally (no OpenAI embeddings required) |
-| LLM | OpenAI, Anthropic, or **Ollama** — `LLM_PROVIDER` in `.env` |
+| LLM | **Ollama** (default), Groq (free cloud), OpenAI, Anthropic — `LLM_PROVIDER` in `.env` |
 
 **UI:** Next.js + Material UI (`theme/peggyTheme.ts`).
 
@@ -42,13 +42,17 @@ chmod +x scripts/*.sh
 ./scripts/install-qdrant.sh
 ```
 
-Set secrets in `.env` and/or `services/peggy-api/.env`:
+Set secrets in `.env` and/or `services/peggy-api/.env` (free local default):
 
 ```env
-OPENAI_API_KEY=sk-...     # or LLM_PROVIDER=ollama + running Ollama
+LLM_PROVIDER=ollama
+OLLAMA_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
 NCBI_EMAIL=you@email.com
 QDRANT_URL=http://localhost:6333
 ```
+
+Run `ollama serve` before chat/gaps. For cloud deploy without Ollama: `LLM_PROVIDER=groq` + `GROQ_API_KEY` — see [docs/ENV.md](docs/ENV.md).
 
 Three terminals:
 

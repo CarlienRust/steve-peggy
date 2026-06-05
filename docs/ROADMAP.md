@@ -5,10 +5,20 @@ Living backlog. **Goal:** evidence-grounded synthesis from your literature (PubM
 ## Now (unblock local use)
 
 - [ ] **Local stack** — [LOCAL.md](LOCAL.md): `setup-local.sh` → `install-qdrant.sh` → three terminals
-- [ ] **Secrets** — `OPENAI_API_KEY` (or Ollama), `NCBI_EMAIL` in `.env`
+- [ ] **Secrets** — Ollama default (`LLM_PROVIDER=ollama`) or `GROQ_API_KEY`; `NCBI_EMAIL` in `.env`
 - [ ] **Ingest test corpus** — UI **Add to corpus** or `python3 scripts/ingest-test-pdfs.py`
-- [ ] **Smoke test** — Ask Peggy + Gap analysis on ingested papers
+- [ ] **Smoke test** — Ask Peggy + Gap analysis on ingested papers ([LOCAL.md](LOCAL.md) Phase 0 checklist)
 - [ ] **Dashboard demo placeholders** — 142 papers / 94% indexed when corpus empty (code TODO)
+
+## Free-first stack (Phase 1 — done)
+
+| Item | Status |
+|------|--------|
+| Groq LLM provider | Done — `core/llm/provider.py` |
+| Default `LLM_PROVIDER=ollama` | Done |
+| `/health` ollama reachability + `llm_reachable` | Done |
+| Dashboard status chips + provider hints | Done |
+| Free profile in `.env.example`, ENV.md, LOCAL.md | Done |
 
 ## Product — core loop
 
@@ -27,7 +37,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from your literature (PubM
 | Manuscript framing | API only | No UI route |
 | Feedback / corrections | API only | No review UI |
 | OCR for scanned PDFs | Not started | |
-| Dedup | Not started | |
+| Dedup (PMID/DOI/title per source_type) | Done | Skips duplicate catalog rows; upload returns `duplicate` |
+| Our findings (separate space) | Done | `/findings` page + `peggy_own_findings` collection |
+| Ask Peggy → gap/compare modes | Done | Mode chips + auto intent on `/chat` |
 
 ## UI / design
 

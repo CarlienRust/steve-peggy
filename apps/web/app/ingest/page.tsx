@@ -8,7 +8,7 @@ export default function IngestPage() {
       <PageHeader
         eyebrow="02 · Corpus"
         title="Research corpus"
-        description="View, edit, and remove ingested literature and internal datasets. Add new sources via the ingest dialog."
+        description="Peer-reviewed literature only — PubMed and PDF papers. Add your own work under Our findings."
       />
       <Paper sx={{ p: 3 }}>
         <CorpusManagement />

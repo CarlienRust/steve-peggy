@@ -19,7 +19,8 @@ async def lifespan(app: FastAPI):
         _init_embedder()
         print(f"[Peggy] Qdrant ready at {config.QDRANT_URL}")
         print(f"[Peggy] Embeddings: {embedding_mode()}")
-        print(f"[Peggy] LLM: {config.LLM_PROVIDER} (key set: {bool(config.OPENAI_API_KEY or config.ANTHROPIC_API_KEY)})")
+        from core.llm.health import is_llm_configured
+        print(f"[Peggy] LLM: {config.LLM_PROVIDER} (configured: {is_llm_configured()})")
     except Exception as e:
         print(f"[startup] Qdrant/embedder not ready: {e}")
     yield
@@ -46,20 +47,23 @@ app.include_router(feedback_router.router)
 async def health():
     qdrant_ok = False
     try:
-        QdrantClient(url=config.QDRANT_URL).get_collections()
+        QdrantClient(url=config.QDRANT_URL, check_compatibility=False).get_collections()
         qdrant_ok = True
     except Exception:
         pass
+    from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
     from core.store.qdrant_store import embedding_mode
-    llm_configured = bool(
-        (config.LLM_PROVIDER == "openai" and config.OPENAI_API_KEY)
-        or (config.LLM_PROVIDER == "anthropic" and config.ANTHROPIC_API_KEY)
-        or config.LLM_PROVIDER == "ollama"
-    )
+
+    llm_configured = is_llm_configured()
+    llm_reachable = await is_llm_reachable()
+    ollama_ok = await ollama_reachable() if config.LLM_PROVIDER == "ollama" else None
+
     return {
         "status": "ok",
         "qdrant": qdrant_ok,
         "llm_provider": config.LLM_PROVIDER,
         "llm_configured": llm_configured,
+        "llm_reachable": llm_reachable,
+        "ollama_reachable": ollama_ok,
         "embeddings": embedding_mode(),
     }

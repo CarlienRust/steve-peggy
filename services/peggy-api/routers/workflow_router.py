@@ -20,7 +20,7 @@ class GapRequest(BaseModel):
 
 class CompareRequest(BaseModel):
     finding: str
-    source_types: list[str] = Field(default_factory=lambda: ["literature"])
+    source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
 
 
 class FutureDesignRequest(BaseModel):

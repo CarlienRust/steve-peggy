@@ -23,6 +23,7 @@ class IngestPayload:
 async def run_ingest_job(job_id: str, payload: dict) -> None:
     await catalog.update_job(job_id, "running")
     ingested = []
+    skipped = []
     errors = []
     try:
         pmids = list(payload.get("pmids") or [])
@@ -42,16 +43,19 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
                 if not paper:
                     errors.append(f"No record for PMID {pmid}")
                     continue
-                chunks = paper_to_chunks(paper, source_type=source_type)
-                n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
-                await catalog.insert_paper(
+                record = await catalog.record_paper(
                     paper.pmid, paper.doi, paper.title, paper.authors, paper.year, source_type
                 )
+                if record["status"] == "duplicate":
+                    skipped.append({"pmid": pmid, "title": paper.title, "paper_id": record["paper_id"]})
+                    continue
+                chunks = paper_to_chunks(paper, source_type=source_type)
+                n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
                 ingested.append({"pmid": pmid, "title": paper.title, "chunks": n})
             except Exception as e:
                 errors.append(f"PMID {pmid}: {e}")
         await catalog.update_job(
-            job_id, "completed", result={"ingested": ingested, "errors": errors}
+            job_id, "completed", result={"ingested": ingested, "skipped": skipped, "errors": errors}
         )
     except Exception as e:
         await catalog.update_job(job_id, "failed", error=str(e))
@@ -68,7 +72,7 @@ async def ingest_upload_bytes(
     content_type: str | None,
     title: str,
     source_type: str = "literature",
-) -> int:
+) -> dict:
     """Ingest uploaded file bytes (PDF or UTF-8 text/markdown)."""
     doc_id = filename or title
     if is_pdf(filename, content_type):
@@ -87,25 +91,35 @@ async def ingest_upload_bytes(
     return await ingest_text_document(text, meta, source_type=source_type)
 
 
+class DuplicateDocumentError(Exception):
+    def __init__(self, paper_id: int, title: str):
+        self.paper_id = paper_id
+        self.title = title
+        super().__init__(f"Already ingested: {title}")
+
+
 async def ingest_text_document(
     text: str,
     metadata: dict,
     source_type: str = "literature",
-) -> int:
-    chunks = chunk_text(text, {**metadata, "source_type": source_type})
-    n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
-    await catalog.insert_paper(
+) -> dict:
+    title = metadata.get("title", metadata.get("doc_id", "Uploaded document"))
+    record = await catalog.record_paper(
         metadata.get("pmid", ""),
         metadata.get("doi", ""),
-        metadata.get("title", metadata.get("doc_id", "Uploaded document")),
+        title,
         metadata.get("authors", ""),
         metadata.get("year", ""),
         source_type,
     )
-    return n
+    if record["status"] == "duplicate":
+        raise DuplicateDocumentError(record["paper_id"], title)
+    chunks = chunk_text(text, {**metadata, "source_type": source_type})
+    n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
+    return {"chunks": n, "paper_id": record["paper_id"], "status": "created"}
 
 
-async def ingest_findings_json(data: dict) -> int:
+async def ingest_findings_json(data: dict) -> dict:
     narrative = data.get("narrative") or json.dumps(data.get("findings", []))
     title = data.get("title", "My findings")
     meta = {

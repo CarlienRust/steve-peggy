@@ -10,8 +10,9 @@ UI stack is MUI only — never add Tailwind.
 
 - Theme: `theme/peggyTheme.ts` (`eyebrowSx`, `monoSx`, `cardHoverSx`).
 - Shell: `AppShell`, `DashboardPage`, `ResearcherProfile`.
-- Nav: Dashboard, **Corpus**, **Ask Peggy**, Gap Analysis, Comparison.
-- Corpus: `CorpusManagement` + **Add to corpus** modal (`IngestModal`, `IngestForm`).
+- Nav: Dashboard, **Corpus** (literature), **Our findings**, **Ask Peggy**, Gap Analysis, Comparison.
+- Corpus: `CorpusManagement` — literature only; **Add literature** modal (`IngestModal`).
+- Our findings: `/findings` — `FindingsManagement` + **Add our findings** modal (`FindingsModal`).
 - Pages: `PageHeader` + MUI `Paper`.
 - Fonts: Inter + JetBrains Mono via `next/font` in `app/layout.tsx`.
 

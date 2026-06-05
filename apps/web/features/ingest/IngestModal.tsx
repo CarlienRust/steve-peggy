@@ -8,14 +8,16 @@ export function IngestModal({
   open,
   onClose,
   onSuccess,
+  variant = "literature",
 }: {
   open: boolean;
   onClose: () => void;
   onSuccess?: () => void;
+  variant?: "literature" | "findings";
 }) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
-      <DialogTitle sx={{ pr: 6 }}>Add to corpus</DialogTitle>
+      <DialogTitle sx={{ pr: 6 }}>Add literature</DialogTitle>
       <IconButton
         aria-label="Close"
         onClick={onClose}
@@ -24,11 +26,7 @@ export function IngestModal({
         <CloseIcon />
       </IconButton>
       <DialogContent dividers>
-        <IngestForm
-          onIngestSuccess={() => {
-            onSuccess?.();
-          }}
-        />
+        <IngestForm variant={variant} onIngestSuccess={() => onSuccess?.()} />
       </DialogContent>
     </Dialog>
   );

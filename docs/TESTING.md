@@ -19,6 +19,7 @@ Unit (many)            chunker, pubmed parse, prompts, auth deps
 | Unit | `tests/unit/` | `chunker`, `pubmed` XML parse, `prompts`, JWT helpers (future) |
 | Integration | `tests/integration/` | FastAPI routes with `TestClient` / `AsyncClient`, tmp SQLite |
 | Contract | `tests/integration/test_openapi.py` | Response shapes match `schemas/` |
+| RAG / Qdrant | `tests/integration/test_qdrant_search.py` | Mock `query_points`; asserts `search()` never calls deprecated `client.search` |
 | RAG | `tests/integration/test_workflows.py` | Mock LLM returns fixed JSON; assert `sources` shape |
 | Ingest | `tests/integration/test_ingest.py` | Mock PubMed HTTP; job lifecycle |
 

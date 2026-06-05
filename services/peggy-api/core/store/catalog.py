@@ -53,14 +53,75 @@ async def init_catalog(db_path: str | None = None) -> None:
         await db.commit()
 
 
-async def insert_paper(pmid: str, doi: str, title: str, authors: str, year: str, source_type: str) -> None:
+def _norm_title(title: str) -> str:
+    return " ".join((title or "").lower().split())
+
+
+async def find_existing_paper(
+    *,
+    pmid: str = "",
+    doi: str = "",
+    title: str = "",
+    source_type: str = "literature",
+) -> dict | None:
+    """Return an existing catalog row if this document was already ingested."""
+    pmid = (pmid or "").strip()
+    doi = (doi or "").strip()
+    norm = _norm_title(title)
     async with aiosqlite.connect(config.SQLITE_DB) as db:
-        await db.execute(
+        db.row_factory = aiosqlite.Row
+        if pmid:
+            cur = await db.execute(
+                "SELECT * FROM papers WHERE source_type = ? AND pmid = ? LIMIT 1",
+                (source_type, pmid),
+            )
+            row = await cur.fetchone()
+            if row:
+                return dict(row)
+        if doi:
+            cur = await db.execute(
+                "SELECT * FROM papers WHERE source_type = ? AND doi = ? LIMIT 1",
+                (source_type, doi),
+            )
+            row = await cur.fetchone()
+            if row:
+                return dict(row)
+        if norm:
+            cur = await db.execute(
+                "SELECT * FROM papers WHERE source_type = ? AND LOWER(TRIM(title)) = ? LIMIT 1",
+                (source_type, norm),
+            )
+            row = await cur.fetchone()
+            if row:
+                return dict(row)
+    return None
+
+
+async def insert_paper(pmid: str, doi: str, title: str, authors: str, year: str, source_type: str) -> int:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
             """INSERT INTO papers (pmid, doi, title, authors, year, source_type, ingested_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (pmid, doi, title, authors, year, source_type, datetime.now(timezone.utc).isoformat()),
         )
         await db.commit()
+        return cur.lastrowid
+
+
+async def record_paper(
+    pmid: str,
+    doi: str,
+    title: str,
+    authors: str,
+    year: str,
+    source_type: str,
+) -> dict:
+    """Insert catalog row or report duplicate without creating a second entry."""
+    existing = await find_existing_paper(pmid=pmid, doi=doi, title=title, source_type=source_type)
+    if existing:
+        return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
+    paper_id = await insert_paper(pmid, doi, title, authors, year, source_type)
+    return {"status": "created", "paper_id": paper_id, "paper": await get_paper(paper_id)}
 
 
 async def get_paper(paper_id: int) -> dict | None:

@@ -41,8 +41,15 @@ const findingsSchema = z.object({
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
 
-export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }) {
+export function IngestForm({
+  onIngestSuccess,
+  variant = "literature",
+}: {
+  onIngestSuccess?: () => void;
+  variant?: "literature" | "findings";
+}) {
   const [tab, setTab] = useState(0);
+  const sourceType = variant === "findings" ? "own_findings" : "literature";
   const [jobId, setJobId] = useState<string | null>(null);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
@@ -79,7 +86,8 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
   });
 
   const invalidateCorpus = () => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.corpus() });
+    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("literature") });
+    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("own_findings") });
     onIngestSuccess?.();
   };
 
@@ -92,7 +100,12 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
 
   const findingsMut = useMutation({
     mutationFn: (v: z.infer<typeof findingsSchema>) => peggyApi.uploadFindings(v),
-    onSuccess: invalidateCorpus,
+    onSuccess: (data) => {
+      invalidateCorpus();
+      if (data.status === "duplicate") {
+        findingsForm.setError("title", { message: data.message ?? "Already ingested" });
+      }
+    },
   });
 
   const pdfMut = useMutation({
@@ -100,8 +113,12 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
       const results: UploadResult[] = [];
       for (const file of files) {
         try {
-          const res = await peggyApi.uploadDocument(file);
-          results.push({ name: file.name, ok: true, chunks: res.chunks });
+          const res = await peggyApi.uploadDocument(file, { sourceType });
+          if (res.status === "duplicate") {
+            results.push({ name: file.name, ok: false, error: res.message ?? "Already ingested" });
+          } else {
+            results.push({ name: file.name, ok: true, chunks: res.chunks });
+          }
         } catch (e) {
           results.push({ name: file.name, ok: false, error: (e as Error).message });
         }
@@ -140,12 +157,12 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
   return (
     <Stack spacing={3}>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
-        <Tab label="PubMed / DOI" />
-        <Tab label="PDF upload" />
-        <Tab label="Internal dataset" />
+        {variant === "literature" && <Tab label="PubMed / DOI" />}
+        <Tab label={variant === "findings" ? "Findings narrative" : "PDF upload"} />
+        {variant === "findings" && <Tab label="Research PDF" />}
       </Tabs>
 
-      {tab === 0 && (
+      {variant === "literature" && tab === 0 && (
         <Box component="form" onSubmit={pubmedForm.handleSubmit((d) => pubmedMut.mutate(d))}>
           <Stack spacing={2}>
             <Controller
@@ -175,11 +192,45 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
         </Box>
       )}
 
-      {tab === 1 && (
+      {variant === "findings" && tab === 0 && (
+        <Box component="form" onSubmit={findingsForm.handleSubmit((d) => findingsMut.mutate(d))}>
+          <Stack spacing={2}>
+            <Controller
+              name="title"
+              control={findingsForm.control}
+              render={({ field, fieldState }) => (
+                <TextField {...field} label="Finding set title" error={!!fieldState.error} helperText={fieldState.error?.message} fullWidth />
+              )}
+            />
+            <Controller
+              name="cohort"
+              control={findingsForm.control}
+              render={({ field }) => <TextField {...field} label="Cohort (optional)" fullWidth />}
+            />
+            <Controller
+              name="narrative"
+              control={findingsForm.control}
+              render={({ field, fieldState }) => (
+                <TextField {...field} label="Findings narrative" multiline rows={6} error={!!fieldState.error} helperText={fieldState.error?.message} fullWidth />
+              )}
+            />
+            <Button type="submit" variant="contained" disabled={findingsMut.isPending} sx={{ alignSelf: "flex-start" }}>
+              Save findings
+            </Button>
+            {findingsMut.isSuccess && findingsMut.data?.status === "ok" && (
+              <Alert severity="success">Ingested {findingsMut.data.chunks} chunks</Alert>
+            )}
+          </Stack>
+        </Box>
+      )}
+
+      {((variant === "literature" && tab === 1) || (variant === "findings" && tab === 1)) && (
         <Stack spacing={2}>
-          <Typography sx={eyebrowSx}>Local PDF files</Typography>
+          <Typography sx={eyebrowSx}>PDF upload</Typography>
           <Typography variant="body2" color="text.secondary">
-            Upload one or more PDFs from your machine. Text is extracted and indexed for chat and gap analysis.
+            {variant === "findings"
+              ? "Upload your research report or internal paper. Stored as our findings, not literature."
+              : "Upload peer-reviewed PDFs for the literature corpus."}
           </Typography>
 
           <Paper
@@ -262,52 +313,6 @@ export function IngestForm({ onIngestSuccess }: { onIngestSuccess?: () => void }
             </Stack>
           )}
         </Stack>
-      )}
-
-      {tab === 2 && (
-        <Box component="form" onSubmit={findingsForm.handleSubmit((d) => findingsMut.mutate(d))}>
-          <Stack spacing={2}>
-            <Controller
-              name="title"
-              control={findingsForm.control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="Dataset title"
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  fullWidth
-                />
-              )}
-            />
-            <Controller
-              name="cohort"
-              control={findingsForm.control}
-              render={({ field }) => <TextField {...field} label="Cohort (optional)" fullWidth />}
-            />
-            <Controller
-              name="narrative"
-              control={findingsForm.control}
-              render={({ field, fieldState }) => (
-                <TextField
-                  {...field}
-                  label="Findings narrative"
-                  multiline
-                  rows={6}
-                  error={!!fieldState.error}
-                  helperText={fieldState.error?.message}
-                  fullWidth
-                />
-              )}
-            />
-            <Button type="submit" variant="contained" disabled={findingsMut.isPending} sx={{ alignSelf: "flex-start" }}>
-              Upload dataset
-            </Button>
-            {findingsMut.isSuccess && (
-              <Alert severity="success">Ingested {findingsMut.data.chunks} chunks</Alert>
-            )}
-          </Stack>
-        </Box>
       )}
 
     </Stack>

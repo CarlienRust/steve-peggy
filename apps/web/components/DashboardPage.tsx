@@ -13,6 +13,7 @@ import {
   alpha,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { llmHealthHint } from "@/lib/llmHealthHint";
 import { cardHoverSx, eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const WORKSPACE_TITLE =
@@ -44,8 +45,11 @@ export function DashboardPage() {
   const count = corpus.data?.count ?? 0;
   const literatureCount = corpus.data?.papers?.filter((p) => p.source_type === "literature").length ?? 0;
   const ownCount = count - literatureCount;
-  const ready = health.data?.qdrant && health.data?.llm_configured;
-  const readinessPct = count === 0 ? 0 : ready ? 94 : 40;
+  const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
+  const ready = Boolean(health.data?.qdrant && llmReady);
+  const embeddingsOk = health.data?.embeddings === "sentence-transformers";
+  const readinessPct = count === 0 ? 0 : ready && embeddingsOk ? 94 : ready ? 70 : 40;
+  const setupHint = llmHealthHint(health.data);
 
   const activity: ActivityItem[] =
     count > 0
@@ -91,6 +95,29 @@ export function DashboardPage() {
         )}
       </Typography>
 
+      {health.data && (
+        <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 3 }}>
+          <Chip
+            size="small"
+            label={health.data.qdrant ? "Qdrant connected" : "Qdrant offline"}
+            color={health.data.qdrant ? "success" : "warning"}
+            variant="outlined"
+          />
+          <Chip
+            size="small"
+            label={`LLM: ${health.data.llm_provider}${llmReady ? "" : " (not ready)"}`}
+            color={llmReady ? "success" : "warning"}
+            variant="outlined"
+          />
+          <Chip
+            size="small"
+            label={`Embeddings: ${health.data.embeddings ?? "unknown"}`}
+            color={embeddingsOk ? "success" : "warning"}
+            variant="outlined"
+          />
+        </Stack>
+      )}
+
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid item xs={12} sm={6}>
           <StatCard label="Total ingested" value={`${count} paper${count === 1 ? "" : "s"}`} />
@@ -99,13 +126,7 @@ export function DashboardPage() {
           <StatCard
             label="Synthesis readiness"
             value={count === 0 ? "—" : `${readinessPct}% indexed`}
-            hint={
-              !health.data?.qdrant
-                ? "Start Qdrant: docker compose up -d"
-                : !health.data?.llm_configured
-                  ? "Set OPENAI_API_KEY in .env"
-                  : undefined
-            }
+            hint={setupHint}
           />
         </Grid>
       </Grid>

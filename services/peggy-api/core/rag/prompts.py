@@ -49,10 +49,12 @@ Answer using only the context above. Include chunk_id references. List limitatio
 
 
 def gap_analysis_prompt(query: str, sources: list[dict]) -> str:
-    return f"""Retrieved literature:
+    return f"""Retrieved corpus (peer-reviewed literature and/or our own findings):
 {format_context(sources)}
 
-Research focus: {query}
+Research focus / question: {query}
+
+Identify gaps relative to this focus. When own_findings sources appear, treat them as what we already know; gaps should highlight what literature still lacks or where our work could extend the field.
 
 Return JSON only with this schema:
 {{

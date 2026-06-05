@@ -9,6 +9,8 @@ async def test_health(client):
     data = r.json()
     assert data["status"] == "ok"
     assert "llm_provider" in data
+    assert "llm_reachable" in data
+    assert "embeddings" in data
 
 
 @pytest.mark.asyncio
@@ -43,6 +45,7 @@ async def test_chat_returns_schema(client):
             r = await client.post("/chat", json={"query": "What is known?", "client_id": "test"})
     assert r.status_code == 200
     data = r.json()
+    assert data.get("mode") == "chat"
     assert "response" in data
     assert "sources" in data
     assert "confidence" in data

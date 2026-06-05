@@ -21,7 +21,9 @@ class WorkflowResponse(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    response: str
+    mode: str = "chat"
+    response: str = ""
+    body: Any = None
     sources: list[SourceCitation]
     confidence: str
     limitations: list[str] = Field(default_factory=list)

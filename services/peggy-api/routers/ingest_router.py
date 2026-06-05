@@ -2,7 +2,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File,
 from pydantic import BaseModel, Field
 from typing import Optional
 
-from core.ingest import jobs
+from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job, schedule_ingest
 from core.store import catalog
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
@@ -29,7 +29,7 @@ async def ingest_pubmed(body: PubMedIngestRequest, background_tasks: BackgroundT
         raise HTTPException(400, "Provide pmids, dois, or search_query")
     payload = body.model_dump()
     job_id = await catalog.create_job(payload)
-    background_tasks.add_task(jobs.run_ingest_job, job_id, payload)
+    background_tasks.add_task(run_ingest_job, job_id, payload)
     return {"job_id": job_id, "status": "queued"}
 
 
@@ -50,19 +50,41 @@ async def upload_document(
     raw = await file.read()
     doc_title = title if title != "Uploaded document" else (file.filename or title)
     try:
-        n = await jobs.ingest_upload_bytes(
+        result = await ingest_upload_bytes(
             raw,
             file.filename,
             file.content_type,
             doc_title,
             source_type=source_type,
         )
+    except DuplicateDocumentError as e:
+        return {
+            "status": "duplicate",
+            "message": str(e),
+            "paper_id": e.paper_id,
+            "filename": file.filename,
+            "title": doc_title,
+        }
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    return {"status": "ok", "chunks": n, "filename": file.filename, "title": doc_title}
+    return {
+        "status": "ok",
+        "chunks": result["chunks"],
+        "paper_id": result["paper_id"],
+        "filename": file.filename,
+        "title": doc_title,
+    }
 
 
 @router.post("/findings")
 async def ingest_findings(body: FindingsIngestRequest):
-    n = await jobs.ingest_findings_json(body.model_dump())
-    return {"status": "ok", "chunks": n, "title": body.title}
+    try:
+        result = await ingest_findings_json(body.model_dump())
+    except DuplicateDocumentError as e:
+        return {
+            "status": "duplicate",
+            "message": str(e),
+            "paper_id": e.paper_id,
+            "title": body.title,
+        }
+    return {"status": "ok", "chunks": result["chunks"], "paper_id": result["paper_id"], "title": body.title}
