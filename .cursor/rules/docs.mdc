@@ -1,0 +1,19 @@
+---
+description: Keep docs in sync when adding Peggy features
+globs: apps/web/**/*,services/peggy-api/**/*,docs/**/*
+alwaysApply: true
+---
+
+# Documentation maintenance
+
+When adding or changing features, update docs in the same PR/commit:
+
+| Change type | Update |
+|-------------|--------|
+| User-facing (routes, ingest, corpus, UI, env, local run) | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/ROADMAP.md](docs/ROADMAP.md), [docs/LOCAL.md](docs/LOCAL.md) |
+| Chat / workflow / intent / agent behavior | Also [docs/AGENT.md](docs/AGENT.md) |
+| Env vars or LLM providers | Also [docs/ENV.md](docs/ENV.md) and `.env.example` files |
+| Tests or CI | Also [docs/TESTING.md](docs/TESTING.md) |
+| Auth / Postgres / deploy (future) | Also [docs/AUTH.md](docs/AUTH.md), [docs/DATABASE.md](docs/DATABASE.md), [docs/SCALE.md](docs/SCALE.md) |
+
+Do not add redundant docs; extend existing files. Index: [docs/README.md](docs/README.md).

@@ -4,7 +4,8 @@
 
 - **Vectors:** Qdrant (`peggy_literature`, `peggy_own_findings`)
 - **Catalog:** SQLite via `aiosqlite` (papers, jobs, feedback)
-- **Auth:** none (`client_id: "web"` hardcoded)
+- **Auth:** none (`client_id: "web"` on API requests; profile stub in browser)
+- **Dedup:** catalog-level PMID/DOI/title per `source_type` (no DB UNIQUE constraint yet)
 
 ## What Peggy needs from a “backend”
 

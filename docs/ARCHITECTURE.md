@@ -1,92 +1,133 @@
 # Peggy Research Assistant — Architecture
 
-**Local first:** see [LOCAL.md](LOCAL.md). **Production scale:** see [SCALE.md](SCALE.md).
+**Local first:** [LOCAL.md](LOCAL.md) · **Production:** [SCALE.md](SCALE.md) · **Agent roadmap:** [AGENT.md](AGENT.md)
 
 ## Niche
 
-**Peggy** is a research synthesis assistant that ingests publications (via PubMed/DOI), your own findings (notes, results summaries), and helps you compare them, surface research gaps, and draft future study designs—grounded in retrieved evidence with visible citations.
+Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations.
 
 ## Active codebase
 
 ```
-apps/web/                 Next.js → Vercel
+apps/web/                 Next.js 14 + MUI → Vercel
 services/peggy-api/       FastAPI → Railway / Render / Fly.io
-scripts/ + tools/qdrant/  Local: native Qdrant + API (default)
-docker-compose.yml        Optional local containers
+scripts/ + tools/qdrant/  Native Qdrant + API (default local)
+docker-compose.yml        Optional containers
+legacy/                   Archived — do not import
 ```
 
-## Legacy (out of scope)
+## Two corpora
 
-All archived code is under [`legacy/`](legacy/README.md):
+| UI | Route | `source_type` | Qdrant collection |
+|----|-------|---------------|-------------------|
+| Corpus (literature) | `/ingest` | `literature` | `peggy_literature` |
+| Our findings | `/findings` | `own_findings` | `peggy_own_findings` |
 
-- `legacy/steve/` — microbiome / cohort pipeline + original notebooks
-- `legacy/peggy_bot/` — pre-refactor bot
-- `legacy/kwacha_bot/` — removed Kwacha patterns
-
-**Do not import legacy modules from active Peggy code.**
-
-## Deployment
-
-| Layer | Platform | Env |
-|-------|----------|-----|
-| Frontend | Vercel | `NEXT_PUBLIC_API_URL` |
-| API | Railway / Render / Fly.io | See `services/peggy-api/.env.example` |
-| Vectors | Qdrant Cloud or Docker | `QDRANT_URL` |
-| Jobs | Inngest (optional) | Sync fallback via FastAPI BackgroundTasks |
-| Cache | Upstash Redis (optional) | In-memory fallback for PubMed rate limits |
-| LLM | OpenAI / Anthropic / Ollama | `LLM_PROVIDER` |
+Catalog dedup: same PMID, DOI, or normalized title within a `source_type` → skip insert (`duplicate` response).
 
 ## Qdrant collections
 
-| Collection | `source_type` | Purpose |
-|------------|---------------|---------|
-| `peggy_literature` | `literature` | PubMed / uploaded papers |
-| `peggy_own_findings` | `own_findings` | Notes, markdown, results.json |
-| `chat_history_logs` | — | Optional session vectors |
+| Collection | Purpose |
+|------------|---------|
+| `peggy_literature` | PubMed + literature PDFs |
+| `peggy_own_findings` | Narrative findings + research PDFs |
+| `chat_history_logs` | Reserved for future session memory (unused) |
+
+Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16).
+
+## LLM providers
+
+| `LLM_PROVIDER` | Use case |
+|----------------|----------|
+| `ollama` | Default local (free) |
+| `groq` | Free cloud tier |
+| `openai` / `anthropic` | Paid production |
+
+Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embeddings`).
 
 ## API overview
 
+### Ingest
+
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /ingest/pubmed` | PMID / DOI / search → background job |
-| `GET /ingest/jobs/{id}` | Poll ingest status |
-| `POST /ingest/upload` | PDF or text/markdown file |
-| `POST /ingest/findings` | Structured own-findings JSON |
-| `GET /corpus` | List ingested papers |
-| `GET /corpus/{id}` | Single paper metadata |
-| `PATCH /corpus/{id}` | Edit catalog fields |
-| `DELETE /corpus/{id}` | Remove from catalog (Qdrant purge stub) |
-| `POST /chat` | Grounded Q&A (Ask Peggy) |
+| `POST /ingest/pubmed` | PMID / DOI / search → background job (`ingested` + `skipped` duplicates) |
+| `GET /ingest/jobs/{id}` | Poll job status |
+| `POST /ingest/upload` | PDF or text (`source_type` form field) |
+| `POST /ingest/findings` | Own-findings narrative JSON |
+
+### Corpus
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /corpus?source_type=` | List papers (`literature` \| `own_findings`) |
+| `GET/PATCH/DELETE /corpus/{id}` | CRUD (Qdrant purge on delete: stub) |
+
+### RAG & workflows
+
+| Endpoint | Purpose |
+|----------|---------|
+| `POST /chat` | Ask Peggy — `mode`: auto \| chat \| gap_analysis \| compare |
 | `POST /workflows/gap-analysis` | Structured gaps |
-| `POST /workflows/compare` | Finding vs literature |
-| `POST /workflows/future-design` | Study design draft |
-| `POST /workflows/manuscript-framing` | Discussion paragraph |
-| `POST /feedback` | Correction queue |
+| `POST /workflows/compare` | Finding vs literature (+ own findings in retrieval) |
+| `POST /workflows/future-design` | Study design draft (API only) |
+| `POST /workflows/manuscript-framing` | Discussion draft (API only) |
+| `POST /feedback` | Correction queue (API only) |
+| `GET /health` | Qdrant, LLM, embeddings status |
 
-Workflow responses include `sources[]`, `confidence`, `limitations`, and structured `body`.
+Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Chat/workflow gap/compare also return structured `body`.
 
-## Phase 2: `results.json` schema
+### Chat request example
 
-Hand-authored or exported findings (no Steve pipeline required):
+```json
+{
+  "query": "Compare our butyrate finding to the literature",
+  "mode": "auto",
+  "source_types": ["literature", "own_findings"]
+}
+```
+
+## Web routes
+
+| Route | Nav | Purpose |
+|-------|-----|---------|
+| `/` | Dashboard | Health chips, stats, quick actions |
+| `/ingest` | Corpus | Literature only |
+| `/findings` | Our findings | Own research |
+| `/chat` | Ask Peggy | Q&A + gap/compare modes |
+| `/gaps` | Gap Analysis | Gaps table |
+| `/compare` | Comparison | Finding vs field |
+
+## Deployment (future)
+
+| Layer | Platform |
+|-------|----------|
+| Frontend | Vercel |
+| API | Railway / Render / Fly |
+| Vectors | Qdrant Cloud |
+| Catalog + auth | Supabase — [DATABASE.md](DATABASE.md), [AUTH.md](AUTH.md) |
+| Jobs | Inngest (optional) |
+| Cache | Upstash Redis (optional) |
+
+## Own-findings payload
 
 ```json
 {
   "title": "Cohort alpha diversity summary",
   "cohort": "NPD",
-  "findings": [
-    { "metric": "Shannon", "group_a": "control", "group_b": "case", "p_value": 0.02, "interpretation": "..." }
-  ],
-  "narrative": "Optional free-text summary for embedding."
+  "findings": [],
+  "narrative": "Free-text summary for embedding."
 }
 ```
 
 ## Local development
 
-Native (default): see [LOCAL.md](LOCAL.md) — Qdrant binary + `./scripts/start-api.sh` + `npm run dev`.
+Native (default): [LOCAL.md](LOCAL.md). Optional: [DOCKER.md](DOCKER.md).
 
-Optional: `docker compose up --build` — see [DOCKER.md](DOCKER.md).
+- API: http://localhost:8000/docs  
+- Web: http://localhost:3000  
+- Smoke: `./scripts/smoke-local.sh`
 
-API: http://localhost:8000/docs  
-Web: http://localhost:3000  
+## Legacy
 
-**Web routes:** `/` dashboard · `/ingest` corpus management · `/chat` Ask Peggy · `/gaps` · `/compare`
+`legacy/steve/`, `legacy/peggy_bot/`, `legacy/kwacha_bot/` — reference only. **Do not import in active code.**

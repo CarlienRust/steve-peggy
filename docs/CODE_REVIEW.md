@@ -1,35 +1,40 @@
-# Code Review — Peggy (active codebase)
+# Code review notes — Peggy (active codebase)
 
-Scope: `apps/web/` and `services/peggy-api/` only. Legacy under `legacy/` is excluded.
+Scope: `apps/web/` and `services/peggy-api/` only. `legacy/` excluded.
+
+Last reviewed against commit series: dedup, `/findings`, chat modes, Groq/Ollama, Qdrant `query_points`.
 
 ## Summary
 
-Clean Peggy-only layout: Next.js frontend + FastAPI backend. No duplicate `peggy_bot` at repo root.
+Lean research assistant: literature corpus + separate own-findings space, RAG workflows, MUI frontend, free-first LLM stack.
 
-## Frontend (`apps/web/`)
+## Frontend
 
-- TanStack Query for server state (corpus, jobs, mutations)
-- MUI + react-hook-form + Zod on ingest modal (`IngestForm`)
-- Corpus page: `CorpusManagement` + table CRUD; profile stub in sidebar
-- Feature folders; pages compose features
-- Central `lib/api.ts` client with `queryKeys` factory
+- TanStack Query; `queryKeys.corpus(sourceType)` for split corpora
+- MUI shell; health chips on dashboard
+- **Corpus** (`/ingest`) — literature ingest modal (PubMed + PDF)
+- **Our findings** (`/findings`) — narrative + research PDF
+- **Ask Peggy** — mode chips (auto / chat / gaps / compare)
+- Shared `CorpusTable`, `WorkflowResults`, `SourceCards`
+- Profile stub: `ResearcherProfile` + `localStorage`
 
-## Backend (`services/peggy-api/`)
+## Backend
 
-- Swappable LLM provider (OpenAI / Anthropic / Ollama)
-- PubMed ingest with rate-limit fallback (Upstash or in-memory)
-- Qdrant collections split by `source_type`
-- Corpus API: list / get / patch / delete (vector purge on delete still TODO)
-- No n8n, Kwacha, or self-hosted Redis in active code
+- LLM: OpenAI, Anthropic, Ollama, Groq (`core/llm/`)
+- Embeddings: local `sentence-transformers`; Qdrant `query_points`
+- Ingest dedup: `catalog.record_paper()` before vector upsert
+- Chat intent routing: `core/rag/intent.py` (not full agent — see [AGENT.md](AGENT.md))
+- Corpus CRUD; delete does not purge Qdrant yet
+- PubMed rate limit: Upstash or in-memory fallback
 
-## Legacy
+## Tests
 
-- `legacy/steve/` — bioinformatics pipeline, not imported
-- `legacy/peggy_bot/` — reference only
-- `legacy/kwacha_bot/` — removed patterns
+~30 pytest cases: dedup, intent, llm health, qdrant search, API routes, PDF upload.
 
 ## Follow-ups
 
-1. OpenAPI-generated TypeScript types
-2. Inngest SDK when `INNGEST_EVENT_KEY` is set
-3. Integration tests for PubMed parse + chunk pipeline
+1. Qdrant purge on `DELETE /corpus/{id}`
+2. OpenAPI → TypeScript types for web client
+3. Reactive agent — [AGENT.md](AGENT.md)
+4. Frontend Vitest
+5. Inngest when async ingest at scale

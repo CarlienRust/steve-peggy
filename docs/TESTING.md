@@ -3,93 +3,68 @@
 ## Pyramid
 
 ```
-        E2E (few)          Playwright: login → ingest → gap analysis
+        E2E (future)     Playwright after auth + deploy
        /         \
-  Integration (some)   API + test Qdrant/SQLite; mocked PubMed/LLM
+  Integration      API routes, upload, live Qdrant (optional)
  /               \
-Unit (many)            chunker, pubmed parse, prompts, auth deps
+Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health
 ```
 
 ## Backend (`services/peggy-api/tests/`)
 
-**Stack:** pytest, pytest-asyncio, httpx, pytest-mock, respx (HTTP mocking)
+**Stack:** pytest, pytest-asyncio, httpx, pytest-mock
 
-| Suite | Path | What it covers |
-|-------|------|----------------|
-| Unit | `tests/unit/` | `chunker`, `pubmed` XML parse, `prompts`, JWT helpers (future) |
-| Integration | `tests/integration/` | FastAPI routes with `TestClient` / `AsyncClient`, tmp SQLite |
-| Contract | `tests/integration/test_openapi.py` | Response shapes match `schemas/` |
-| RAG / Qdrant | `tests/integration/test_qdrant_search.py` | Mock `query_points`; asserts `search()` never calls deprecated `client.search` |
-| RAG | `tests/integration/test_workflows.py` | Mock LLM returns fixed JSON; assert `sources` shape |
-| Ingest | `tests/integration/test_ingest.py` | Mock PubMed HTTP; job lifecycle |
-
-**Fixtures** (`tests/conftest.py`):
-
-- `tmp_sqlite` — isolated catalog DB
-- `mock_qdrant` — patch `qdrant_store.get_client` or use Qdrant testcontainer (optional)
-- `mock_llm` — patch `get_llm()` to return deterministic JSON
-- `client` — `httpx.AsyncClient` against `app` with lifespan
+| Suite | File | Covers |
+|-------|------|--------|
+| Unit | `test_chunker.py` | Text chunking |
+| Unit | `test_pdf.py` | PDF extraction |
+| Unit | `test_dedup.py` | `catalog.record_paper` duplicate logic |
+| Unit | `test_intent.py` | Chat mode detection |
+| Unit | `test_llm_health.py` | Ollama/Groq health helpers |
+| Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue |
+| Integration | `test_upload.py` | PDF upload + duplicate response |
+| Integration | `test_qdrant_search.py` | `query_points` contract; optional live Qdrant |
 
 **Run:**
 
 ```bash
 cd services/peggy-api
+source .venv/bin/activate
 pip install -r requirements-dev.txt
 pytest -v
 ```
 
-## Frontend (`apps/web/`)
-
-**Stack:** Vitest, React Testing Library, MSW (Mock Service Worker)
-
-| Suite | What |
-|-------|------|
-| `lib/api.test.ts` | URL building, error handling |
-| `components/SourceCards.test.tsx` | Renders citations, confidence chip |
-| `features/ingest/IngestForm.test.tsx` | Form validation (Zod), submit calls API |
-| `features/ingest/CorpusManagement.test.tsx` | Table actions, modal open |
-| MSW handlers | Mock `/health`, `/ingest/pubmed`, `/workflows/gap-analysis` |
-
-**Run:**
+Skip live Qdrant test in CI/offline:
 
 ```bash
-cd apps/web
-npm run test
+pytest -m "not integration"
 ```
+
+(`test_search_live_qdrant_when_running` is marked `@pytest.mark.integration`.)
+
+## Frontend (`apps/web/`)
+
+**Not implemented yet.** Planned: Vitest + React Testing Library for `lib/api.ts`, `SourceCards`, ingest forms.
+
+CI today: `npm run build` only (see `.github/workflows/test.yml`).
 
 ## CI (GitHub Actions)
 
-```yaml
-# .github/workflows/test.yml
-jobs:
-  api:
-    - docker compose up qdrant -d
-    - pip install -r requirements-dev.txt
-    - pytest
-  web:
-    - npm ci && npm run test && npm run build
+- **api job:** `pytest -v` (no Qdrant container — mocked/live-skip tests)
+- **web job:** `npm ci && npm run build`
+
+## Smoke script (manual)
+
+```bash
+./scripts/smoke-local.sh
 ```
 
-## Coverage targets (MVP)
-
-| Area | Target |
-|------|--------|
-| chunker, pubmed parse | 90%+ |
-| API routes (happy + 401/404) | 80%+ |
-| Workflows (mocked LLM) | 70%+ |
-| React features | 60%+ critical paths |
-
-## Smoke test (manual / nightly)
-
-1. Ingest PMID `32275259`
-2. `POST /workflows/gap-analysis` with domain query
-3. Assert `len(sources) >= 1`, `confidence != "low"` (with real embeddings + API key)
+Requires Qdrant + API running; exercises health, ingest script, chat, workflows.
 
 ## Priority order
 
-1. Unit tests for chunker + pubmed parser (no external deps)
-2. API health + ingest job lifecycle (mocked PubMed)
-3. Workflow response schema tests (mocked LLM)
-4. Frontend ingest form + SourceCards
-5. Auth tests after Phase B in [AUTH.md](AUTH.md)
-6. E2E after Vercel deploy
+1. ~~Unit: chunker, dedup, intent~~ (done)
+2. ~~Integration: routes + qdrant search contract~~ (done)
+3. Frontend Vitest for critical paths
+4. Auth tests after [AUTH.md](AUTH.md)
+5. Playwright E2E after deploy

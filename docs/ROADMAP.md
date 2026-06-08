@@ -1,57 +1,57 @@
 # Peggy — outstanding work & next steps
 
-Living backlog. **Goal:** evidence-grounded synthesis from your literature (PubMed + local PDFs + own findings), not a generic chatbot.
+Living backlog. **Goal:** evidence-grounded synthesis from literature + own findings.
 
 ## Now (unblock local use)
 
-- [ ] **Local stack** — [LOCAL.md](LOCAL.md): `setup-local.sh` → `install-qdrant.sh` → three terminals
-- [ ] **Secrets** — Ollama default (`LLM_PROVIDER=ollama`) or `GROQ_API_KEY`; `NCBI_EMAIL` in `.env`
-- [ ] **Ingest test corpus** — UI **Add to corpus** or `python3 scripts/ingest-test-pdfs.py`
-- [ ] **Smoke test** — Ask Peggy + Gap analysis on ingested papers ([LOCAL.md](LOCAL.md) Phase 0 checklist)
-- [ ] **Dashboard demo placeholders** — 142 papers / 94% indexed when corpus empty (code TODO)
+- [ ] **Local stack** — [LOCAL.md](LOCAL.md): Qdrant + API + web (three terminals)
+- [ ] **LLM** — Ollama running or `GROQ_API_KEY`; `NCBI_EMAIL` set
+- [ ] **Ingest** — literature via **Corpus**; findings via **Our findings**
+- [ ] **Smoke test** — `./scripts/smoke-local.sh` or [LOCAL.md](LOCAL.md) Phase 0 checklist
+- [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)
 
-## Free-first stack (Phase 1 — done)
+## Done recently
 
-| Item | Status |
-|------|--------|
-| Groq LLM provider | Done — `core/llm/provider.py` |
-| Default `LLM_PROVIDER=ollama` | Done |
-| `/health` ollama reachability + `llm_reachable` | Done |
-| Dashboard status chips + provider hints | Done |
-| Free profile in `.env.example`, ENV.md, LOCAL.md | Done |
+| Item | Notes |
+|------|-------|
+| Groq + Ollama default | [ENV.md](ENV.md) |
+| Dedup on ingest | PMID / DOI / title per `source_type` |
+| `/findings` page | Separate from literature corpus |
+| Ask Peggy modes | Auto / Ask / Gaps / Compare on `/chat` |
+| Qdrant `query_points` fix | + integration tests |
+| `smoke-local.sh` | End-to-end API smoke |
 
 ## Product — core loop
 
 | Item | Status | Notes |
 |------|--------|-------|
-| PubMed ingest | Done | Ingest modal + background jobs |
-| PDF ingest | Done | Modal tab + API + batch script |
-| Corpus management | Done | `/ingest` table: view, edit, delete |
-| Own findings | Done | Internal dataset tab in modal |
-| Ask Peggy (chat) | Done | `/chat` |
-| Gap analysis | Done | `/gaps` |
-| Compare | Done | `/compare` |
-| Researcher profile | Stub | Edit + logout in sidebar (`localStorage`) |
-| Corpus delete → Qdrant | Partial | SQLite only; vectors remain |
-| Future study design | API only | No UI page |
-| Manuscript framing | API only | No UI route |
-| Feedback / corrections | API only | No review UI |
+| PubMed ingest | Done | Corpus modal |
+| PDF ingest (literature) | Done | Corpus modal + CLI script |
+| Our findings ingest | Done | `/findings` — narrative + PDF |
+| Corpus management | Done | `/ingest` literature table |
+| Findings management | Done | `/findings` table |
+| Ingest dedup | Done | `duplicate` status, job `skipped` |
+| Ask Peggy (chat) | Done | Mode chips + intent routing |
+| Gap analysis | Done | Optional include our findings |
+| Compare | Done | Literature + own findings retrieval |
+| Researcher profile | Stub | `localStorage` |
+| Corpus delete → Qdrant | Partial | SQLite only |
+| Future study design | API only | No UI |
+| Manuscript framing | API only | No UI |
+| Feedback | API only | No review UI |
 | OCR for scanned PDFs | Not started | |
-| Dedup (PMID/DOI/title per source_type) | Done | Skips duplicate catalog rows; upload returns `duplicate` |
-| Our findings (separate space) | Done | `/findings` page + `peggy_own_findings` collection |
-| Ask Peggy → gap/compare modes | Done | Mode chips + auto intent on `/chat` |
+| Reactive agent loop | Not started | See [AGENT.md](AGENT.md) |
 
 ## UI / design
 
 | Item | Status |
 |------|--------|
-| MUI shell + dashboard | Done |
-| Nav: Corpus, Ask Peggy | Done |
-| Ingest modal + corpus page | Done |
+| MUI shell + dashboard health chips | Done |
+| Nav: Corpus, Our findings, Ask Peggy, Gaps, Compare | Done |
 | Dashboard demo placeholders | Partial |
 | Inner pages polish | Basic |
 
-## Platform (deferred — see SCALE.md)
+## Platform (deferred — [SCALE.md](SCALE.md))
 
 | Item | Status |
 |------|--------|
@@ -66,14 +66,15 @@ Living backlog. **Goal:** evidence-grounded synthesis from your literature (PubM
 
 | Item | Status |
 |------|--------|
-| API tests (14+) | Done — chunker, pubmed, PDF upload, routes |
+| API tests (~30) | Done — dedup, intent, qdrant search, routes, PDF |
 | Frontend tests | Not started |
-| CI | `.github/workflows/test.yml` |
+| CI | `.github/workflows/test.yml` — pytest + `npm run build` |
 
 ## Suggested order
 
-1. Native stack + ingest real PDFs ([LOCAL.md](LOCAL.md))
+1. Trust local loop ([LOCAL.md](LOCAL.md))
 2. Dashboard demo placeholders when corpus empty
 3. Purge Qdrant vectors on corpus delete
-4. Supabase auth + profile ([AUTH.md](AUTH.md))
-5. Deploy when local loop is trusted ([SCALE.md](SCALE.md))
+4. Reactive agent — [AGENT.md](AGENT.md)
+5. Supabase auth + profile ([AUTH.md](AUTH.md))
+6. Deploy ([SCALE.md](SCALE.md))

@@ -32,7 +32,7 @@ sequenceDiagram
 
 - Create Supabase project; enable Email magic link (or Google OAuth for lab use).
 - Add `@supabase/ssr` to `apps/web`.
-- Routes: `/login`, `/auth/callback`; middleware protects `/ingest`, `/chat`, `/gaps`, `/compare`.
+- Routes: `/login`, `/auth/callback`; middleware protects `/ingest`, `/findings`, `/chat`, `/gaps`, `/compare`.
 - Pass `Authorization: Bearer <access_token>` from `lib/api.ts` on every request.
 
 ### Phase B — API JWT verification (1 day)

@@ -57,8 +57,10 @@ flowchart TB
 
 | Local `.env` | Production |
 |--------------|------------|
-| `OPENAI_API_KEY` | API host secret |
-| `QDRANT_URL=http://qdrant:6333` | Qdrant Cloud URL + API key |
+| `LLM_PROVIDER=ollama` | `groq` or paid provider on API host |
+| `GROQ_API_KEY` | API host secret (if groq) |
+| `OPENAI_API_KEY` | API host secret (if openai) |
+| `QDRANT_URL=http://localhost:6333` | Qdrant Cloud URL + API key |
 | `SQLITE_DB=...` | `DATABASE_URL=postgresql://...` (Supabase) |
 | `NEXT_PUBLIC_API_URL=http://localhost:8000` | `https://api.your-domain.com` |
 | — | `NEXT_PUBLIC_SUPABASE_URL` |
