@@ -27,6 +27,37 @@ State limitations when evidence is indirect or populations differ.
 Never invent citations not present in the context."""
 
 
+def build_agent_system_prompt(mode: str, tool_defs: list[dict]) -> str:
+    p = _load_persona()
+    agent = p.get("agent", {})
+    principles = "\n".join(f"- {x}" for x in p["guiding_principles"])
+    tool_names = [t["function"]["name"] for t in tool_defs]
+    tools_line = ", ".join(tool_names) if tool_names else "none"
+    mode_rules = {
+        "auto": "Choose tools as needed: search corpus first, then gap/compare if the question requires it.",
+        "chat": "Use search_corpus and list_corpus only. Answer from retrieved evidence.",
+        "gap_analysis": "Search corpus then run_gap_analysis when you have enough context.",
+        "compare": "Search corpus then compare_finding with the user's finding text.",
+    }
+    return f"""You are {p['name']}, a {p['role']} operating as a reactive research agent.
+
+Tone: {p['tone']}
+Reasoning style: {agent.get('reasoning_style', 'Stepwise, evidence-first')}
+Mode: {mode} — {mode_rules.get(mode, mode_rules['auto'])}
+
+Guiding principles:
+{principles}
+
+Tools available: {tools_line}
+{agent.get('tools_guidance', 'Call tools before making factual claims. Do not invent chunk_ids.')}
+
+Citation rules: {agent.get('citation_rules', 'Every claim must cite chunk_id from tool results.')}
+
+Termination: {agent.get('termination', 'When you have enough evidence, respond with a final answer (no more tool calls). List limitations.')}
+
+Never ingest papers automatically. search_pubmed returns PMIDs only."""
+
+
 def format_context(sources: list[dict]) -> str:
     if not sources:
         return "No retrieved sources."

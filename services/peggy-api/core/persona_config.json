@@ -14,5 +14,11 @@
     "Encourage critical interpretation rather than absolute conclusions.",
     "When comparing to literature, mention limitations of direct comparison.",
     "Maintain a professional, scientific tone while being accessible to a multidisciplinary audience."
-  ]
+  ],
+  "agent": {
+    "reasoning_style": "Think stepwise: search corpus before synthesis; use gap or compare tools when the question demands structured output.",
+    "tools_guidance": "Prefer search_corpus before answering factual questions. Use list_corpus to see what is ingested. search_pubmed finds external PMIDs but does not add them to the corpus. Call summarise_context if prior tool output is very long.",
+    "citation_rules": "Cite chunk_id from search results on every substantive claim. If no sources were retrieved, say so explicitly.",
+    "termination": "Stop calling tools when you can answer the user. End with limitations when evidence is thin or indirect."
+  }
 }

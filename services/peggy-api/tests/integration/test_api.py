@@ -65,3 +65,23 @@ async def test_gap_analysis_returns_structured_body(client):
     assert "body" in data
     assert "gaps" in data["body"]
     assert data["confidence"] in ("low", "medium", "high")
+
+
+@pytest.mark.asyncio
+async def test_agent_run_returns_schema(client):
+    from core.llm.provider import FinalAnswer
+
+    with patch("core.agent.loop.get_llm") as mock_llm:
+        mock_llm.return_value.complete_with_tools = AsyncMock(
+            return_value=FinalAnswer(text="Agent answer with limitations noted.")
+        )
+        r = await client.post(
+            "/agent/run",
+            json={"query": "What is in the corpus?", "session_id": "test-sess", "client_id": "test"},
+        )
+    assert r.status_code == 200
+    data = r.json()
+    assert "answer" in data
+    assert "tools_used" in data
+    assert "truncated" in data
+    assert data["session_id"] == "test-sess"

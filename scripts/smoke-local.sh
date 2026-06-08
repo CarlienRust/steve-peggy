@@ -92,6 +92,24 @@ else:
 fi
 echo
 
+echo "--- Agent (Auto) ---"
+AGENT=$(curl -sf -m 120 -X POST "$API/agent/run" \
+  -H "Content-Type: application/json" \
+  -d '{"query":"What is in the corpus?","session_id":"smoke-agent","client_id":"smoke"}' 2>/dev/null) || { fail "POST /agent/run"; AGENT=""; }
+if [[ -n "$AGENT" ]]; then
+  echo "$AGENT" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+a = d.get('answer','')
+if 'could not reach a configured LLM' in a:
+  print('  WARN agent returned LLM fallback')
+else:
+  print('  OK answer length:', len(a))
+  print('  tools_used:', d.get('tools_used',[]))
+" && pass "POST /agent/run" || fail "POST /agent/run (fallback)"
+fi
+echo
+
 echo "--- Compare ---"
 CMP=$(curl -sf -m 120 -X POST "$API/workflows/compare" \
   -H "Content-Type: application/json" \

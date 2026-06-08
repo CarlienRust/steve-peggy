@@ -25,6 +25,7 @@ services/peggy-api/data/
 feedback_log.txt
 tools/qdrant/
 data/qdrant/
+.cursor/plans/
 
 # IDE & OS
 .DS_Store

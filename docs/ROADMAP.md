@@ -17,7 +17,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Groq + Ollama default | [ENV.md](ENV.md) |
 | Dedup on ingest | PMID / DOI / title per `source_type` |
 | `/findings` page | Separate from literature corpus |
-| Ask Peggy modes | Auto / Ask / Gaps / Compare on `/chat` |
+| Ask Peggy modes | Auto (agent) / Ask / Gaps / Compare |
+| Reactive agent | Tools, loop, SQLite sessions, SSE — [AGENT.md](AGENT.md) |
 | Qdrant `query_points` fix | + integration tests |
 | `smoke-local.sh` | End-to-end API smoke |
 
@@ -40,7 +41,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Manuscript framing | API only | No UI |
 | Feedback | API only | No review UI |
 | OCR for scanned PDFs | Not started | |
-| Reactive agent loop | Not started | See [AGENT.md](AGENT.md) |
+| Reactive agent loop | Done | `POST /agent/run` + `/stream`; Auto mode in UI — [AGENT.md](AGENT.md) |
 
 ## UI / design
 
@@ -75,6 +76,6 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 1. Trust local loop ([LOCAL.md](LOCAL.md))
 2. Dashboard demo placeholders when corpus empty
 3. Purge Qdrant vectors on corpus delete
-4. Reactive agent — [AGENT.md](AGENT.md)
+4. Agent ingest tools + cross-session Qdrant memory — [AGENT.md](AGENT.md)
 5. Supabase auth + profile ([AUTH.md](AUTH.md))
 6. Deploy ([SCALE.md](SCALE.md))

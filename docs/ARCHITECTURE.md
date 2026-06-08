@@ -31,7 +31,9 @@ Catalog dedup: same PMID, DOI, or normalized title within a `source_type` → sk
 |------------|---------|
 | `peggy_literature` | PubMed + literature PDFs |
 | `peggy_own_findings` | Narrative findings + research PDFs |
-| `chat_history_logs` | Reserved for future session memory (unused) |
+| `chat_history_logs` | Reserved for cross-session semantic memory (unused) |
+
+Agent session memory uses SQLite (`agent_sessions`, `agent_messages` in `catalog.py`).
 
 Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16).
 
@@ -67,7 +69,9 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 
 | Endpoint | Purpose |
 |----------|---------|
-| `POST /chat` | Ask Peggy — `mode`: auto \| chat \| gap_analysis \| compare |
+| `POST /agent/run` | Reactive agent (sync) — Auto mode in UI |
+| `POST /agent/stream` | Agent SSE (`step_start`, `tool_call`, `tool_result`, `final`) |
+| `POST /chat` | Single-shot Ask Peggy — `mode`: chat \| gap_analysis \| compare (auto uses intent routing if called directly) |
 | `POST /workflows/gap-analysis` | Structured gaps |
 | `POST /workflows/compare` | Finding vs literature (+ own findings in retrieval) |
 | `POST /workflows/future-design` | Study design draft (API only) |

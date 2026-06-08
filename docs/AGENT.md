@@ -1,120 +1,146 @@
-# Agent layer — current state and plan
+# Agent layer
 
-Peggy today is **retrieval + single-shot LLM workflows**, not a multi-step autonomous agent. This doc separates what ships now from what is planned.
+Peggy ships a **reactive agent** (ReAct loop with tools) alongside **single-shot** `/chat` workflows.
 
-## What exists today
+## Two paths
 
-### Intent routing on `/chat` (lightweight)
+| Path | When | Endpoint |
+|------|------|----------|
+| **Agent** | Ask Peggy → **Auto** mode | `POST /agent/run` or `POST /agent/stream` |
+| **Single-shot** | Ask / Gaps / Compare chips | `POST /chat` or `/workflows/*` |
 
-`POST /chat` accepts `mode`: `auto` | `chat` | `gap_analysis` | `compare`.
+`POST /chat` is unchanged. Auto in the UI uses the agent; manual modes still use intent routing + one-shot workflows.
 
-| Mode | Behavior |
-|------|----------|
-| `auto` | `core/rag/intent.py` picks workflow from keywords (e.g. “gap analysis”, “compare”) |
-| `chat` | Grounded Q&A — `grounded_chat()` |
-| `gap_analysis` | Same as `POST /workflows/gap-analysis` — structured `body.gaps` |
-| `compare` | Same as `POST /workflows/compare` — uses `query` as the finding text |
-
-Response shape (`ChatResponse`):
-
-```json
-{
-  "mode": "gap_analysis",
-  "response": "summary string",
-  "body": { "gaps": [...], "summary": "..." },
-  "sources": [...],
-  "confidence": "medium",
-  "limitations": [...]
-}
-```
-
-**Not agentic:** one HTTP request → one retrieval → one LLM call. No tool loop, no session memory, no proactive jobs.
-
-### Dedicated workflow tabs
-
-`/gaps` and `/compare` call the same backend workflows directly. Ask Peggy can run them via mode chips or auto intent.
-
-### Code locations
-
-| Piece | Path |
-|-------|------|
-| Intent detection | `services/peggy-api/core/rag/intent.py` |
-| Chat router | `services/peggy-api/routers/chat_router.py` |
-| Workflows | `services/peggy-api/core/rag/workflows.py` |
-| UI modes | `apps/web/features/chat/ChatFeature.tsx` |
-
-## What is not built
-
-| Capability | Status |
-|------------|--------|
-| `core/agent/loop.py` — think/act/observe loop | Not started |
-| `core/agent/tools.py` — PubMed, ingest, search, gap | Not started |
-| `LLMProvider.complete_with_tools()` | Not started |
-| Session memory (`chat_history_logs` collection exists but unused) | Not started |
-| Streaming (SSE) for long Ollama runs | Not started |
-| Proactive monitoring (scheduler, alerts) | Deferred |
-| MCP server (Peggy tools in Claude/Cursor) | Optional later |
-
-See [ROADMAP.md](ROADMAP.md) for priority.
-
-## Planned: reactive agent (Phase 3)
-
-**Prerequisite:** local stack trusted — Ollama/Groq working, ingest, chat, gaps on real corpus ([LOCAL.md](LOCAL.md) Phase 0).
-
-### Target architecture
+## Agent architecture
 
 ```mermaid
 flowchart TB
-  User[User question]
-  Router[POST /agent/chat or mode=agent]
+  UI[ChatFeature Auto]
+  Router[POST /agent/run or /stream]
   Loop[core/agent/loop.py]
-  LLM[LLM with tools]
-  Tools[search ingest gap compare]
+  LLM[complete_with_tools]
+  Tools[core/agent/tools.py]
+  Memory[core/agent/memory.py SQLite]
   Qdrant[(Qdrant)]
-  User --> Router --> Loop
+  UI --> Router --> Loop
+  Loop --> Memory
   Loop --> LLM
-  LLM -->|tool call| Tools
+  LLM -->|ToolCall| Tools
   Tools --> Qdrant
   Tools --> Loop
-  Loop -->|final answer| User
+  Loop -->|AgentResponse| UI
 ```
 
-### Tools (wrap existing functions)
+## API
 
-| Tool | Maps to |
-|------|---------|
-| `search_corpus` | `qdrant_store.search()` |
-| `ingest_pubmed` | `run_ingest_job` / queue |
+### `POST /agent/run`
+
+```json
+{
+  "query": "What gaps exist in microbiome T2D given our findings?",
+  "session_id": "uuid-from-frontend",
+  "mode": "auto",
+  "source_types": ["literature", "own_findings"]
+}
+```
+
+Response (`AgentResponse`):
+
+```json
+{
+  "answer": "…",
+  "body": { "gaps": [], "summary": "…" },
+  "sources": [],
+  "steps": [{ "step": 1, "type": "tool", "tool": "search_corpus", "summary": "…" }],
+  "tools_used": ["search_corpus", "run_gap_analysis"],
+  "confidence": "medium",
+  "limitations": [],
+  "truncated": false,
+  "session_id": "…"
+}
+```
+
+### `POST /agent/stream`
+
+SSE events: `step_start`, `tool_call`, `tool_result`, `final` (with full `AgentResponse` on `final`).
+
+## Tools (v1)
+
+| Tool | Wraps | Notes |
+|------|--------|-------|
+| `search_corpus` | `qdrant_store.search()` | Primary retrieval |
+| `list_corpus` | `catalog.list_papers()` | Metadata only |
+| `search_pubmed` | `search_pubmed()` | PMIDs only — **no auto-ingest** |
+| `get_paper_metadata` | `fetch_by_pmid()` + catalog | |
+| `run_gap_analysis` | `run_gap_analysis()` | |
+| `compare_finding` | `run_compare()` | |
+| `summarise_context` | thin `complete()` helper | Long tool output compression |
+
+**Deferred:** `ingest_pubmed` / `ingest_pdf` (surprise corpus writes).
+
+## Mode constraints
+
+| `mode` | Tools |
+|--------|-------|
+| `auto` | Full set |
+| `chat` | `search_corpus`, `list_corpus`, `summarise_context` |
+| `gap_analysis` | Search + `run_gap_analysis` |
+| `compare` | Search + `compare_finding` |
+
+## Session memory
+
+SQLite tables `agent_sessions` / `agent_messages` in `catalog.py`. Frontend stores `session_id` in `sessionStorage`. `summarise_if_long()` compresses history when context grows.
+
+Qdrant `chat_history_logs` remains unused (cross-session semantic memory deferred).
+
+## LLM
+
+- `LLMProvider.complete_with_tools()` in `core/llm/provider.py`
+- **Groq / OpenAI:** native OpenAI-style `tools` API
+- **Ollama:** native tools if supported; else JSON fallback `{"type":"tool_call",…}`
+
+For agent development, use `LLM_PROVIDER=groq` + `GROQ_API_KEY` ([LOCAL.md](LOCAL.md)).
+
+## Guardrails
+
+- `max_steps=6` hard cap → `truncated: true` + partial answer
+- Only registered tools execute; unknown names error
+- Persona agent block in `persona_config.json`; `build_agent_system_prompt()` in `prompts.py`
+
+## Single-shot `/chat` (still available)
+
+| Mode | Behavior |
+|------|----------|
+| `auto` | Intent detection in `intent.py` (keyword routing) — **not** used when UI is on Auto (agent) |
+| `chat` | `grounded_chat()` |
 | `gap_analysis` | `run_gap_analysis()` |
-| `compare_finding` | `run_compare()` |
-| `list_corpus` | `catalog.list_papers()` |
+| `compare` | `run_compare()` |
 
-### LLM constraints
+## Code locations
 
-- **Groq / OpenAI:** reliable JSON tool calls — preferred for agent loop in cloud.
-- **Ollama:** model-dependent; `llama3.2` partial support — test before relying on tools locally.
+| Piece | Path |
+|-------|------|
+| Tools | `services/peggy-api/core/agent/tools.py` |
+| Loop | `services/peggy-api/core/agent/loop.py` |
+| Memory | `services/peggy-api/core/agent/memory.py` |
+| Router | `services/peggy-api/routers/agent_router.py` |
+| Schemas | `services/peggy-api/schemas/agent.py` |
+| LLM tools | `services/peggy-api/core/llm/provider.py` |
+| UI | `apps/web/features/chat/ChatFeature.tsx` |
 
-### Guardrails (already in prompts; extend for agent)
+## Not built yet
 
-- Every claim must cite `chunk_id` from retrieval.
-- Return `limitations` when corpus is thin.
-- Max steps (e.g. 8) to prevent infinite loops.
+| Capability | Status |
+|------------|--------|
+| Ingest tools in agent loop | Deferred |
+| Qdrant cross-session memory | Deferred |
+| Proactive monitoring | Deferred |
+| MCP server | Optional later |
 
-## Reactive vs proactive
-
-| Style | Description | Peggy plan |
-|-------|-------------|------------|
-| **Reactive** | User asks → agent picks tools → answers | **First target** |
-| **Proactive** | Peggy watches corpus, flags new gaps on ingest | After deploy + auth; needs scheduler |
-
-## Optional: MCP (pluggable skills)
-
-Expose ingest/search/gap as an **MCP server** so external agents (Claude Desktop, Cursor) call Peggy without the built-in loop. The FastAPI backend is most of the way there — add thin MCP adapter over existing routes.
-
-Not required for the in-app reactive agent.
+See [ROADMAP.md](ROADMAP.md).
 
 ## Related docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — API and collections
-- [ROADMAP.md](ROADMAP.md) — backlog order
-- [SCALE.md](SCALE.md) — when to add Inngest for long agent runs
+- [LOCAL.md](LOCAL.md) — Groq dev profile, smoke test
+- [TESTING.md](TESTING.md) — agent unit tests

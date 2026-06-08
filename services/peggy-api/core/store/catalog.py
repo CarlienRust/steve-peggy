@@ -41,6 +41,22 @@ CREATE TABLE IF NOT EXISTS feedback_queue (
     status TEXT DEFAULT 'pending',
     created_at TEXT
 );
+
+CREATE TABLE IF NOT EXISTS agent_sessions (
+    session_id TEXT PRIMARY KEY,
+    client_id TEXT,
+    created_at TEXT,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS agent_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT,
+    FOREIGN KEY (session_id) REFERENCES agent_sessions(session_id)
+);
 """
 
 

@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 import config
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections
-from routers import chat_router, corpus_router, feedback_router, ingest_router, workflow_router
+from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, workflow_router
 
 
 @asynccontextmanager
@@ -37,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(ingest_router.router)
+app.include_router(agent_router.router)
 app.include_router(chat_router.router)
 app.include_router(workflow_router.router)
 app.include_router(corpus_router.router)

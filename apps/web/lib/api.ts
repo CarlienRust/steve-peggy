@@ -22,6 +22,35 @@ export type ChatResponse = {
   limitations: string[];
 };
 
+export type AgentStep = {
+  step: number;
+  type: string;
+  tool?: string | null;
+  summary: string;
+};
+
+export type AgentResponse = {
+  answer: string;
+  body?: Record<string, unknown> | null;
+  sources: SourceCitation[];
+  steps: AgentStep[];
+  tools_used: string[];
+  confidence: string;
+  limitations: string[];
+  truncated: boolean;
+  session_id: string;
+};
+
+export type AgentStreamEvent = {
+  type: "step_start" | "tool_call" | "tool_result" | "final";
+  step?: number;
+  tool?: string;
+  summary?: string;
+  arguments?: Record<string, unknown>;
+  error?: string | null;
+  response?: AgentResponse;
+};
+
 export type UploadResponse = {
   status: string;
   chunks?: number;
@@ -107,6 +136,62 @@ export const peggyApi = {
         source_types: options?.sourceTypes,
       }),
     }),
+
+  agentRun: (
+    query: string,
+    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode }
+  ) =>
+    apiFetch<AgentResponse>("/agent/run", {
+      method: "POST",
+      body: JSON.stringify({
+        query,
+        session_id: options.sessionId,
+        client_id: "web",
+        mode: options.mode ?? "auto",
+        source_types: options.sourceTypes,
+      }),
+    }),
+
+  agentStream: async function* (
+    query: string,
+    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode }
+  ): AsyncGenerator<AgentStreamEvent> {
+    const res = await fetch(`${API_URL}/agent/stream`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query,
+        session_id: options.sessionId,
+        client_id: "web",
+        mode: options.mode ?? "auto",
+        source_types: options.sourceTypes,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || res.statusText);
+    }
+    const reader = res.body?.getReader();
+    if (!reader) throw new Error("No response body");
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          try {
+            yield JSON.parse(line.slice(6)) as AgentStreamEvent;
+          } catch {
+            /* skip malformed */
+          }
+        }
+      }
+    }
+  },
 
   gapAnalysis: (query: string, sourceTypes?: string[]) =>
     apiFetch<WorkflowResponse>("/workflows/gap-analysis", {

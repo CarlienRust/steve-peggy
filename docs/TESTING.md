@@ -21,6 +21,11 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health
 | Unit | `test_dedup.py` | `catalog.record_paper` duplicate logic |
 | Unit | `test_intent.py` | Chat mode detection |
 | Unit | `test_llm_health.py` | Ollama/Groq health helpers |
+| Unit | `test_agent_tools.py` | Agent tool registry + mode filters |
+| Unit | `test_complete_with_tools.py` | Groq/OpenAI/Ollama tool parsing |
+| Unit | `test_agent_loop.py` | ReAct loop, max_steps truncation |
+| Unit | `test_agent_memory.py` | SQLite session roundtrip |
+| Unit | `test_agent_prompts.py` | `build_agent_system_prompt` |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue |
 | Integration | `test_upload.py` | PDF upload + duplicate response |
 | Integration | `test_qdrant_search.py` | `query_points` contract; optional live Qdrant |
