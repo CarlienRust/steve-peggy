@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from typing import Optional
 
-from core.store import catalog
+from core.store import catalog, qdrant_store
 
 router = APIRouter(prefix="/corpus", tags=["corpus"])
 
@@ -28,6 +28,17 @@ async def get_corpus_item(paper_id: int):
     if not paper:
         raise HTTPException(404, "Paper not found")
     return paper
+
+
+@router.get("/{paper_id}/text")
+async def get_corpus_item_text(paper_id: int):
+    """Return concatenated chunk text for a catalog entry (e.g. our findings narrative)."""
+    paper = await catalog.get_paper(paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    source_type = paper.get("source_type") or "literature"
+    text = qdrant_store.get_document_text(paper.get("title") or "", source_type=source_type)
+    return {"paper_id": paper_id, "title": paper.get("title"), "text": text}
 
 
 @router.patch("/{paper_id}")

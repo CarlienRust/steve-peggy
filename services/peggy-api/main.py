@@ -37,6 +37,7 @@ app.add_middleware(
 )
 
 app.include_router(ingest_router.router)
+app.include_router(ingest_router.discover_router)
 app.include_router(agent_router.router)
 app.include_router(chat_router.router)
 app.include_router(workflow_router.router)

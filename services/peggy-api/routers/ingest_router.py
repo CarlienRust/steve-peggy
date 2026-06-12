@@ -2,10 +2,13 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, UploadFile, File,
 from pydantic import BaseModel, Field
 from typing import Optional
 
+from core.ingest.discovery import discover_literature
 from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job, schedule_ingest
 from core.store import catalog
+from schemas.responses import DiscoveryResponse
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
+discover_router = APIRouter(tags=["discover"])
 
 
 class PubMedIngestRequest(BaseModel):
@@ -88,3 +91,15 @@ async def ingest_findings(body: FindingsIngestRequest):
             "title": body.title,
         }
     return {"status": "ok", "chunks": result["chunks"], "paper_id": result["paper_id"], "title": body.title}
+
+
+class DiscoverRequest(BaseModel):
+    topic: Optional[str] = None
+    max_results: int = 20
+
+
+@discover_router.post("/discover", response_model=DiscoveryResponse)
+async def discover(body: DiscoverRequest):
+    """Read-only literature discovery from PubMed + Europe PMC (no ingest)."""
+    result = await discover_literature(topic=body.topic, max_results=body.max_results)
+    return result

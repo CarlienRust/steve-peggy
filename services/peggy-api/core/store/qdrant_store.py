@@ -147,3 +147,63 @@ def search(
             })
     hits.sort(key=lambda x: x["relevance_score"], reverse=True)
     return hits[:limit]
+
+
+def scroll_texts(source_type: str = "literature", limit: int = 500) -> list[str]:
+    """Return chunk text payloads from a collection (for TF-IDF / discovery)."""
+    client = get_client()
+    collection = collection_for_source(source_type)
+    if not client.collection_exists(collection):
+        return []
+    texts: list[str] = []
+    offset = None
+    while len(texts) < limit:
+        batch_limit = min(100, limit - len(texts))
+        records, offset = client.scroll(
+            collection_name=collection,
+            limit=batch_limit,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not records:
+            break
+        for point in records:
+            p = point.payload or {}
+            text = (p.get("text") or "").strip()
+            if text:
+                texts.append(text)
+        if offset is None:
+            break
+    return texts
+
+
+def get_document_text(title: str, source_type: str = "own_findings") -> str:
+    """Concatenate chunk texts for a document matched by title in payload."""
+    client = get_client()
+    collection = collection_for_source(source_type)
+    if not client.collection_exists(collection):
+        return ""
+    norm_title = " ".join((title or "").lower().split())
+    parts: list[str] = []
+    offset = None
+    while True:
+        records, offset = client.scroll(
+            collection_name=collection,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+        )
+        if not records:
+            break
+        for point in records:
+            p = point.payload or {}
+            pt = " ".join((p.get("title") or "").lower().split())
+            if pt == norm_title and p.get("text"):
+                idx = p.get("chunk_index", 0)
+                parts.append((idx, p["text"]))
+        if offset is None:
+            break
+    parts.sort(key=lambda x: x[0])
+    return "\n\n".join(t for _, t in parts)

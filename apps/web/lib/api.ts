@@ -90,6 +90,24 @@ export type PaperRecord = {
   ingested_at?: string;
 };
 
+export type DiscoveryCandidate = {
+  title: string;
+  abstract: string;
+  doi?: string | null;
+  pmid?: string | null;
+  year?: number | null;
+  source: "pubmed" | "europe_pmc";
+  relevance_score?: number | null;
+  already_in_corpus: boolean;
+};
+
+export type DiscoveryResponse = {
+  query_used: string;
+  candidates: DiscoveryCandidate[];
+  total_found: number;
+  total_after_dedup: number;
+};
+
 export const peggyApi = {
   health: () =>
     apiFetch<{
@@ -117,6 +135,15 @@ export const peggyApi = {
   },
 
   getPaper: (id: number) => apiFetch<PaperRecord>(`/corpus/${id}`),
+
+  getPaperText: (id: number) =>
+    apiFetch<{ paper_id: number; title: string; text: string }>(`/corpus/${id}/text`),
+
+  discover: (topic?: string, maxResults = 20) =>
+    apiFetch<DiscoveryResponse>("/discover", {
+      method: "POST",
+      body: JSON.stringify({ topic: topic ?? null, max_results: maxResults }),
+    }),
 
   updatePaper: (id: number, data: Partial<PaperRecord>) =>
     apiFetch<PaperRecord>(`/corpus/${id}`, { method: "PATCH", body: JSON.stringify(data) }),

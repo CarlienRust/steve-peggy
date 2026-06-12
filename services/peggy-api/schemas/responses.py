@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, List, Literal, Optional
 
 
 class SourceCitation(BaseModel):
@@ -27,3 +27,21 @@ class ChatResponse(BaseModel):
     sources: list[SourceCitation]
     confidence: str
     limitations: list[str] = Field(default_factory=list)
+
+
+class DiscoveryCandidate(BaseModel):
+    title: str
+    abstract: str = ""
+    doi: Optional[str] = None
+    pmid: Optional[str] = None
+    year: Optional[int] = None
+    source: Literal["pubmed", "europe_pmc"]
+    relevance_score: Optional[float] = None
+    already_in_corpus: bool = False
+
+
+class DiscoveryResponse(BaseModel):
+    query_used: str
+    candidates: List[DiscoveryCandidate]
+    total_found: int
+    total_after_dedup: int

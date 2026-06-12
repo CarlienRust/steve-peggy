@@ -85,3 +85,17 @@ async def test_agent_run_returns_schema(client):
     assert "tools_used" in data
     assert "truncated" in data
     assert data["session_id"] == "test-sess"
+
+
+@pytest.mark.asyncio
+async def test_discover_endpoint(client):
+    with patch("core.ingest.discovery.discover_literature", new_callable=AsyncMock) as mock_disc:
+        mock_disc.return_value = {
+            "query_used": "microbiome",
+            "candidates": [],
+            "total_found": 0,
+            "total_after_dedup": 0,
+        }
+        r = await client.post("/discover", json={"topic": "microbiome"})
+    assert r.status_code == 200
+    assert r.json()["query_used"] == "microbiome"

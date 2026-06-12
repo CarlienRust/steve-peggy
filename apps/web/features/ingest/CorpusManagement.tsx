@@ -8,6 +8,7 @@ import { peggyApi, queryKeys } from "@/lib/api";
 import { monoSx } from "@/theme/peggyTheme";
 import { IngestModal } from "@/features/ingest/IngestModal";
 import { CorpusTable } from "@/features/ingest/CorpusTable";
+import { DiscoveryPanel } from "@/features/ingest/DiscoveryPanel";
 
 export function CorpusManagement() {
   const [ingestOpen, setIngestOpen] = useState(false);
@@ -33,6 +34,8 @@ export function CorpusManagement() {
         emptyMessage='No literature yet. Use "Add literature" for PubMed IDs or PDF papers.'
         typeLabel={() => "Literature"}
       />
+
+      <DiscoveryPanel />
 
       <IngestModal open={ingestOpen} onClose={() => setIngestOpen(false)} variant="literature" />
     </>
