@@ -293,3 +293,132 @@ async def append_agent_message(user_id: str, session_id: str, role: str, content
             session_id,
             user_id,
         )
+
+
+async def get_profile(user_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM researcher_profiles WHERE user_id = $1::uuid",
+            user_id,
+        )
+    return _row_to_dict(row) if row else None
+
+
+async def upsert_profile(user_id: str, fields: dict) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT researcher_id FROM researcher_profiles WHERE user_id = $1::uuid",
+            user_id,
+        )
+        researcher_id = existing["researcher_id"] if existing else fields["researcher_id"]
+        row = await conn.fetchrow(
+            """INSERT INTO researcher_profiles
+               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+               ON CONFLICT (user_id) DO UPDATE SET
+                 title = EXCLUDED.title,
+                 name = EXCLUDED.name,
+                 surname = EXCLUDED.surname,
+                 email = EXCLUDED.email,
+                 research_focus = EXCLUDED.research_focus,
+                 research_type = EXCLUDED.research_type,
+                 display_name = EXCLUDED.display_name,
+                 updated_at = NOW()
+               RETURNING *""",
+            user_id,
+            researcher_id,
+            fields["title"],
+            fields["name"],
+            fields["surname"],
+            fields["email"],
+            fields["research_focus"],
+            fields["research_type"],
+            fields["display_name"],
+        )
+    return _row_to_dict(row)
+
+
+def _workspace_row(row: asyncpg.Record) -> dict:
+    d = _row_to_dict(row)
+    obj = d.get("objectives")
+    if isinstance(obj, str):
+        try:
+            d["objectives"] = json.loads(obj)
+        except json.JSONDecodeError:
+            d["objectives"] = []
+    elif obj is None:
+        d["objectives"] = []
+    return d
+
+
+async def list_workspaces(user_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM workspaces WHERE user_id = $1::uuid ORDER BY created_at ASC",
+            user_id,
+        )
+    return [_workspace_row(r) for r in rows]
+
+
+async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM workspaces WHERE id = $1::uuid AND user_id = $2::uuid",
+            workspace_id,
+            user_id,
+        )
+    return _workspace_row(row) if row else None
+
+
+async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
+    ws_id = str(uuid.uuid4())
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO workspaces (id, user_id, title, aim, objectives)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb)
+               RETURNING *""",
+            ws_id,
+            user_id,
+            title,
+            aim,
+            json.dumps(objectives or []),
+        )
+    return _workspace_row(row)
+
+
+async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dict | None:
+    existing = await get_workspace(user_id, workspace_id)
+    if not existing:
+        return None
+    title = fields.get("title", existing["title"])
+    aim = fields.get("aim", existing["aim"])
+    objectives = fields.get("objectives", existing.get("objectives", []))
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """UPDATE workspaces SET title = $3, aim = $4, objectives = $5::jsonb, updated_at = NOW()
+               WHERE id = $1::uuid AND user_id = $2::uuid
+               RETURNING *""",
+            workspace_id,
+            user_id,
+            title,
+            aim,
+            json.dumps(objectives),
+        )
+    return _workspace_row(row) if row else None
+
+
+async def delete_workspace(user_id: str, workspace_id: str) -> bool:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM workspaces WHERE id = $1::uuid AND user_id = $2::uuid",
+            workspace_id,
+            user_id,
+        )
+    return result.endswith("1")

@@ -6,16 +6,18 @@ import { Box, Typography, alpha } from "@mui/material";
 import type { ReactNode } from "react";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
+import { WorkspaceSwitcher } from "@/components/WorkspaceSwitcher";
 
 const SIDEBAR_W = 256;
 
 const nav = [
   { num: "01", label: "Dashboard", href: "/" },
-  { num: "02", label: "Corpus", href: "/ingest" },
-  { num: "03", label: "Our findings", href: "/findings" },
-  { num: "04", label: "Ask Peggy", href: "/chat" },
-  { num: "05", label: "Gap Analysis", href: "/gaps" },
-  { num: "06", label: "Comparison", href: "/compare" },
+  { num: "02", label: "Workspaces", href: "/workspaces" },
+  { num: "03", label: "Corpus", href: "/ingest" },
+  { num: "04", label: "Our findings", href: "/findings" },
+  { num: "05", label: "Ask Peggy", href: "/chat" },
+  { num: "06", label: "Gap Analysis", href: "/gaps" },
+  { num: "07", label: "Comparison", href: "/compare" },
 ] as const;
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -92,6 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           })}
         </Box>
 
+        <WorkspaceSwitcher />
         <ResearcherProfile />
       </Box>
 

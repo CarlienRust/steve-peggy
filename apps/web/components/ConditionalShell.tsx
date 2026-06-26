@@ -3,8 +3,9 @@
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { WorkspaceProvider } from "@/lib/workspaceContext";
 
-const PUBLIC_PREFIXES = ["/login", "/auth/"];
+const PUBLIC_PREFIXES = ["/login", "/auth/", "/onboarding"];
 
 export function ConditionalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -12,5 +13,9 @@ export function ConditionalShell({ children }: { children: ReactNode }) {
   if (isPublic) {
     return <>{children}</>;
   }
-  return <AppShell>{children}</AppShell>;
+  return (
+    <WorkspaceProvider>
+      <AppShell>{children}</AppShell>
+    </WorkspaceProvider>
+  );
 }

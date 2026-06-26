@@ -15,14 +15,12 @@ import {
 import { peggyApi, queryKeys } from "@/lib/api";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { llmHealthHint } from "@/lib/llmHealthHint";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { cardHoverSx, eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
-const WORKSPACE_TITLE =
-  process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Gut Microbiome & Type-2 Diabetes";
-
-const WORKSPACE_FOCUS =
-  process.env.NEXT_PUBLIC_WORKSPACE_FOCUS ??
-  "Bacteroidetes/Firmicutes ratios and butyrate production";
+const DEFAULT_TITLE = process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Research project";
+const DEFAULT_FOCUS =
+  process.env.NEXT_PUBLIC_WORKSPACE_FOCUS ?? "Add a workspace to define your project aim and objectives";
 
 type ActivityItem = {
   time: string;
@@ -40,8 +38,13 @@ const DEMO_ACTIVITY: ActivityItem[] = [
 ];
 
 export function DashboardPage() {
+  const { activeWorkspace } = useWorkspace();
   const health = useQuery({ queryKey: queryKeys.health, queryFn: () => peggyApi.health() });
   const corpus = useQuery({ queryKey: queryKeys.corpus(), queryFn: () => peggyApi.listCorpus() });
+
+  const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
+  const workspaceAim = activeWorkspace?.aim ?? DEFAULT_FOCUS;
+  const objectives = activeWorkspace?.objectives ?? [];
 
   const count = corpus.data?.count ?? 0;
   const literatureCount = corpus.data?.papers?.filter((p) => p.source_type === "literature").length ?? 0;
@@ -73,29 +76,53 @@ export function DashboardPage() {
         variant="h1"
         sx={{ fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 600, letterSpacing: "-0.02em", mb: 2 }}
       >
-        {WORKSPACE_TITLE}
+        {workspaceTitle}
       </Typography>
 
-      <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, lineHeight: 1.7, mb: 4 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, lineHeight: 1.7, mb: 2 }}>
         {count > 0 ? (
           <>
             Systematic review of {literatureCount} peer-reviewed article{literatureCount === 1 ? "" : "s"}
-            {ownCount > 0 ? ` plus ${ownCount} internal dataset${ownCount === 1 ? "" : "s"}` : ""}. Primary focus:{" "}
-            <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
-              {WORKSPACE_FOCUS}
-            </Box>
-            .
+            {ownCount > 0 ? ` plus ${ownCount} internal dataset${ownCount === 1 ? "" : "s"}` : ""}.
+            {workspaceAim && (
+              <>
+                {" "}
+                Aim:{" "}
+                <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
+                  {workspaceAim}
+                </Box>
+              </>
+            )}
           </>
         ) : (
           <>
-            Ingest publications via PubMed or add internal datasets. Primary focus:{" "}
-            <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
-              {WORKSPACE_FOCUS}
-            </Box>
-            .
+            Ingest publications via PubMed or add internal datasets.
+            {workspaceAim ? (
+              <>
+                {" "}
+                Aim:{" "}
+                <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
+                  {workspaceAim}
+                </Box>
+              </>
+            ) : (
+              <> Create a workspace under Workspaces to set your project aim.</>
+            )}
           </>
         )}
       </Typography>
+
+      {objectives.length > 0 && (
+        <Box component="ul" sx={{ maxWidth: 640, pl: 2.5, mb: 4, color: "text.secondary" }}>
+          {objectives.map((obj, i) => (
+            <Typography component="li" variant="body2" key={i} sx={{ mb: 0.5 }}>
+              {obj}
+            </Typography>
+          ))}
+        </Box>
+      )}
+
+      {!objectives.length && <Box sx={{ mb: 4 }} />}
 
       {health.data && (
         <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 3 }}>

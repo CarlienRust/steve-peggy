@@ -87,6 +87,26 @@ export type WorkflowResponse = {
   limitations: string[];
 };
 
+export type ResearcherProfile = {
+  user_id?: string;
+  researcher_id: string;
+  title: string;
+  name: string;
+  surname: string;
+  email: string;
+  research_focus: string;
+  research_type: string;
+  display_name: string;
+};
+
+export type Workspace = {
+  id: string;
+  user_id?: string;
+  title: string;
+  aim: string;
+  objectives: string[];
+};
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}${path}`, {
@@ -280,10 +300,35 @@ export const peggyApi = {
     }
     return res.json() as Promise<UploadResponse>;
   },
+
+  getProfile: () => apiFetch<ResearcherProfile>("/profile"),
+
+  upsertProfile: (body: {
+    title: string;
+    name: string;
+    surname: string;
+    email: string;
+    research_focus: string;
+    research_type: string;
+  }) => apiFetch<ResearcherProfile>("/profile", { method: "PUT", body: JSON.stringify(body) }),
+
+  listWorkspaces: () =>
+    apiFetch<{ workspaces: Workspace[]; count: number }>("/workspaces"),
+
+  createWorkspace: (body: { title: string; aim?: string; objectives?: string[] }) =>
+    apiFetch<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(body) }),
+
+  updateWorkspace: (id: string, body: Partial<{ title: string; aim: string; objectives: string[] }>) =>
+    apiFetch<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  deleteWorkspace: (id: string) =>
+    apiFetch<{ status: string; id: string }>(`/workspaces/${id}`, { method: "DELETE" }),
 };
 
 export const queryKeys = {
   health: ["health"] as const,
   corpus: (sourceType?: string) => ["corpus", sourceType] as const,
   job: (id: string) => ["job", id] as const,
+  profile: ["profile"] as const,
+  workspaces: ["workspaces"] as const,
 };

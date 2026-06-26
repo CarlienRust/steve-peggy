@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import config
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
-from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, workflow_router
+from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, profile_router, workflow_router, workspace_router
 
 
 @asynccontextmanager
@@ -41,6 +41,8 @@ app.include_router(chat_router.router)
 app.include_router(workflow_router.router)
 app.include_router(corpus_router.router)
 app.include_router(feedback_router.router)
+app.include_router(profile_router.router)
+app.include_router(workspace_router.router)
 
 
 @app.get("/health")

@@ -76,3 +76,31 @@ async def load_agent_messages(user_id: str, session_id: str) -> list[dict]:
 
 async def append_agent_message(user_id: str, session_id: str, role: str, content: str | dict) -> None:
     return await _backend().append_agent_message(user_id, session_id, role, content)
+
+
+async def get_profile(user_id: str) -> dict | None:
+    return await _backend().get_profile(user_id)
+
+
+async def upsert_profile(user_id: str, fields: dict) -> dict:
+    return await _backend().upsert_profile(user_id, fields)
+
+
+async def list_workspaces(user_id: str) -> list[dict]:
+    return await _backend().list_workspaces(user_id)
+
+
+async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
+    return await _backend().get_workspace(user_id, workspace_id)
+
+
+async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
+    return await _backend().create_workspace(user_id, title, aim, objectives)
+
+
+async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dict | None:
+    return await _backend().update_workspace(user_id, workspace_id, fields)
+
+
+async def delete_workspace(user_id: str, workspace_id: str) -> bool:
+    return await _backend().delete_workspace(user_id, workspace_id)

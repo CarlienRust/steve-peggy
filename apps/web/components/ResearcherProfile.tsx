@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Box,
   Button,
@@ -9,6 +10,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -17,47 +19,50 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
+import { peggyApi, queryKeys } from "@/lib/api";
 import {
-  DEFAULT_PROFILE,
-  loadProfile,
-  saveProfile,
-  type UserProfile,
+  RESEARCH_TYPES,
+  formatDisplayName,
+  type ResearchType,
+  type ResearcherProfile,
 } from "@/lib/userProfile";
 
 export function ResearcherProfile() {
   const router = useRouter();
-  const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [email, setEmail] = useState("");
-  const [editOpen, setEditOpen] = useState(false);
-  const [draft, setDraft] = useState<UserProfile>(DEFAULT_PROFILE);
+  const queryClient = useQueryClient();
+  const { data: profile, isLoading } = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => peggyApi.getProfile(),
+    retry: false,
+  });
 
-  useEffect(() => {
-    setProfile(loadProfile());
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user?.email) {
-        setEmail(data.user.email);
-      }
-    });
-  }, []);
+  const [editOpen, setEditOpen] = useState(false);
+  const [draft, setDraft] = useState<Partial<ResearcherProfile>>({});
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      peggyApi.upsertProfile({
+        title: draft.title ?? "",
+        name: draft.name ?? "",
+        surname: draft.surname ?? "",
+        email: draft.email ?? "",
+        research_focus: draft.research_focus ?? "",
+        research_type: draft.research_type ?? "Researcher",
+      }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+      setEditOpen(false);
+    },
+  });
 
   const openEdit = () => {
-    setDraft(profile);
+    if (profile) {
+      setDraft({
+        ...profile,
+        research_type: profile.research_type as ResearchType,
+      });
+    }
     setEditOpen(true);
-  };
-
-  const saveEdit = async () => {
-    saveProfile(draft);
-    setProfile(draft);
-    setEditOpen(false);
-    const supabase = createClient();
-    await supabase.auth.updateUser({
-      data: {
-        display_name: draft.displayName,
-        focus: draft.focus,
-        researcher_id: draft.researcherId,
-      },
-    });
   };
 
   const logout = async () => {
@@ -66,20 +71,38 @@ export function ResearcherProfile() {
     router.push("/login");
   };
 
+  const displayName = profile?.display_name ?? "Researcher";
+  const preview = formatDisplayName(draft.title ?? "", draft.name ?? "", draft.surname ?? "");
+
   return (
     <>
       <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box>
-            <Typography sx={eyebrowSx}>{profile.displayName}</Typography>
-            <Typography sx={{ ...monoSx, fontSize: 12, mt: 0.5 }}>
-              {email || profile.researcherId}
+          <Box sx={{ minWidth: 0 }}>
+            <Typography sx={eyebrowSx} noWrap>
+              {isLoading ? "…" : displayName}
             </Typography>
-            <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>{profile.focus}</Typography>
+            {profile && (
+              <>
+                <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>
+                  {profile.research_type}
+                </Typography>
+                <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }} noWrap>
+                  {profile.email}
+                </Typography>
+                {profile.research_focus && (
+                  <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }} noWrap>
+                    {profile.research_focus}
+                  </Typography>
+                )}
+              </>
+            )}
           </Box>
-          <Button size="small" onClick={openEdit} sx={{ minWidth: 0, p: 0.5 }} aria-label="Edit profile">
-            <EditOutlinedIcon fontSize="small" />
-          </Button>
+          {profile && (
+            <Button size="small" onClick={openEdit} sx={{ minWidth: 0, p: 0.5 }} aria-label="Edit profile">
+              <EditOutlinedIcon fontSize="small" />
+            </Button>
+          )}
         </Stack>
         <Button
           fullWidth
@@ -95,38 +118,69 @@ export function ResearcherProfile() {
 
       <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Edit profile</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label="Display name"
-              value={draft.displayName}
-              onChange={(e) => setDraft((d) => ({ ...d, displayName: e.target.value }))}
-              fullWidth
-            />
-            <TextField
-              label="Researcher ID"
-              value={draft.researcherId}
-              onChange={(e) => setDraft((d) => ({ ...d, researcherId: e.target.value }))}
-              fullWidth
-            />
-            <TextField
-              label="Focus"
-              value={draft.focus}
-              onChange={(e) => setDraft((d) => ({ ...d, focus: e.target.value }))}
-              fullWidth
-              placeholder="Gut Microbiome · T2D"
-            />
-            <Typography variant="caption" color="text.secondary">
-              Display preferences sync to your Supabase account metadata.
-            </Typography>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={saveEdit}>
-            Save
-          </Button>
-        </DialogActions>
+        <Box
+          component="form"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            saveMutation.mutate();
+          }}
+        >
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Stack direction="row" spacing={1}>
+                <TextField
+                  label="Title"
+                  value={draft.title ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
+                  sx={{ width: 90 }}
+                />
+                <TextField
+                  label="Name"
+                  value={draft.name ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
+                  required
+                  fullWidth
+                />
+                <TextField
+                  label="Surname"
+                  value={draft.surname ?? ""}
+                  onChange={(e) => setDraft((d) => ({ ...d, surname: e.target.value }))}
+                  required
+                  fullWidth
+                />
+              </Stack>
+              <TextField label="Email" value={draft.email ?? ""} fullWidth disabled />
+              <TextField
+                select
+                label="Research type"
+                value={draft.research_type ?? "Researcher"}
+                onChange={(e) => setDraft((d) => ({ ...d, research_type: e.target.value as ResearchType }))}
+                fullWidth
+              >
+                {RESEARCH_TYPES.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Research focus"
+                value={draft.research_focus ?? ""}
+                onChange={(e) => setDraft((d) => ({ ...d, research_focus: e.target.value }))}
+                fullWidth
+              />
+              <Typography variant="caption" color="text.secondary">
+                Display name: {preview || "—"}
+              </Typography>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setEditOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={saveMutation.isPending}>
+              Save
+            </Button>
+          </DialogActions>
+        </Box>
       </Dialog>
     </>
   );

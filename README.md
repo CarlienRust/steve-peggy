@@ -161,19 +161,3 @@ See [docs/ROADMAP.md](docs/ROADMAP.md): dashboard demo placeholders when corpus 
 ## Steve / bioinformatics
 
 Archived under [`legacy/steve/`](legacy/steve/) — not connected to Peggy.
-
-
-
-Service ID:
-srv-d8vasereo5us73e3usj0
-
-CarlienRust / steve-peggy
-main
-https://peggy-api.onrender.com
-
-Q_Cloud: 
-
-Cluster ID: e190d38f-c500-4833-8266-cddcf45b1528
-API: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6N2JiYTMxNDItZDk5MC00NTlhLWJiZmItMWQwZDhkZGU0ODFhIn0.mQARcZ83r3wv3s8MerIBGUN0hoMijBdHJW7Ck7n5kW0
-
-Endpoint: https://e190d38f-c500-4833-8266-cddcf45b1528.eu-west-1-0.aws.cloud.qdrant.io

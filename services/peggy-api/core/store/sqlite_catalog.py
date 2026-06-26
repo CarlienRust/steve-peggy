@@ -59,6 +59,32 @@ CREATE TABLE IF NOT EXISTS agent_messages (
     created_at TEXT,
     FOREIGN KEY (session_id) REFERENCES agent_sessions(session_id)
 );
+
+CREATE TABLE IF NOT EXISTS researcher_profiles (
+    user_id TEXT PRIMARY KEY,
+    researcher_id TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL DEFAULT '',
+    name TEXT NOT NULL,
+    surname TEXT NOT NULL,
+    email TEXT NOT NULL,
+    research_focus TEXT NOT NULL DEFAULT '',
+    research_type TEXT NOT NULL DEFAULT 'Researcher',
+    display_name TEXT NOT NULL,
+    created_at TEXT,
+    updated_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS workspaces (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    aim TEXT NOT NULL DEFAULT '',
+    objectives TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT,
+    updated_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces (user_id);
 """
 
 
@@ -310,3 +336,128 @@ async def append_agent_message(user_id: str, session_id: str, role: str, content
             (now, session_id, user_id),
         )
         await db.commit()
+
+
+async def get_profile(user_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM researcher_profiles WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        return dict(row) if row else None
+
+
+async def upsert_profile(user_id: str, fields: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT researcher_id FROM researcher_profiles WHERE user_id = ?", (user_id,))
+        existing = await cur.fetchone()
+        researcher_id = fields["researcher_id"]
+        if existing:
+            researcher_id = existing["researcher_id"]
+        await db.execute(
+            """INSERT INTO researcher_profiles
+               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 title=excluded.title, name=excluded.name, surname=excluded.surname, email=excluded.email,
+                 research_focus=excluded.research_focus, research_type=excluded.research_type,
+                 display_name=excluded.display_name, updated_at=excluded.updated_at""",
+            (
+                user_id,
+                researcher_id,
+                fields["title"],
+                fields["name"],
+                fields["surname"],
+                fields["email"],
+                fields["research_focus"],
+                fields["research_type"],
+                fields["display_name"],
+                now,
+                now,
+            ),
+        )
+        await db.commit()
+        cur = await db.execute("SELECT * FROM researcher_profiles WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        return dict(row)
+
+
+async def list_workspaces(user_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM workspaces WHERE user_id = ? ORDER BY created_at ASC",
+            (user_id,),
+        )
+        rows = await cur.fetchall()
+    result = []
+    for row in rows:
+        d = dict(row)
+        try:
+            d["objectives"] = json.loads(d.get("objectives") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            d["objectives"] = []
+        result.append(d)
+    return result
+
+
+async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM workspaces WHERE id = ? AND user_id = ?",
+            (workspace_id, user_id),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        d = dict(row)
+        try:
+            d["objectives"] = json.loads(d.get("objectives") or "[]")
+        except (json.JSONDecodeError, TypeError):
+            d["objectives"] = []
+        return d
+
+
+async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    ws_id = str(uuid.uuid4())
+    objectives_json = json.dumps(objectives or [])
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO workspaces (id, user_id, title, aim, objectives, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (ws_id, user_id, title, aim, objectives_json, now, now),
+        )
+        await db.commit()
+    return await get_workspace(user_id, ws_id)  # type: ignore[return-value]
+
+
+async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dict | None:
+    existing = await get_workspace(user_id, workspace_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    title = fields.get("title", existing["title"])
+    aim = fields.get("aim", existing["aim"])
+    objectives = fields.get("objectives", existing.get("objectives", []))
+    objectives_json = json.dumps(objectives)
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """UPDATE workspaces SET title = ?, aim = ?, objectives = ?, updated_at = ?
+               WHERE id = ? AND user_id = ?""",
+            (title, aim, objectives_json, now, workspace_id, user_id),
+        )
+        await db.commit()
+    return await get_workspace(user_id, workspace_id)
+
+
+async def delete_workspace(user_id: str, workspace_id: str) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            "DELETE FROM workspaces WHERE id = ? AND user_id = ?",
+            (workspace_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
