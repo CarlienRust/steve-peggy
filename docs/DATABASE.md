@@ -1,87 +1,61 @@
-# Database & backend provider: Supabase vs alternatives
+# Database & backend provider
 
 ## Current state
 
-- **Vectors:** Qdrant (`peggy_literature`, `peggy_own_findings`)
-- **Catalog:** SQLite via `aiosqlite` (papers, jobs, feedback)
-- **Auth:** none (`client_id: "web"` on API requests; profile stub in browser)
-- **Dedup:** catalog-level PMID/DOI/title per `source_type` (no DB UNIQUE constraint yet)
+| Store | Local dev / tests | With `DATABASE_URL` set |
+|-------|-------------------|-------------------------|
+| **Vectors** | Local Qdrant or **Qdrant Cloud** | Qdrant Cloud on Render |
+| **Catalog** | SQLite via `sqlite_catalog.py` | Postgres via `pg_catalog.py` (Supabase) |
+| **Auth** | `AUTH_REQUIRED=false` → `dev-user` | Supabase JWT → real `user_id` |
+| **Dedup** | Per `user_id` + `source_type` | Same + partial unique indexes in Postgres |
 
-## What Peggy needs from a “backend”
+Facade: `core/store/catalog.py` delegates to SQLite or Postgres based on **`DATABASE_URL`**. When set, `SQLITE_DB` is ignored.
 
-| Need | Qdrant | SQL DB | Auth | File storage |
-|------|--------|--------|------|--------------|
-| Vector search | Yes | — | — | — |
-| Paper metadata, jobs | — | Yes | user scoping | — |
-| Login / sessions | — | — | Yes | — |
-| PDF upload (future) | — | optional | — | Yes |
+## Supabase project (env only — not in repo)
 
-Qdrant **stays** for embeddings. The question is where **relational data + auth + files** live.
+| Setting | Value |
+|---------|--------|
+| Project ref | `lmaugorqwhdnotpcqnnf` |
+| Region | `eu-west-1` |
+| URL | `https://lmaugorqwhdnotpcqnnf.supabase.co` |
 
-## Recommendation: Supabase (Postgres + Auth + Storage)
+## Connection string (`DATABASE_URL`)
 
-**Best fit** for Peggy on Vercel because:
+1. Supabase Dashboard → **Settings** → **Database**
+2. **Connection string** → **URI** → **Transaction pooler** (port **6543**)
+3. Replace password with your database password (not anon key, not JWT secret)
 
-1. **Postgres** replaces SQLite for production (concurrent writes, backups, `user_id` FKs).
-2. **Auth** integrates with Next.js (`@supabase/ssr`) — see [AUTH.md](AUTH.md).
-3. **Storage** buckets for PDF/full-text uploads without building S3 yourself.
-4. **RLS** enforces per-user corpus at the DB layer.
-5. **Free tier** sufficient for solo PhD use; predictable upgrade path.
+Set on `services/peggy-api/.env` (local) and Render Environment. Details: [ENV.md](ENV.md).
 
-**Keep separate:** Qdrant (or Qdrant Cloud) for vectors — Supabase `pgvector` is an option later but migration cost isn’t worth it until Peggy is stable.
+## Migration
 
-```mermaid
-flowchart LR
-  Web[Next.js Vercel]
-  Supa[(Supabase Postgres Auth Storage)]
-  Qdrant[(Qdrant Cloud)]
-  API[peggy-api]
-  Web --> Supa
-  Web --> API
-  API --> Supa
-  API --> Qdrant
-```
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor. It creates:
+
+- `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
+- `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
+- Partial unique indexes for dedup per user + source type
+- RLS policies `auth.uid() = user_id`
+
+## Qdrant user scoping
+
+All upserts add `user_id` to chunk payloads. Search, scroll, and document text retrieval filter by `user_id`. Existing local vectors without `user_id` are invisible after auth — re-ingest if needed.
+
+## Local vs production
+
+| Environment | Database | Auth |
+|-------------|----------|------|
+| **Tests / smoke (`AUTH_REQUIRED=false`)** | SQLite temp file | Bypass (`dev-user`) |
+| **Local full auth** | Supabase Postgres (`DATABASE_URL`) or SQLite | Supabase magic link |
+| **Render API** | Supabase Postgres | Supabase Auth + JWT on API |
+
+Vectors: [Qdrant Cloud](SCALE.md) via `QDRANT_URL` + `QDRANT_API_KEY`. See [SCALE.md](SCALE.md).
 
 ## Alternatives
 
 | Provider | Use for | vs Supabase |
 |----------|---------|-------------|
-| **Neon** | Postgres only | Simpler DB; add Clerk/Auth0 separately |
-| **Railway Postgres** | Co-locate with API | Good if API on Railway; no auth/storage |
-| **PlanetScale** | MySQL | Wrong fit (no RLS like Postgres) |
-| **Firebase** | Auth + NoSQL | Poor fit for relational papers/jobs |
-| **SQLite** | Local dev only | Keep for `docker compose` dev; not prod |
+| **Neon** | Postgres only | Add Clerk/Auth0 separately |
+| **Railway Postgres** | Co-locate with API | No auth/storage |
+| **SQLite** | Local dev + CI | Not for multi-user prod |
 
-## Migration path (SQLite → Supabase)
-
-1. Add `DATABASE_URL` to config; use `asyncpg` or SQLAlchemy async.
-2. Schema in `services/peggy-api/migrations/001_initial.sql` (mirror current tables + `user_id`).
-3. Dual-write or one-time import script for existing local data.
-4. Local dev: Supabase local CLI **or** keep SQLite behind `DATABASE_URL` unset.
-
-## Supabase setup checklist
-
-1. Create project at supabase.com.
-2. Copy `Project URL`, `anon key`, `service_role key`, `JWT secret`.
-3. Run migration SQL in Supabase SQL editor.
-4. Enable Email auth provider; add site URL + redirect URLs for Vercel.
-5. Create Storage bucket `peggy-uploads` (private, RLS by `user_id`).
-6. Set env vars per [ENV.md](ENV.md).
-
-## Cost sketch (solo researcher)
-
-| Service | Typical |
-|---------|---------|
-| Supabase free | $0 |
-| Qdrant Cloud free tier | $0 |
-| Vercel hobby | $0 |
-| Railway API + OpenAI usage | ~$5–20/mo |
-
-## Decision
-
-| Environment | Database | Auth |
-|-------------|----------|------|
-| **Local dev** | SQLite (current) or Supabase local | Optional skip |
-| **Production** | **Supabase Postgres** | **Supabase Auth** |
-
-Proceed with Supabase unless you need enterprise SSO (then Auth0 + Neon).
+**Recommendation:** Supabase Postgres + Auth for Peggy on Vercel.

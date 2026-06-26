@@ -172,7 +172,8 @@ async def _search_corpus(args: dict, ctx: dict) -> ToolResult:
     query = args.get("query", "")
     source_types = args.get("source_types") or ctx.get("source_types")
     limit = int(args.get("limit", 8))
-    sources = qdrant_store.search(query, source_types=source_types, limit=limit)
+    user_id = ctx.get("user_id", "dev-user")
+    sources = qdrant_store.search(query, source_types=source_types, limit=limit, user_id=user_id)
     return {
         "result": {"chunks": sources, "count": len(sources)},
         "source_ids": _chunk_ids(sources),
@@ -183,7 +184,8 @@ async def _search_corpus(args: dict, ctx: dict) -> ToolResult:
 
 async def _list_corpus(args: dict, ctx: dict) -> ToolResult:
     source_type = args.get("source_type")
-    papers = await catalog.list_papers(source_type=source_type)
+    user_id = ctx.get("user_id", "dev-user")
+    papers = await catalog.list_papers(user_id, source_type=source_type)
     slim = [
         {"id": p.get("id"), "title": p.get("title"), "year": p.get("year"), "pmid": p.get("pmid"), "source_type": p.get("source_type")}
         for p in papers
@@ -214,13 +216,14 @@ async def _search_pubmed_tool(args: dict, ctx: dict) -> ToolResult:
 async def _get_paper_metadata(args: dict, ctx: dict) -> ToolResult:
     pmid = (args.get("pmid") or "").strip()
     doi = (args.get("doi") or "").strip()
+    user_id = ctx.get("user_id", "dev-user")
     if not pmid and not doi:
         return {"result": None, "source_ids": [], "confidence": 0.0, "error": "Provide pmid or doi"}
     local = None
     if pmid:
-        local = await catalog.find_existing_paper(pmid=pmid)
+        local = await catalog.find_existing_paper(user_id=user_id, pmid=pmid)
     if not local and doi:
-        local = await catalog.find_existing_paper(doi=doi)
+        local = await catalog.find_existing_paper(user_id=user_id, doi=doi)
     pubmed = None
     if pmid:
         try:
@@ -247,8 +250,9 @@ async def _get_paper_metadata(args: dict, ctx: dict) -> ToolResult:
 async def _run_gap_analysis(args: dict, ctx: dict) -> ToolResult:
     query = args.get("query", "")
     source_types = args.get("source_types") or ctx.get("source_types")
+    user_id = ctx.get("user_id", "dev-user")
     try:
-        out = await workflows.run_gap_analysis(query, source_types=source_types)
+        out = await workflows.run_gap_analysis(query, source_types=source_types, user_id=user_id)
         sources = out.get("sources", [])
         return {
             "result": out.get("body"),
@@ -263,8 +267,9 @@ async def _run_gap_analysis(args: dict, ctx: dict) -> ToolResult:
 async def _compare_finding(args: dict, ctx: dict) -> ToolResult:
     finding = args.get("finding", "")
     source_types = args.get("source_types") or ctx.get("source_types")
+    user_id = ctx.get("user_id", "dev-user")
     try:
-        out = await workflows.run_compare(finding, source_types=source_types)
+        out = await workflows.run_compare(finding, source_types=source_types, user_id=user_id)
         sources = out.get("sources", [])
         return {
             "result": out.get("body"),

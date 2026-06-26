@@ -3,15 +3,17 @@ import pytest
 from core.agent.memory import append, ensure_session, load, summarise_if_long
 from core.store.catalog import init_catalog
 
+USER = "dev-user"
+
 
 @pytest.mark.asyncio
 async def test_session_roundtrip():
     await init_catalog()
     sid = "test-session-abc"
-    await ensure_session(sid, "test-client")
-    await append(sid, "user", "What gaps exist?")
-    await append(sid, "assistant", "Several gaps in cohort data.")
-    messages = await load(sid)
+    await ensure_session(sid, USER)
+    await append(sid, USER, "user", "What gaps exist?")
+    await append(sid, USER, "assistant", "Several gaps in cohort data.")
+    messages = await load(sid, USER)
     assert len(messages) == 2
     assert messages[0]["role"] == "user"
     assert "gaps" in messages[0]["content"]

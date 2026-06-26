@@ -1,7 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from typing import Literal
 
+from core.auth.deps import AuthUser, get_current_user
 from core.rag.intent import detect_intent
 from core.rag.workflows import grounded_chat, run_compare, run_gap_analysis
 from schemas.responses import ChatResponse, SourceCitation
@@ -13,7 +14,6 @@ ChatMode = Literal["auto", "chat", "gap_analysis", "compare"]
 
 class ChatRequest(BaseModel):
     query: str
-    client_id: str = "default"
     mode: ChatMode = "auto"
     source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
 
@@ -32,21 +32,22 @@ def _wrap_workflow(mode: str, result: dict) -> ChatResponse:
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(body: ChatRequest):
+async def chat(body: ChatRequest, user: AuthUser = Depends(get_current_user)):
     intent = detect_intent(body.query, body.mode if body.mode != "auto" else None)
 
     if intent == "gap_analysis":
-        result = await run_gap_analysis(body.query, source_types=body.source_types)
+        result = await run_gap_analysis(body.query, source_types=body.source_types, user_id=user.id)
         return _wrap_workflow("gap_analysis", result)
 
     if intent == "compare":
         result = await run_compare(
             body.query,
             source_types=body.source_types or ["literature", "own_findings"],
+            user_id=user.id,
         )
         return _wrap_workflow("compare", result)
 
-    result = await grounded_chat(body.query, source_types=body.source_types)
+    result = await grounded_chat(body.query, source_types=body.source_types, user_id=user.id)
     return ChatResponse(
         mode="chat",
         response=result["response"],

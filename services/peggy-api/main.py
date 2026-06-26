@@ -2,11 +2,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from qdrant_client import QdrantClient
-
 import config
 from core.store.catalog import init_catalog
-from core.store.qdrant_store import ensure_collections
+from core.store.qdrant_store import ensure_collections, get_client
 from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, workflow_router
 
 
@@ -30,7 +28,7 @@ app = FastAPI(title="Peggy Research Assistant API", version="2.0.0", lifespan=li
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=config.CORS_ORIGINS + ["*"],
+    allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -49,7 +47,7 @@ app.include_router(feedback_router.router)
 async def health():
     qdrant_ok = False
     try:
-        QdrantClient(url=config.QDRANT_URL, check_compatibility=False).get_collections()
+        get_client().get_collections()
         qdrant_ok = True
     except Exception:
         pass

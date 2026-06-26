@@ -12,7 +12,6 @@ AgentMode = Literal["auto", "chat", "gap_analysis", "compare"]
 class AgentRequest(BaseModel):
     query: str
     session_id: str
-    client_id: str = "default"
     mode: AgentMode = "auto"
     source_types: List[str] = Field(default_factory=lambda: ["literature", "own_findings"])
 

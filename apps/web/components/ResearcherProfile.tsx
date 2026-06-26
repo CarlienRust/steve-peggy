@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Box,
   Button,
@@ -15,22 +16,29 @@ import {
 import LogoutIcon from "@mui/icons-material/Logout";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
+import { createClient } from "@/lib/supabase/client";
 import {
   DEFAULT_PROFILE,
-  clearProfileSession,
   loadProfile,
   saveProfile,
   type UserProfile,
 } from "@/lib/userProfile";
 
 export function ResearcherProfile() {
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [email, setEmail] = useState("");
   const [editOpen, setEditOpen] = useState(false);
   const [draft, setDraft] = useState<UserProfile>(DEFAULT_PROFILE);
-  const [signedOut, setSignedOut] = useState(false);
 
   useEffect(() => {
     setProfile(loadProfile());
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user?.email) {
+        setEmail(data.user.email);
+      }
+    });
   }, []);
 
   const openEdit = () => {
@@ -38,37 +46,25 @@ export function ResearcherProfile() {
     setEditOpen(true);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     saveProfile(draft);
     setProfile(draft);
     setEditOpen(false);
+    const supabase = createClient();
+    await supabase.auth.updateUser({
+      data: {
+        display_name: draft.displayName,
+        focus: draft.focus,
+        researcher_id: draft.researcherId,
+      },
+    });
   };
 
-  const logout = () => {
-    clearProfileSession();
-    setSignedOut(true);
-    setProfile(DEFAULT_PROFILE);
+  const logout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
   };
-
-  if (signedOut) {
-    return (
-      <Box sx={{ pt: 3, borderTop: 1, borderColor: "divider" }}>
-        <Typography variant="body2" color="text.secondary">
-          Signed out (stub)
-        </Typography>
-        <Button
-          size="small"
-          sx={{ mt: 1, px: 0 }}
-          onClick={() => {
-            setSignedOut(false);
-            setProfile(loadProfile());
-          }}
-        >
-          Sign in again
-        </Button>
-      </Box>
-    );
-  }
 
   return (
     <>
@@ -76,7 +72,9 @@ export function ResearcherProfile() {
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
             <Typography sx={eyebrowSx}>{profile.displayName}</Typography>
-            <Typography sx={{ ...monoSx, fontSize: 12, mt: 0.5 }}>{profile.researcherId}</Typography>
+            <Typography sx={{ ...monoSx, fontSize: 12, mt: 0.5 }}>
+              {email || profile.researcherId}
+            </Typography>
             <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }}>{profile.focus}</Typography>
           </Box>
           <Button size="small" onClick={openEdit} sx={{ minWidth: 0, p: 0.5 }} aria-label="Edit profile">
@@ -119,7 +117,7 @@ export function ResearcherProfile() {
               placeholder="Gut Microbiome · T2D"
             />
             <Typography variant="caption" color="text.secondary">
-              Saved locally until Supabase Auth is wired (docs/AUTH.md).
+              Display preferences sync to your Supabase account metadata.
             </Typography>
           </Stack>
         </DialogContent>

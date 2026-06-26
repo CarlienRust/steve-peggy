@@ -14,8 +14,9 @@ def _norm_key(title: str) -> str:
     return " ".join((title or "").lower().split())
 
 
-async def _is_in_corpus(pmid: str | None, doi: str | None, title: str) -> bool:
+async def _is_in_corpus(user_id: str, pmid: str | None, doi: str | None, title: str) -> bool:
     existing = await catalog.find_existing_paper(
+        user_id=user_id,
         pmid=pmid or "",
         doi=doi or "",
         title=title,
@@ -63,8 +64,12 @@ async def _pubmed_candidates(query: str, max_results: int) -> list[dict[str, Any
     return candidates
 
 
-async def discover_literature(topic: str | None = None, max_results: int = 20) -> dict:
-    corpus_abstracts = qdrant_store.scroll_texts(source_type="literature", limit=500)
+async def discover_literature(
+    topic: str | None = None,
+    max_results: int = 20,
+    user_id: str = "dev-user",
+) -> dict:
+    corpus_abstracts = qdrant_store.scroll_texts(source_type="literature", limit=500, user_id=user_id)
 
     if topic and topic.strip():
         query_used = topic.strip()
@@ -99,7 +104,7 @@ async def discover_literature(topic: str | None = None, max_results: int = 20) -
         if key in seen:
             continue
         seen.add(key)
-        in_corpus = await _is_in_corpus(c.get("pmid"), c.get("doi"), c.get("title", ""))
+        in_corpus = await _is_in_corpus(user_id, c.get("pmid"), c.get("doi"), c.get("title", ""))
         if in_corpus:
             continue
         deduped.append({**c, "already_in_corpus": False})

@@ -2,7 +2,7 @@
 
 Evidence-grounded research synthesis: ingest peer-reviewed literature, add your own findings in a separate space, then chat, compare, and analyze gaps — with citations and stated limitations, not generic LLM answers.
 
-**Status:** Local-first MVP. Backend + MUI web UI are wired end-to-end; production auth/hosting is planned, not shipped.
+**Status:** Supabase Auth + Postgres; Vercel frontend; API on **Render** + **Qdrant Cloud** supported — see [SCALE.md](docs/SCALE.md) and [`services/peggy-api/.env.render.example`](services/peggy-api/.env.render.example).
 
 | | |
 |---|---|
@@ -23,7 +23,7 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 | **Gap analysis** | `/gaps` — structured gaps; optional include our findings |
 | **Compare** | `/compare` — your finding vs literature (+ our findings in retrieval) |
 | **Health dashboard** | Status chips for Qdrant, LLM provider, embeddings |
-| **Profile (stub)** | Sidebar edit + logout; `localStorage` until [AUTH.md](docs/AUTH.md) |
+| **Profile** | Sidebar edit + Supabase sign-out; display prefs in `user_metadata` |
 | **Embeddings** | `sentence-transformers` locally (no OpenAI embeddings required) |
 | **LLM** | **Ollama** (default), Groq (free cloud), OpenAI, Anthropic — `LLM_PROVIDER` in `.env` |
 
@@ -53,7 +53,8 @@ chmod +x scripts/*.sh
 ./scripts/setup-local.sh
 ./scripts/install-qdrant.sh
 cp services/peggy-api/.env.example services/peggy-api/.env
-cp apps/web/.env.example apps/web/.env.local   # optional
+cp apps/web/.env.example apps/web/.env.local
+cp services/peggy-api/.env.render.example services/peggy-api/.env.render.local  # optional, for Render
 ```
 
 Set secrets in `services/peggy-api/.env` (free local default):
@@ -122,7 +123,7 @@ tools/qdrant/             macOS binary (install-qdrant.sh)
 test_pdfs/                Dev PDF corpus
 legacy/steve/             Archived (not used by Peggy)
 docker-compose.yml        Optional — not required locally
-scripts/                  install-qdrant, start-qdrant, start-api, smoke-local, ingest-test-pdfs
+scripts/                  install-qdrant, start-qdrant, start-api, smoke-local, smoke-remote, ingest-test-pdfs
 ```
 
 Flow: **ingest** → chunk + embed → **Qdrant** + **SQLite** → **retrieve** → **LLM** → cited response.
@@ -160,3 +161,19 @@ See [docs/ROADMAP.md](docs/ROADMAP.md): dashboard demo placeholders when corpus 
 ## Steve / bioinformatics
 
 Archived under [`legacy/steve/`](legacy/steve/) — not connected to Peggy.
+
+
+
+Service ID:
+srv-d8vasereo5us73e3usj0
+
+CarlienRust / steve-peggy
+main
+https://peggy-api.onrender.com
+
+Q_Cloud: 
+
+Cluster ID: e190d38f-c500-4833-8266-cddcf45b1528
+API: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2Nlc3MiOiJtIiwic3ViamVjdCI6ImFwaS1rZXk6N2JiYTMxNDItZDk5MC00NTlhLWJiZmItMWQwZDhkZGU0ODFhIn0.mQARcZ83r3wv3s8MerIBGUN0hoMijBdHJW7Ck7n5kW0
+
+Endpoint: https://e190d38f-c500-4833-8266-cddcf45b1528.eu-west-1-0.aws.cloud.qdrant.io

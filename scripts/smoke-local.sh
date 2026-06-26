@@ -57,7 +57,7 @@ echo
 echo "--- Chat (short) ---"
 CHAT=$(curl -sf -m 120 -X POST "$API/chat" \
   -H "Content-Type: application/json" \
-  -d '{"query":"What topics are covered in the ingested corpus?","client_id":"smoke"}' 2>/dev/null) || { fail "POST /chat (timeout or error)"; CHAT=""; }
+  -d '{"query":"What topics are covered in the ingested corpus?","mode":"chat"}' 2>/dev/null) || { fail "POST /chat (timeout or error)"; CHAT=""; }
 if [[ -n "$CHAT" ]]; then
   echo "$CHAT" | python3 -c "
 import json, sys
@@ -95,7 +95,7 @@ echo
 echo "--- Agent (Auto) ---"
 AGENT=$(curl -sf -m 120 -X POST "$API/agent/run" \
   -H "Content-Type: application/json" \
-  -d '{"query":"What is in the corpus?","session_id":"smoke-agent","client_id":"smoke"}' 2>/dev/null) || { fail "POST /agent/run"; AGENT=""; }
+  -d '{"query":"What is in the corpus?","session_id":"smoke-agent","mode":"auto"}' 2>/dev/null) || { fail "POST /agent/run"; AGENT=""; }
 if [[ -n "$AGENT" ]]; then
   echo "$AGENT" | python3 -c "
 import json, sys

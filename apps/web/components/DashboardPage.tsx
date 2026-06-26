@@ -13,6 +13,7 @@ import {
   alpha,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { llmHealthHint } from "@/lib/llmHealthHint";
 import { cardHoverSx, eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
@@ -63,6 +64,7 @@ export function DashboardPage() {
 
   return (
     <Box>
+      <LocalDevBanner />
       <Typography sx={{ ...eyebrowSx, mb: 2 }}>
         Workspace · {count > 0 ? "Active corpus" : "Empty corpus"}
       </Typography>

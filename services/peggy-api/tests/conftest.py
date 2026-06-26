@@ -6,6 +6,8 @@ from httpx import ASGITransport, AsyncClient
 
 _test_dir = tempfile.mkdtemp()
 os.environ["SQLITE_DB"] = os.path.join(_test_dir, "test.db")
+os.environ["AUTH_REQUIRED"] = "false"
+os.environ["DATABASE_URL"] = ""  # always SQLite in tests (ignore developer .env Postgres)
 os.environ.setdefault("QDRANT_URL", "http://localhost:6333")
 os.environ.setdefault("LLM_PROVIDER", "openai")
 os.environ.setdefault("OPENAI_API_KEY", "")

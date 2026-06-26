@@ -18,9 +18,11 @@ class IngestPayload:
     dois: list[str]
     search_query: str | None
     source_type: str = "literature"
+    user_id: str = "dev-user"
 
 
 async def run_ingest_job(job_id: str, payload: dict) -> None:
+    user_id = payload.get("user_id", "dev-user")
     await catalog.update_job(job_id, "running")
     ingested = []
     skipped = []
@@ -44,13 +46,19 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
                     errors.append(f"No record for PMID {pmid}")
                     continue
                 record = await catalog.record_paper(
-                    paper.pmid, paper.doi, paper.title, paper.authors, paper.year, source_type
+                    user_id,
+                    paper.pmid,
+                    paper.doi,
+                    paper.title,
+                    paper.authors,
+                    paper.year,
+                    source_type,
                 )
                 if record["status"] == "duplicate":
                     skipped.append({"pmid": pmid, "title": paper.title, "paper_id": record["paper_id"]})
                     continue
                 chunks = paper_to_chunks(paper, source_type=source_type)
-                n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
+                n = qdrant_store.upsert_chunks(chunks, source_type=source_type, user_id=user_id)
                 ingested.append({"pmid": pmid, "title": paper.title, "chunks": n})
             except Exception as e:
                 errors.append(f"PMID {pmid}: {e}")
@@ -72,6 +80,7 @@ async def ingest_upload_bytes(
     content_type: str | None,
     title: str,
     source_type: str = "literature",
+    user_id: str = "dev-user",
 ) -> dict:
     """Ingest uploaded file bytes (PDF or UTF-8 text/markdown)."""
     doc_id = filename or title
@@ -88,7 +97,7 @@ async def ingest_upload_bytes(
         if not text.strip():
             raise ValueError("Empty document")
         meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
-    return await ingest_text_document(text, meta, source_type=source_type)
+    return await ingest_text_document(text, meta, source_type=source_type, user_id=user_id)
 
 
 class DuplicateDocumentError(Exception):
@@ -102,9 +111,11 @@ async def ingest_text_document(
     text: str,
     metadata: dict,
     source_type: str = "literature",
+    user_id: str = "dev-user",
 ) -> dict:
     title = metadata.get("title", metadata.get("doc_id", "Uploaded document"))
     record = await catalog.record_paper(
+        user_id,
         metadata.get("pmid", ""),
         metadata.get("doi", ""),
         title,
@@ -115,11 +126,11 @@ async def ingest_text_document(
     if record["status"] == "duplicate":
         raise DuplicateDocumentError(record["paper_id"], title)
     chunks = chunk_text(text, {**metadata, "source_type": source_type})
-    n = qdrant_store.upsert_chunks(chunks, source_type=source_type)
+    n = qdrant_store.upsert_chunks(chunks, source_type=source_type, user_id=user_id)
     return {"chunks": n, "paper_id": record["paper_id"], "status": "created"}
 
 
-async def ingest_findings_json(data: dict) -> dict:
+async def ingest_findings_json(data: dict, user_id: str = "dev-user") -> dict:
     narrative = data.get("narrative") or json.dumps(data.get("findings", []))
     title = data.get("title", "My findings")
     meta = {
@@ -128,4 +139,4 @@ async def ingest_findings_json(data: dict) -> dict:
         "cohort": data.get("cohort", ""),
         "source_type": "own_findings",
     }
-    return await ingest_text_document(narrative, meta, source_type="own_findings")
+    return await ingest_text_document(narrative, meta, source_type="own_findings", user_id=user_id)

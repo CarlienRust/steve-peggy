@@ -58,13 +58,23 @@ CI today: `npm run build` only (see `.github/workflows/test.yml`).
 - **api job:** `pytest -v` (no Qdrant container — mocked/live-skip tests)
 - **web job:** `npm ci && npm run build`
 
-## Smoke script (manual)
+## Smoke scripts (manual)
+
+**Local** (Qdrant + API on localhost):
 
 ```bash
 ./scripts/smoke-local.sh
 ```
 
-Requires Qdrant + API running; exercises health, ingest script, chat, workflows.
+**Render / hosted API:**
+
+```bash
+API_URL=https://your-peggy-api.onrender.com ./scripts/smoke-remote.sh
+# Optional full checks with Supabase JWT:
+API_URL=https://... SMOKE_AUTH_TOKEN=<access_token> ./scripts/smoke-remote.sh
+```
+
+Env template for Render: [`services/peggy-api/.env.render.example`](../services/peggy-api/.env.render.example).
 
 ## Priority order
 

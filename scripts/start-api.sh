@@ -9,6 +9,13 @@ if [[ ! -d .venv ]]; then
   exit 1
 fi
 
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 # shellcheck disable=SC1091
 source .venv/bin/activate
 

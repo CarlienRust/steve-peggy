@@ -1,0 +1,40 @@
+# Render Blueprint — optional. Or create the web service manually using .env.render.example
+# Docs: docs/SCALE.md
+#
+# Deploy: connect repo in Render → New Blueprint → select this file,
+# or New Web Service → Docker → Root Directory: services/peggy-api
+
+services:
+  - type: web
+    name: peggy-api
+    runtime: docker
+    rootDir: services/peggy-api
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: LLM_PROVIDER
+        value: groq
+      - key: GROQ_MODEL
+        value: llama-3.3-70b-versatile
+      - key: AUTH_REQUIRED
+        value: "true"
+      - key: EMBEDDING_MODEL
+        value: sentence-transformers/all-MiniLM-L6-v2
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: NCBI_EMAIL
+        sync: false
+      - key: NCBI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

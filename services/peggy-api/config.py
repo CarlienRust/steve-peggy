@@ -11,6 +11,8 @@ load_dotenv(BASE_DIR / ".env")
 load_dotenv(BASE_DIR.parent.parent / ".env")
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
+QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
+PORT = int(os.getenv("PORT", "8000"))
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
 VECTOR_SIZE = 384
 
@@ -25,6 +27,12 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
 SQLITE_DB = os.getenv("SQLITE_DB", str(BASE_DIR / "data" / "peggy.db"))
+# When DATABASE_URL is set, catalog uses Postgres (Supabase); SQLITE_DB is ignored.
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+# JWT Secret from Supabase Settings → API (not the anon/publishable key).
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() in ("1", "true", "yes")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL", "peggy@example.com")
 NCBI_API_KEY = os.getenv("NCBI_API_KEY", "")
 
@@ -35,4 +43,8 @@ COLLECTION_LITERATURE = "peggy_literature"
 COLLECTION_OWN_FINDINGS = "peggy_own_findings"
 COLLECTION_CHAT = "chat_history_logs"
 
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,https://*.vercel.app").split(",")
+CORS_ORIGINS = [
+    o.strip()
+    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    if o.strip()
+]

@@ -1,5 +1,25 @@
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+let accessTokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setAccessTokenProvider(fn: () => Promise<string | null>) {
+  accessTokenProvider = fn;
+}
+
+async function authHeaders(contentType = "application/json"): Promise<HeadersInit> {
+  const headers: Record<string, string> = {};
+  if (contentType) {
+    headers["Content-Type"] = contentType;
+  }
+  if (accessTokenProvider) {
+    const token = await accessTokenProvider();
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 export type SourceCitation = {
   chunk_id: string;
   title: string;
@@ -68,9 +88,10 @@ export type WorkflowResponse = {
 };
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = await authHeaders();
   const res = await fetch(`${API_URL}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...headers, ...init?.headers },
   });
   if (!res.ok) {
     const text = await res.text();
@@ -125,7 +146,7 @@ export const peggyApi = {
     dois?: string[];
     search_query?: string;
     source_type?: string;
-  }) => apiFetch<{ job_id: string; status: string }>("/ingest/pubmed", { method: "POST", body: JSON.stringify({ client_id: "web", ...body }) }),
+  }) => apiFetch<{ job_id: string; status: string }>("/ingest/pubmed", { method: "POST", body: JSON.stringify(body) }),
 
   getJob: (jobId: string) => apiFetch<{ job_id: string; status: string; result?: unknown; error?: string }>(`/ingest/jobs/${jobId}`),
 
@@ -158,7 +179,6 @@ export const peggyApi = {
       method: "POST",
       body: JSON.stringify({
         query,
-        client_id: "web",
         mode: options?.mode ?? "auto",
         source_types: options?.sourceTypes,
       }),
@@ -173,7 +193,6 @@ export const peggyApi = {
       body: JSON.stringify({
         query,
         session_id: options.sessionId,
-        client_id: "web",
         mode: options.mode ?? "auto",
         source_types: options.sourceTypes,
       }),
@@ -183,13 +202,13 @@ export const peggyApi = {
     query: string,
     options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode }
   ): AsyncGenerator<AgentStreamEvent> {
+    const headers = await authHeaders();
     const res = await fetch(`${API_URL}/agent/stream`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify({
         query,
         session_id: options.sessionId,
-        client_id: "web",
         mode: options.mode ?? "auto",
         source_types: options.sourceTypes,
       }),
@@ -252,7 +271,9 @@ export const peggyApi = {
     form.append("file", file);
     form.append("title", options?.title ?? file.name.replace(/\.pdf$/i, ""));
     form.append("source_type", options?.sourceType ?? "literature");
-    const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", body: form });
+    const headers = await authHeaders("");
+    delete (headers as Record<string, string>)["Content-Type"];
+    const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", headers, body: form });
     if (!res.ok) {
       const text = await res.text();
       throw new Error(text || res.statusText);

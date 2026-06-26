@@ -40,7 +40,7 @@ def _mock_client(*, collections: set[str], points_by_collection: dict[str, list]
     client.collection_exists.side_effect = lambda name: name in collections
     client.search = MagicMock(name="deprecated_search")
 
-    def query_points(*, collection_name, query, limit, score_threshold, with_payload):
+    def query_points(*, collection_name, query, limit, score_threshold, with_payload, query_filter=None):
         assert with_payload is True
         assert isinstance(query, list)
         return SimpleNamespace(points=points_by_collection.get(collection_name, []))

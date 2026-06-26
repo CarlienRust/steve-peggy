@@ -1,14 +1,11 @@
-"""SQLite-backed agent session memory."""
+"""Agent session memory — catalog-backed (SQLite or Postgres)."""
 
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
-import aiosqlite
-
-import config
 from core.llm.provider import get_llm
+from core.store import catalog
 
 TOKEN_THRESHOLD = 6000
 
@@ -24,49 +21,16 @@ def _estimate_tokens(messages: list[dict]) -> int:
     return total
 
 
-async def ensure_session(session_id: str, client_id: str = "default") -> None:
-    now = datetime.now(timezone.utc).isoformat()
-    async with aiosqlite.connect(config.SQLITE_DB) as db:
-        cur = await db.execute("SELECT session_id FROM agent_sessions WHERE session_id = ?", (session_id,))
-        if not await cur.fetchone():
-            await db.execute(
-                "INSERT INTO agent_sessions (session_id, client_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (session_id, client_id, now, now),
-            )
-            await db.commit()
+async def ensure_session(session_id: str, user_id: str = "dev-user") -> None:
+    await catalog.ensure_agent_session(user_id, session_id)
 
 
-async def load(session_id: str) -> list[dict]:
-    async with aiosqlite.connect(config.SQLITE_DB) as db:
-        db.row_factory = aiosqlite.Row
-        cur = await db.execute(
-            "SELECT role, content FROM agent_messages WHERE session_id = ? ORDER BY id ASC",
-            (session_id,),
-        )
-        rows = await cur.fetchall()
-    messages = []
-    for row in rows:
-        try:
-            content = json.loads(row["content"])
-        except (json.JSONDecodeError, TypeError):
-            content = row["content"]
-        messages.append({"role": row["role"], "content": content})
-    return messages
+async def load(session_id: str, user_id: str = "dev-user") -> list[dict]:
+    return await catalog.load_agent_messages(user_id, session_id)
 
 
-async def append(session_id: str, role: str, content: str | dict) -> None:
-    now = datetime.now(timezone.utc).isoformat()
-    payload = content if isinstance(content, str) else json.dumps(content, default=str)
-    async with aiosqlite.connect(config.SQLITE_DB) as db:
-        await db.execute(
-            "INSERT INTO agent_messages (session_id, role, content, created_at) VALUES (?, ?, ?, ?)",
-            (session_id, role, payload, now),
-        )
-        await db.execute(
-            "UPDATE agent_sessions SET updated_at = ? WHERE session_id = ?",
-            (now, session_id),
-        )
-        await db.commit()
+async def append(session_id: str, user_id: str, role: str, content: str | dict) -> None:
+    await catalog.append_agent_message(user_id, session_id, role, content)
 
 
 async def summarise_if_long(messages: list[dict]) -> list[dict]:

@@ -34,12 +34,38 @@ EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
 **Groq (no local GPU):** `LLM_PROVIDER=groq` + `GROQ_API_KEY` — [ENV.md](ENV.md). **Recommended for agent dev** (Auto mode uses `complete_with_tools`; faster iteration than Ollama).
 
-Optional dashboard copy in `apps/web/.env.local`:
+Optional dashboard + Supabase in `apps/web/.env.local`:
 
 ```env
+NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=https://lmaugorqwhdnotpcqnnf.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Supabase dashboard>
 NEXT_PUBLIC_WORKSPACE_TITLE=Your research topic
 NEXT_PUBLIC_WORKSPACE_FOCUS=Primary hypothesis or focus
 ```
+
+### Supabase auth (full local Peggy)
+
+1. Run `services/peggy-api/migrations/001_supabase_initial.sql` in [Supabase SQL Editor](https://supabase.com/dashboard/project/lmaugorqwhdnotpcqnnf/sql)
+2. Enable Email magic link; redirect URL `http://localhost:3000/auth/callback`
+3. In `services/peggy-api/.env`:
+
+```env
+# See ENV.md for DATABASE_URL (Database → URI → pooler :6543)
+DATABASE_URL=postgresql://postgres.lmaugorqwhdnotpcqnnf:[PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://lmaugorqwhdnotpcqnnf.supabase.co
+SUPABASE_JWT_SECRET=<JWT Secret from Settings → API, NOT anon key>
+AUTH_REQUIRED=true
+CORS_ORIGINS=http://localhost:3000
+QDRANT_URL=https://YOUR-CLUSTER.cloud.qdrant.io
+QDRANT_API_KEY=<from Qdrant Cloud>
+```
+
+Use **one URL** per variable (no commas). Skip `./scripts/start-qdrant.sh` when using Qdrant Cloud.
+
+4. Sign in at http://localhost:3000/login — API calls include Bearer JWT
+
+Without Supabase env vars, pytest and `./scripts/smoke-local.sh` use SQLite + `AUTH_REQUIRED=false` (`dev-user`).
 
 ## Daily workflow (three terminals)
 
@@ -115,11 +141,11 @@ cd services/peggy-api && source .venv/bin/activate && pytest -v
 
 See [TESTING.md](TESTING.md).
 
-## What stays local for now
+## What stays local in Milestone 1
 
-- SQLite catalog (not Postgres)
-- Profile in `localStorage` ([AUTH.md](AUTH.md))
+- Qdrant vectors (not Qdrant Cloud until Milestone 2)
 - BackgroundTasks for ingest (not Inngest)
-- Delete corpus — SQLite only; Qdrant vectors remain
+- Delete corpus — catalog row removed; Qdrant vectors remain (stub)
+- Vercel deployment — auth/login only; full app on localhost
 
-Production path: [SCALE.md](SCALE.md).
+Production path: [SCALE.md](SCALE.md) · Auth: [AUTH.md](AUTH.md)

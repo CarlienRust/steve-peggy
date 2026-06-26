@@ -32,8 +32,8 @@ def _parse_json(text: str) -> dict:
         return {"raw": text}
 
 
-async def grounded_chat(query: str, source_types: list[str] | None = None) -> dict:
-    sources = qdrant_store.search(query, source_types=source_types)
+async def grounded_chat(query: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
+    sources = qdrant_store.search(query, source_types=source_types, user_id=user_id)
     llm = get_llm()
     system = prompts.build_system_prompt()
     user = prompts.chat_user_prompt(query, sources)
@@ -46,8 +46,10 @@ async def grounded_chat(query: str, source_types: list[str] | None = None) -> di
     }
 
 
-async def run_gap_analysis(query: str, source_types: list[str] | None = None) -> dict:
-    sources = qdrant_store.search(query, source_types=source_types or ["literature", "own_findings"])
+async def run_gap_analysis(query: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
+    sources = qdrant_store.search(
+        query, source_types=source_types or ["literature", "own_findings"], user_id=user_id
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -63,9 +65,9 @@ async def run_gap_analysis(query: str, source_types: list[str] | None = None) ->
     }
 
 
-async def run_compare(finding: str, source_types: list[str] | None = None) -> dict:
+async def run_compare(finding: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
     sources = qdrant_store.search(
-        finding, source_types=source_types or ["literature", "own_findings"]
+        finding, source_types=source_types or ["literature", "own_findings"], user_id=user_id
     )
     llm = get_llm()
     raw = await llm.complete(
@@ -82,8 +84,12 @@ async def run_compare(finding: str, source_types: list[str] | None = None) -> di
     }
 
 
-async def run_future_design(gap_summary: str, constraints: str, source_types: list[str] | None = None) -> dict:
-    sources = qdrant_store.search(gap_summary, source_types=source_types or ["literature", "own_findings"])
+async def run_future_design(
+    gap_summary: str, constraints: str, source_types: list[str] | None = None, user_id: str = "dev-user"
+) -> dict:
+    sources = qdrant_store.search(
+        gap_summary, source_types=source_types or ["literature", "own_findings"], user_id=user_id
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -99,8 +105,10 @@ async def run_future_design(gap_summary: str, constraints: str, source_types: li
     }
 
 
-async def run_manuscript_framing(results_summary: str, source_types: list[str] | None = None) -> dict:
-    sources = qdrant_store.search(results_summary, source_types=source_types or ["literature", "own_findings"])
+async def run_manuscript_framing(results_summary: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
+    sources = qdrant_store.search(
+        results_summary, source_types=source_types or ["literature", "own_findings"], user_id=user_id
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),

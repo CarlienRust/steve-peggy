@@ -23,7 +23,21 @@ legacy/                   Archived — do not import
 | Corpus (literature) | `/ingest` | `literature` | `peggy_literature` |
 | Our findings | `/findings` | `own_findings` | `peggy_own_findings` |
 
-Catalog dedup: same PMID, DOI, or normalized title within a `source_type` → skip insert (`duplicate` response).
+Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
+
+## Auth (Milestone 1)
+
+Next.js uses Supabase email magic link. FastAPI verifies JWT `sub` as `user_id` on all protected routes. See [AUTH.md](AUTH.md).
+
+```mermaid
+flowchart LR
+  Web[Next.js] -->|Bearer JWT| API[peggy-api]
+  Web --> Supa[Supabase Auth]
+  API --> DB[(Postgres or SQLite)]
+  API --> Qdrant[(Qdrant)]
+```
+
+Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) scoped by `user_id`.
 
 ## Qdrant collections
 
@@ -33,9 +47,7 @@ Catalog dedup: same PMID, DOI, or normalized title within a `source_type` → sk
 | `peggy_own_findings` | Narrative findings + research PDFs |
 | `chat_history_logs` | Reserved for cross-session semantic memory (unused) |
 
-Agent session memory uses SQLite (`agent_sessions`, `agent_messages` in `catalog.py`).
-
-Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16).
+Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id` in payload.
 
 ## LLM providers
 
@@ -57,6 +69,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /ingest/jobs/{id}` | Poll job status |
 | `POST /ingest/upload` | PDF or text (`source_type` form field) |
 | `POST /ingest/findings` | Own-findings narrative JSON |
+| `POST /discover` | Literature discovery (PubMed + Europe PMC, read-only) |
 
 ### Corpus
 
@@ -101,17 +114,20 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/chat` | Ask Peggy | Q&A + gap/compare modes |
 | `/gaps` | Gap Analysis | Gaps table |
 | `/compare` | Comparison | Finding vs field |
+| `/login` | — | Supabase email magic link |
 
-## Deployment (future)
+Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 
-| Layer | Platform |
-|-------|----------|
-| Frontend | Vercel |
-| API | Railway / Render / Fly |
-| Vectors | Qdrant Cloud |
+## Deployment
+
+| Layer | Milestone 1 | Milestone 2 |
+|-------|-------------|-------------|
+| Frontend | Vercel (auth shell) + localhost full app | Vercel + public API |
+| API | localhost `:8000` | Railway / Render / Fly |
+| Vectors | Local Qdrant | Qdrant Cloud |
 | Catalog + auth | Supabase — [DATABASE.md](DATABASE.md), [AUTH.md](AUTH.md) |
-| Jobs | Inngest (optional) |
-| Cache | Upstash Redis (optional) |
+| Jobs | Inngest (optional) | Inngest (optional) |
+| Cache | Upstash Redis (optional) | Upstash Redis (optional) |
 
 ## Own-findings payload
 

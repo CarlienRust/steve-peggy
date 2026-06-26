@@ -58,7 +58,7 @@ async def run_agent(
     mode: str = "auto",
     source_types: list[str] | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
-    client_id: str = "default",
+    user_id: str = "dev-user",
 ) -> AgentResponse:
     events: list[dict] = []
     async for event in _agent_events(
@@ -67,7 +67,7 @@ async def run_agent(
         mode=mode,
         source_types=source_types,
         max_steps=max_steps,
-        client_id=client_id,
+        user_id=user_id,
     ):
         events.append(event)
         if event.get("type") == "final":
@@ -86,7 +86,7 @@ async def run_agent_stream(
     mode: str = "auto",
     source_types: list[str] | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
-    client_id: str = "default",
+    user_id: str = "dev-user",
 ) -> AsyncIterator[dict]:
     async for event in _agent_events(
         query=query,
@@ -94,7 +94,7 @@ async def run_agent_stream(
         mode=mode,
         source_types=source_types,
         max_steps=max_steps,
-        client_id=client_id,
+        user_id=user_id,
     ):
         yield event
 
@@ -105,13 +105,13 @@ async def _agent_events(
     mode: str,
     source_types: list[str] | None,
     max_steps: int,
-    client_id: str,
+    user_id: str,
 ) -> AsyncIterator[dict]:
-    await ensure_session(session_id, client_id)
+    await ensure_session(session_id, user_id)
     source_types = source_types or ["literature", "own_findings"]
-    ctx = {"source_types": source_types, "query": query}
+    ctx = {"source_types": source_types, "query": query, "user_id": user_id}
 
-    history = await memory.load(session_id)
+    history = await memory.load(session_id, user_id)
     tool_defs = tools.tool_schemas_for_mode(mode)
     system = prompts.build_agent_system_prompt(mode, tool_defs)
 
@@ -142,8 +142,8 @@ async def _agent_events(
 
         if isinstance(response, FinalAnswer):
             answer = response.text.strip()
-            await memory.append(session_id, "user", query)
-            await memory.append(session_id, "assistant", answer)
+            await memory.append(session_id, user_id, "user", query)
+            await memory.append(session_id, user_id, "assistant", answer)
             final = AgentResponse(
                 answer=answer,
                 body=body,
@@ -208,8 +208,8 @@ async def _agent_events(
         f"Sources found: {len(accumulated_sources)}\n\n"
         "Provide the best partial answer with limitations.",
     )
-    await memory.append(session_id, "user", query)
-    await memory.append(session_id, "assistant", partial)
+    await memory.append(session_id, user_id, "user", query)
+    await memory.append(session_id, user_id, "assistant", partial)
     final = AgentResponse(
         answer=partial,
         body=body,

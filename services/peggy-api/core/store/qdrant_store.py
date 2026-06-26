@@ -9,7 +9,7 @@ from typing import Any
 
 import numpy as np
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, PointStruct, VectorParams
+from qdrant_client.http.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
 
 import config
 
@@ -20,10 +20,17 @@ _embedder = None
 _embedding_mode: str = "uninitialized"
 
 
+def client_kwargs() -> dict[str, Any]:
+    kwargs: dict[str, Any] = {"url": config.QDRANT_URL, "check_compatibility": False}
+    if config.QDRANT_API_KEY:
+        kwargs["api_key"] = config.QDRANT_API_KEY
+    return kwargs
+
+
 def get_client() -> QdrantClient:
     global _client
     if _client is None:
-        _client = QdrantClient(url=config.QDRANT_URL, check_compatibility=False)
+        _client = QdrantClient(**client_kwargs())
     return _client
 
 
@@ -86,7 +93,11 @@ def collection_for_source(source_type: str) -> str:
     return config.COLLECTION_OWN_FINDINGS if source_type == "own_findings" else config.COLLECTION_LITERATURE
 
 
-def upsert_chunks(chunks: list, source_type: str = "literature") -> int:
+def _user_filter(user_id: str) -> Filter:
+    return Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
+
+
+def upsert_chunks(chunks: list, source_type: str = "literature", user_id: str = "dev-user") -> int:
     if not chunks:
         return 0
     client = get_client()
@@ -97,6 +108,7 @@ def upsert_chunks(chunks: list, source_type: str = "literature") -> int:
             id=point_id_for_chunk(c.chunk_id),
             vector=vec,
             payload={
+                "user_id": user_id,
                 "text": c.text,
                 "chunk_id": c.chunk_id,
                 **c.metadata,
@@ -113,6 +125,7 @@ def search(
     source_types: list[str] | None = None,
     limit: int = 8,
     score_threshold: float | None = None,
+    user_id: str = "dev-user",
 ) -> list[dict[str, Any]]:
     _init_embedder()
     threshold = score_threshold if score_threshold is not None else (
@@ -132,6 +145,7 @@ def search(
             limit=limit,
             score_threshold=threshold,
             with_payload=True,
+            query_filter=_user_filter(user_id),
         )
         for hit in response.points:
             p = hit.payload or {}
@@ -149,7 +163,7 @@ def search(
     return hits[:limit]
 
 
-def scroll_texts(source_type: str = "literature", limit: int = 500) -> list[str]:
+def scroll_texts(source_type: str = "literature", limit: int = 500, user_id: str = "dev-user") -> list[str]:
     """Return chunk text payloads from a collection (for TF-IDF / discovery)."""
     client = get_client()
     collection = collection_for_source(source_type)
@@ -165,6 +179,7 @@ def scroll_texts(source_type: str = "literature", limit: int = 500) -> list[str]
             offset=offset,
             with_payload=True,
             with_vectors=False,
+            scroll_filter=_user_filter(user_id),
         )
         if not records:
             break
@@ -178,7 +193,7 @@ def scroll_texts(source_type: str = "literature", limit: int = 500) -> list[str]
     return texts
 
 
-def get_document_text(title: str, source_type: str = "own_findings") -> str:
+def get_document_text(title: str, source_type: str = "own_findings", user_id: str = "dev-user") -> str:
     """Concatenate chunk texts for a document matched by title in payload."""
     client = get_client()
     collection = collection_for_source(source_type)
@@ -194,6 +209,7 @@ def get_document_text(title: str, source_type: str = "own_findings") -> str:
             offset=offset,
             with_payload=True,
             with_vectors=False,
+            scroll_filter=_user_filter(user_id),
         )
         if not records:
             break

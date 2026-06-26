@@ -89,7 +89,7 @@ async def test_agent_run_returns_schema(client):
 
 @pytest.mark.asyncio
 async def test_discover_endpoint(client):
-    with patch("core.ingest.discovery.discover_literature", new_callable=AsyncMock) as mock_disc:
+    with patch("routers.ingest_router.discover_literature", new_callable=AsyncMock) as mock_disc:
         mock_disc.return_value = {
             "query_used": "microbiome",
             "candidates": [],

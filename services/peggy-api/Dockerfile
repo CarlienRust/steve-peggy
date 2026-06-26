@@ -13,4 +13,5 @@ COPY . .
 RUN mkdir -p /app/data
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Render sets PORT; default 8000 for local docker compose
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
