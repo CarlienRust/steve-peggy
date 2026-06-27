@@ -237,6 +237,13 @@ async def list_papers(user_id: str, source_type: str | None = None) -> list[dict
         return [dict(r) for r in rows]
 
 
+async def count_papers(user_id: str) -> int:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute("SELECT COUNT(*) FROM papers WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
+
+
 async def create_job(user_id: str, payload: dict) -> str:
     job_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
@@ -400,6 +407,13 @@ async def list_workspaces(user_id: str) -> list[dict]:
             d["objectives"] = []
         result.append(d)
     return result
+
+
+async def count_workspaces(user_id: str) -> int:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute("SELECT COUNT(*) FROM workspaces WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+        return int(row[0]) if row else 0
 
 
 async def get_workspace(user_id: str, workspace_id: str) -> dict | None:

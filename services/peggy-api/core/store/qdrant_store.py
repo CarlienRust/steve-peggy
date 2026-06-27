@@ -47,7 +47,11 @@ def _hash_embed(text: str, dim: int = config.VECTOR_SIZE) -> list[float]:
 
 def _init_embedder() -> None:
     global _embedder, _embedding_mode
-    if _embedder is not None:
+    if _embedder is not None or _embedding_mode not in ("uninitialized",):
+        return
+    if config.EMBEDDING_BACKEND == "hash":
+        _embedding_mode = "hash"
+        logger.info("Using hash embeddings (EMBEDDING_BACKEND=hash)")
         return
     try:
         from sentence_transformers import SentenceTransformer
@@ -55,6 +59,8 @@ def _init_embedder() -> None:
         _embedder = SentenceTransformer(config.EMBEDDING_MODEL)
         _embedding_mode = "sentence-transformers"
     except Exception as exc:
+        if config.EMBEDDING_BACKEND == "sentence-transformers":
+            raise
         logger.warning(
             "sentence-transformers unavailable (%s); using hash fallback — "
             "install requirements.txt for semantic search",

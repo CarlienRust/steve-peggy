@@ -56,6 +56,13 @@ export function IngestForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  const limitsQuery = useQuery({
+    queryKey: queryKeys.limits,
+    queryFn: () => peggyApi.limits(),
+    staleTime: 5 * 60 * 1000,
+  });
+  const limits = limitsQuery.data;
+
   const pubmedForm = useForm({
     resolver: zodResolver(pubmedSchema),
     defaultValues: { pmids: "", dois: "", search_query: "" },
@@ -66,12 +73,22 @@ export function IngestForm({
   });
 
   const pubmedMut = useMutation({
-    mutationFn: (v: z.infer<typeof pubmedSchema>) =>
-      peggyApi.ingestPubmed({
-        pmids: v.pmids?.split(/[\s,]+/).filter(Boolean),
-        dois: v.dois?.split(/[\s,]+/).filter(Boolean),
+    mutationFn: (v: z.infer<typeof pubmedSchema>) => {
+      const pmids = v.pmids?.split(/[\s,]+/).filter(Boolean) ?? [];
+      const dois = v.dois?.split(/[\s,]+/).filter(Boolean) ?? [];
+      const maxIds = limits?.max_pmids_per_ingest ?? 10;
+      if (pmids.length + dois.length > maxIds) {
+        throw new Error(`Maximum ${maxIds} PMIDs/DOIs per request`);
+      }
+      if (v.search_query && limits && v.search_query.length > limits.max_text_query_len) {
+        throw new Error(`Search query exceeds ${limits.max_text_query_len} characters`);
+      }
+      return peggyApi.ingestPubmed({
+        pmids,
+        dois,
         search_query: v.search_query || undefined,
-      }),
+      });
+    },
     onSuccess: (d) => {
       setJobId(d.job_id);
     },
@@ -110,8 +127,14 @@ export function IngestForm({
 
   const pdfMut = useMutation({
     mutationFn: async (files: File[]) => {
+      const maxBytes = limits?.max_upload_bytes ?? 5 * 1024 * 1024;
       const results: UploadResult[] = [];
       for (const file of files) {
+        if (file.size > maxBytes) {
+          const mb = Math.round(maxBytes / (1024 * 1024));
+          results.push({ name: file.name, ok: false, error: `File exceeds ${mb} MB limit` });
+          continue;
+        }
         try {
           const res = await peggyApi.uploadDocument(file, { sourceType });
           if (res.status === "duplicate") {
@@ -156,6 +179,12 @@ export function IngestForm({
 
   return (
     <Stack spacing={3}>
+      {limits && (
+        <Typography variant="caption" color="text.secondary" sx={monoSx}>
+          Limits: {limits.max_pmids_per_ingest} IDs/ingest ·{" "}
+          {Math.round(limits.max_upload_bytes / (1024 * 1024))} MB upload · {limits.max_papers_per_user} papers max
+        </Typography>
+      )}
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
         {variant === "literature" && <Tab label="PubMed / DOI" />}
         <Tab label={variant === "findings" ? "Findings narrative" : "PDF upload"} />

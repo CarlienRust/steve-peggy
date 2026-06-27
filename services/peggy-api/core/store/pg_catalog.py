@@ -184,7 +184,14 @@ async def list_papers(user_id: str, source_type: str | None = None) -> list[dict
         return [_row_to_dict(r) for r in rows]
 
 
-async def create_job(user_id: str, payload: dict) -> str:
+async def count_papers(user_id: str) -> int:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) AS n FROM papers WHERE user_id = $1::uuid",
+            user_id,
+        )
+        return int(row["n"]) if row else 0
     job_id = str(uuid.uuid4())
     pool = await _pool_conn()
     async with pool.acquire() as conn:
@@ -361,6 +368,16 @@ async def list_workspaces(user_id: str) -> list[dict]:
             user_id,
         )
     return [_workspace_row(r) for r in rows]
+
+
+async def count_workspaces(user_id: str) -> int:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT COUNT(*) AS n FROM workspaces WHERE user_id = $1::uuid",
+            user_id,
+        )
+        return int(row["n"]) if row else 0
 
 
 async def get_workspace(user_id: str, workspace_id: str) -> dict | None:

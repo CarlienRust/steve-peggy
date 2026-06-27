@@ -48,3 +48,22 @@ CORS_ORIGINS = [
     for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
     if o.strip()
 ]
+
+# --- Free-tier enforcement (see docs/RESTRICTIONS.md) ---
+# On Render (512MB RAM), default to hash embeddings to avoid OOM from sentence-transformers.
+_EMBEDDING_DEFAULT = "hash" if os.getenv("RENDER") else "auto"
+EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", _EMBEDDING_DEFAULT).lower()
+
+MAX_PAPERS_PER_USER = int(os.getenv("MAX_PAPERS_PER_USER", "200"))
+MAX_WORKSPACES_PER_USER = int(os.getenv("MAX_WORKSPACES_PER_USER", "10"))
+MAX_PMIDS_PER_INGEST = int(os.getenv("MAX_PMIDS_PER_INGEST", "10"))
+MAX_DISCOVER_RESULTS = int(os.getenv("MAX_DISCOVER_RESULTS", "20"))
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
+MAX_TEXT_QUERY_LEN = int(os.getenv("MAX_TEXT_QUERY_LEN", "4000"))
+MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "5"))
+
+RATE_LIMIT_CHAT_PER_HOUR = int(os.getenv("RATE_LIMIT_CHAT_PER_HOUR", "30"))
+RATE_LIMIT_AGENT_PER_HOUR = int(os.getenv("RATE_LIMIT_AGENT_PER_HOUR", "15"))
+RATE_LIMIT_INGEST_PER_HOUR = int(os.getenv("RATE_LIMIT_INGEST_PER_HOUR", "20"))
+RATE_LIMIT_DISCOVER_PER_HOUR = int(os.getenv("RATE_LIMIT_DISCOVER_PER_HOUR", "20"))
+RATE_LIMIT_WORKFLOW_PER_HOUR = int(os.getenv("RATE_LIMIT_WORKFLOW_PER_HOUR", "15"))

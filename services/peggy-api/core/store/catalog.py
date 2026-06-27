@@ -50,6 +50,10 @@ async def list_papers(user_id: str, source_type: str | None = None) -> list[dict
     return await _backend().list_papers(user_id, source_type)
 
 
+async def count_papers(user_id: str) -> int:
+    return await _backend().count_papers(user_id)
+
+
 async def create_job(user_id: str, payload: dict) -> str:
     return await _backend().create_job(user_id, payload)
 
@@ -88,6 +92,10 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
 
 async def list_workspaces(user_id: str) -> list[dict]:
     return await _backend().list_workspaces(user_id)
+
+
+async def count_workspaces(user_id: str) -> int:
+    return await _backend().count_workspaces(user_id)
 
 
 async def get_workspace(user_id: str, workspace_id: str) -> dict | None:

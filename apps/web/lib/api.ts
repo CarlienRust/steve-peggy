@@ -107,6 +107,24 @@ export type Workspace = {
   objectives: string[];
 };
 
+export type TierLimits = {
+  embedding_backend: string;
+  max_papers_per_user: number;
+  max_workspaces_per_user: number;
+  max_pmids_per_ingest: number;
+  max_discover_results: number;
+  max_upload_bytes: number;
+  max_text_query_len: number;
+  max_agent_steps: number;
+  rate_limits_per_hour: {
+    chat: number;
+    agent: number;
+    ingest: number;
+    discover: number;
+    workflow: number;
+  };
+};
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}${path}`, {
@@ -159,7 +177,10 @@ export const peggyApi = {
       llm_reachable?: boolean;
       ollama_reachable?: boolean | null;
       embeddings?: string;
+      limits?: TierLimits;
     }>("/health"),
+
+  limits: () => apiFetch<TierLimits>("/limits"),
 
   ingestPubmed: (body: {
     pmids?: string[];
@@ -327,6 +348,7 @@ export const peggyApi = {
 
 export const queryKeys = {
   health: ["health"] as const,
+  limits: ["limits"] as const,
   corpus: (sourceType?: string) => ["corpus", sourceType] as const,
   job: (id: string) => ["job", id] as const,
   profile: ["profile"] as const,

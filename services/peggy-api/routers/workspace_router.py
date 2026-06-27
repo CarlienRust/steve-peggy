@@ -3,6 +3,7 @@ from pydantic import BaseModel, Field
 from typing import Optional
 
 from core.auth.deps import AuthUser, get_current_user
+from core.limits import enforce_workspace_quota
 from core.store import catalog
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -28,6 +29,7 @@ async def list_workspaces(user: AuthUser = Depends(get_current_user)):
 
 @router.post("")
 async def create_workspace(body: WorkspaceCreate, user: AuthUser = Depends(get_current_user)):
+    await enforce_workspace_quota(user.id)
     objectives = [o.strip() for o in body.objectives if o.strip()]
     ws = await catalog.create_workspace(user.id, body.title.strip(), body.aim.strip(), objectives)
     return ws

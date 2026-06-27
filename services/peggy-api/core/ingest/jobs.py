@@ -6,6 +6,7 @@ import asyncio
 import json
 from dataclasses import dataclass
 
+import config
 from core.ingest.chunker import chunk_text, paper_to_chunks
 from core.ingest.pdf import extract_text_from_pdf, is_pdf
 from core.ingest.pubmed import fetch_by_pmid, resolve_doi, search_pubmed
@@ -36,11 +37,14 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
             else:
                 errors.append(f"Could not resolve DOI: {doi}")
         if payload.get("search_query"):
-            pmids.extend(await search_pubmed(payload["search_query"], max_results=10))
-        pmids = list(dict.fromkeys(pmids))
+            pmids.extend(await search_pubmed(payload["search_query"], max_results=config.MAX_PMIDS_PER_INGEST))
+        pmids = list(dict.fromkeys(pmids))[: config.MAX_PMIDS_PER_INGEST]
         source_type = payload.get("source_type", "literature")
         for pmid in pmids:
             try:
+                if await catalog.count_papers(user_id) >= config.MAX_PAPERS_PER_USER:
+                    errors.append(f"Paper limit reached ({config.MAX_PAPERS_PER_USER}); stopping ingest.")
+                    break
                 paper = await fetch_by_pmid(pmid)
                 if not paper:
                     errors.append(f"No record for PMID {pmid}")

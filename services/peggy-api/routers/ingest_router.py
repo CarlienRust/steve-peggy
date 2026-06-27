@@ -2,9 +2,18 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFi
 from pydantic import BaseModel, Field
 from typing import Optional
 
+import config
 from core.auth.deps import AuthUser, get_current_user
 from core.ingest.discovery import discover_literature
 from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job
+from core.limits import (
+    cap_discover_results,
+    enforce_ingest_batch,
+    enforce_paper_quota,
+    enforce_text_length,
+    enforce_upload_size,
+    enforce_user_rate,
+)
 from core.store import catalog
 from schemas.responses import DiscoveryResponse
 
@@ -34,6 +43,11 @@ async def ingest_pubmed(
 ):
     if not body.pmids and not body.dois and not body.search_query:
         raise HTTPException(400, "Provide pmids, dois, or search_query")
+    enforce_ingest_batch(body.pmids, body.dois)
+    if body.search_query:
+        enforce_text_length(body.search_query, label="Search query")
+    await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
+    await enforce_paper_quota(user.id)
     payload = {**body.model_dump(), "user_id": user.id}
     job_id = await catalog.create_job(user.id, payload)
     background_tasks.add_task(run_ingest_job, job_id, payload)
@@ -55,7 +69,10 @@ async def upload_document(
     title: str = Form("Uploaded document"),
     user: AuthUser = Depends(get_current_user),
 ):
+    await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
+    await enforce_paper_quota(user.id)
     raw = await file.read()
+    enforce_upload_size(len(raw))
     doc_title = title if title != "Uploaded document" else (file.filename or title)
     try:
         result = await ingest_upload_bytes(
@@ -87,6 +104,11 @@ async def upload_document(
 
 @router.post("/findings")
 async def ingest_findings(body: FindingsIngestRequest, user: AuthUser = Depends(get_current_user)):
+    enforce_text_length(body.title, max_len=256, label="Title")
+    if body.narrative:
+        enforce_text_length(body.narrative, label="Narrative")
+    await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
+    await enforce_paper_quota(user.id)
     try:
         result = await ingest_findings_json(body.model_dump(), user_id=user.id)
     except DuplicateDocumentError as e:
@@ -101,11 +123,15 @@ async def ingest_findings(body: FindingsIngestRequest, user: AuthUser = Depends(
 
 class DiscoverRequest(BaseModel):
     topic: Optional[str] = None
-    max_results: int = 20
+    max_results: int = Field(default=20, ge=1)
 
 
 @discover_router.post("/discover", response_model=DiscoveryResponse)
 async def discover(body: DiscoverRequest, user: AuthUser = Depends(get_current_user)):
     """Read-only literature discovery from PubMed + Europe PMC (no ingest)."""
-    result = await discover_literature(topic=body.topic, max_results=body.max_results, user_id=user.id)
+    if body.topic:
+        enforce_text_length(body.topic, label="Topic")
+    await enforce_user_rate(user.id, "discover", config.RATE_LIMIT_DISCOVER_PER_HOUR)
+    capped = cap_discover_results(body.max_results)
+    result = await discover_literature(topic=body.topic, max_results=capped, user_id=user.id)
     return result

@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import config
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
-from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, profile_router, workflow_router, workspace_router
+from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
 
 
 @asynccontextmanager
@@ -17,6 +17,8 @@ async def lifespan(app: FastAPI):
         _init_embedder()
         print(f"[Peggy] Qdrant ready at {config.QDRANT_URL}")
         print(f"[Peggy] Embeddings: {embedding_mode()}")
+        from core.limits import limits_snapshot
+        print(f"[Peggy] Tier limits: {limits_snapshot()}")
         from core.llm.health import is_llm_configured
         print(f"[Peggy] LLM: {config.LLM_PROVIDER} (configured: {is_llm_configured()})")
     except Exception as e:
@@ -35,6 +37,7 @@ app.add_middleware(
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
+app.include_router(limits_router.router)
 app.include_router(ingest_router.router)
 app.include_router(ingest_router.discover_router)
 app.include_router(agent_router.router)
@@ -56,6 +59,7 @@ async def health():
         pass
     from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
     from core.store.qdrant_store import embedding_mode
+    from core.limits import limits_snapshot
 
     llm_configured = is_llm_configured()
     llm_reachable = await is_llm_reachable()
@@ -69,4 +73,5 @@ async def health():
         "llm_reachable": llm_reachable,
         "ollama_reachable": ollama_ok,
         "embeddings": embedding_mode(),
+        "limits": limits_snapshot(),
     }

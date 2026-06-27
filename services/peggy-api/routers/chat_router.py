@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from typing import Literal
 
+import config
 from core.auth.deps import AuthUser, get_current_user
+from core.limits import enforce_text_length, enforce_user_rate
 from core.rag.intent import detect_intent
 from core.rag.workflows import grounded_chat, run_compare, run_gap_analysis
 from schemas.responses import ChatResponse, SourceCitation
@@ -33,6 +35,8 @@ def _wrap_workflow(mode: str, result: dict) -> ChatResponse:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest, user: AuthUser = Depends(get_current_user)):
+    enforce_text_length(body.query, label="Query")
+    await enforce_user_rate(user.id, "chat", config.RATE_LIMIT_CHAT_PER_HOUR)
     intent = detect_intent(body.query, body.mode if body.mode != "auto" else None)
 
     if intent == "gap_analysis":
