@@ -63,8 +63,18 @@ export function createPeggyTheme() {
         styleOverrides: {
           root: {
             backgroundImage: "none",
-            border: `1px solid ${peggyColors.border}`,
+            border: `0.5px solid ${peggyColors.border}`,
             borderRadius: 8,
+          },
+        },
+      },
+      MuiLink: {
+        defaultProps: { underline: "hover" },
+        styleOverrides: {
+          root: {
+            color: peggyColors.accent,
+            fontWeight: 500,
+            "&:hover": { color: peggyColors.primary },
           },
         },
       },
@@ -111,6 +121,16 @@ export const eyebrowSx = {
   fontSize: "10px",
   fontWeight: 500,
   letterSpacing: "0.12em",
+  textTransform: "uppercase" as const,
+  color: peggyColors.mutedForeground,
+};
+
+/** Login / register subheader under the Peggy wordmark */
+export const authSubtitleSx = {
+  ...monoSx,
+  fontSize: "11px",
+  fontWeight: 500,
+  letterSpacing: "0.14em",
   textTransform: "uppercase" as const,
   color: peggyColors.mutedForeground,
 };

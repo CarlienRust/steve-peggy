@@ -6,8 +6,9 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-jetbrains" });
 
 export const metadata = {
-  title: "Dashboard — Peggy",
+  title: "Peggy — Research Assistant",
   description: "Evidence-grounded literature review and gap analysis",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

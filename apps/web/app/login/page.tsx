@@ -12,10 +12,10 @@ import {
   Tab,
   Tabs,
   TextField,
-  Typography,
 } from "@mui/material";
 import { createClient } from "@/lib/supabase/client";
-import { RESEARCH_ROLES, type ResearchRole, type TitleOption } from "@/lib/userProfile";
+import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
+import { type ResearchRole, type TitleOption } from "@/lib/userProfile";
 import { ProfileNameFields } from "@/components/ProfileNameFields";
 import { ResearchRoleField } from "@/components/ResearchRoleField";
 
@@ -72,14 +72,7 @@ function LoginForm() {
   return (
     <Paper sx={{ p: 4, maxWidth: 480, width: "100%" }}>
       <Stack spacing={3}>
-        <Box>
-          <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em">
-            Peggy
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-            Research Assistant
-          </Typography>
-        </Box>
+        <PeggyBrandLockup variant="auth" centered showSubtitle />
 
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="fullWidth">
           <Tab label="Sign in" />

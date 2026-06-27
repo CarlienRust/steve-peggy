@@ -15,6 +15,7 @@ import {
   useTheme,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
 
@@ -29,38 +30,6 @@ const nav = [
   { num: "05", label: "Gap Analysis", href: "/gaps" },
   { num: "06", label: "Comparison", href: "/compare" },
 ] as const;
-
-function PeggyLogo({ compact }: { compact?: boolean }) {
-  return (
-    <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, textDecoration: "none", color: "inherit" }}>
-      <Box
-        sx={{
-          width: compact ? 22 : 24,
-          height: compact ? 22 : 24,
-          borderRadius: 0.5,
-          bgcolor: "primary.main",
-          display: "grid",
-          placeItems: "center",
-          flexShrink: 0,
-        }}
-      >
-        <Typography sx={{ ...monoSx, fontSize: compact ? 9 : 10, color: "primary.contrastText", lineHeight: 1 }}>
-          P
-        </Typography>
-      </Box>
-      <Typography
-        sx={{
-          fontSize: compact ? "1rem" : "1.125rem",
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          lineHeight: 1.2,
-        }}
-      >
-        Peggy
-      </Typography>
-    </Box>
-  );
-}
 
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
   return (
@@ -114,7 +83,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
       }}
     >
       <Box component={Link} href="/" onClick={onNavigate} sx={{ mb: 5, textDecoration: "none", color: "inherit" }}>
-        <PeggyLogo />
+        <PeggyBrandLockup variant="sidebar" />
       </Box>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
       <ResearcherProfile />
@@ -160,7 +129,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <MenuIcon />
               </IconButton>
               <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
-                <PeggyLogo compact />
+                <PeggyBrandLockup variant="compact" />
               </Box>
             </Toolbar>
           </AppBar>

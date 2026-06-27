@@ -22,7 +22,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
-import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
+import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
+import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -77,21 +78,7 @@ export default function ProjectsPage() {
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", p: 3 }}>
       <Box sx={{ maxWidth: 640, mx: "auto" }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 4 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 28,
-                height: 28,
-                borderRadius: 0.5,
-                bgcolor: "primary.main",
-                display: "grid",
-                placeItems: "center",
-              }}
-            >
-              <Typography sx={{ ...monoSx, fontSize: 11, color: "primary.contrastText", lineHeight: 1 }}>P</Typography>
-            </Box>
-            <Typography sx={{ fontSize: "1.25rem", fontWeight: 600, letterSpacing: "-0.02em" }}>Peggy</Typography>
-          </Box>
+          <PeggyBrandLockup variant="sidebar" />
           <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none" }}>
             Log out
           </Button>
