@@ -10,7 +10,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   TextField,
   Typography,
@@ -22,12 +21,15 @@ import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { peggyApi, queryKeys } from "@/lib/api";
 import {
-  RESEARCH_TYPES,
   formatDisplayName,
+  normalizeResearchRole,
+  normalizeTitle,
   saveActiveWorkspaceId,
-  type ResearchType,
+  type ResearchRole,
   type ResearcherProfile,
 } from "@/lib/userProfile";
+import { ProfileNameFields } from "@/components/ProfileNameFields";
+import { ResearchRoleField } from "@/components/ResearchRoleField";
 
 export function ResearcherProfile() {
   const router = useRouter();
@@ -61,7 +63,8 @@ export function ResearcherProfile() {
     if (profile) {
       setDraft({
         ...profile,
-        research_type: profile.research_type as ResearchType,
+        title: normalizeTitle(profile.title),
+        research_type: normalizeResearchRole(profile.research_type),
       });
     }
     setEditOpen(true);
@@ -145,42 +148,19 @@ export function ResearcherProfile() {
         >
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
-              <Stack direction="row" spacing={1}>
-                <TextField
-                  label="Title"
-                  value={draft.title ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, title: e.target.value }))}
-                  sx={{ width: 90 }}
-                />
-                <TextField
-                  label="Name"
-                  value={draft.name ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))}
-                  required
-                  fullWidth
-                />
-                <TextField
-                  label="Surname"
-                  value={draft.surname ?? ""}
-                  onChange={(e) => setDraft((d) => ({ ...d, surname: e.target.value }))}
-                  required
-                  fullWidth
-                />
-              </Stack>
+              <ProfileNameFields
+                title={draft.title ?? "Dr"}
+                name={draft.name ?? ""}
+                surname={draft.surname ?? ""}
+                onTitleChange={(t) => setDraft((d) => ({ ...d, title: t }))}
+                onNameChange={(n) => setDraft((d) => ({ ...d, name: n }))}
+                onSurnameChange={(s) => setDraft((d) => ({ ...d, surname: s }))}
+              />
               <TextField label="Email" value={draft.email ?? ""} fullWidth disabled />
-              <TextField
-                select
-                label="Research type"
-                value={draft.research_type ?? "Researcher"}
-                onChange={(e) => setDraft((d) => ({ ...d, research_type: e.target.value as ResearchType }))}
-                fullWidth
-              >
-                {RESEARCH_TYPES.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    {t}
-                  </MenuItem>
-                ))}
-              </TextField>
+              <ResearchRoleField
+                value={normalizeResearchRole(draft.research_type ?? "Researcher")}
+                onChange={(role) => setDraft((d) => ({ ...d, research_type: role }))}
+              />
               <TextField
                 label="Research focus"
                 value={draft.research_focus ?? ""}

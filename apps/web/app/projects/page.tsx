@@ -90,12 +90,7 @@ export default function ProjectsPage() {
             >
               <Typography sx={{ ...monoSx, fontSize: 11, color: "primary.contrastText", lineHeight: 1 }}>P</Typography>
             </Box>
-            <Box>
-              <Typography sx={{ fontSize: "1.25rem", fontWeight: 600, letterSpacing: "-0.02em" }}>Peggy</Typography>
-              <Typography variant="caption" color="text.secondary">
-                Research Assistant
-              </Typography>
-            </Box>
+            <Typography sx={{ fontSize: "1.25rem", fontWeight: 600, letterSpacing: "-0.02em" }}>Peggy</Typography>
           </Box>
           <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none" }}>
             Log out

@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS researcher_profiles (
     email TEXT NOT NULL,
     research_focus TEXT NOT NULL DEFAULT '',
     research_type TEXT NOT NULL DEFAULT 'Researcher'
-        CHECK (research_type IN ('Researcher', 'Professor', 'Supervisor', 'RA')),
+        CHECK (research_type IN (
+            'Researcher', 'Supervisor', 'RA',
+            'Junior researcher', 'Senior researcher', 'Student'
+        )),
     display_name TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

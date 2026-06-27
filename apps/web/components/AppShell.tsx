@@ -48,23 +48,16 @@ function PeggyLogo({ compact }: { compact?: boolean }) {
           P
         </Typography>
       </Box>
-      <Box>
-        <Typography
-          sx={{
-            fontSize: compact ? "1rem" : "1.125rem",
-            fontWeight: 600,
-            letterSpacing: "-0.02em",
-            lineHeight: 1.2,
-          }}
-        >
-          Peggy
-        </Typography>
-        {compact && (
-          <Typography variant="caption" color="text.secondary" sx={{ lineHeight: 1.2 }}>
-            Research Assistant
-          </Typography>
-        )}
-      </Box>
+      <Typography
+        sx={{
+          fontSize: compact ? "1rem" : "1.125rem",
+          fontWeight: 600,
+          letterSpacing: "-0.02em",
+          lineHeight: 1.2,
+        }}
+      >
+        Peggy
+      </Typography>
     </Box>
   );
 }

@@ -1,5 +1,20 @@
-export const RESEARCH_TYPES = ["Researcher", "Professor", "Supervisor", "RA"] as const;
-export type ResearchType = (typeof RESEARCH_TYPES)[number];
+export const TITLE_OPTIONS = ["Mr", "Mrs", "Ms", "Dr", "Prof"] as const;
+export type TitleOption = (typeof TITLE_OPTIONS)[number];
+
+export const RESEARCH_ROLES = [
+  "Researcher",
+  "Supervisor",
+  "RA",
+  "Junior researcher",
+  "Senior researcher",
+  "Student",
+] as const;
+export type ResearchRole = (typeof RESEARCH_ROLES)[number];
+
+/** @deprecated Use RESEARCH_ROLES */
+export const RESEARCH_TYPES = RESEARCH_ROLES;
+/** @deprecated Use ResearchRole */
+export type ResearchType = ResearchRole;
 
 export type ResearcherProfile = {
   user_id?: string;
@@ -9,7 +24,7 @@ export type ResearcherProfile = {
   surname: string;
   email: string;
   research_focus: string;
-  research_type: ResearchType;
+  research_type: ResearchRole;
   display_name: string;
 };
 
@@ -27,7 +42,7 @@ export type PendingRegistration = {
   surname: string;
   email: string;
   research_focus: string;
-  research_type: ResearchType;
+  research_type: ResearchRole;
 };
 
 /** Format as title_initial_surname, e.g. Dr_J_Smith */
@@ -41,16 +56,25 @@ export function formatDisplayName(title: string, name: string, surname: string):
   return parts.length ? parts.join("_") : "Researcher";
 }
 
+export function normalizeTitle(title: string): TitleOption {
+  const t = title.trim();
+  return TITLE_OPTIONS.includes(t as TitleOption) ? (t as TitleOption) : "Dr";
+}
+
+export function normalizeResearchRole(role: string): ResearchRole {
+  if (RESEARCH_ROLES.includes(role as ResearchRole)) return role as ResearchRole;
+  if (role === "Professor") return "Senior researcher";
+  return "Researcher";
+}
+
 export function profileFromMetadata(meta: Record<string, unknown>, email: string): Partial<PendingRegistration> {
   return {
-    title: String(meta.title ?? ""),
+    title: String(meta.title ?? "Dr"),
     name: String(meta.name ?? ""),
     surname: String(meta.surname ?? ""),
     email: email || String(meta.email ?? ""),
     research_focus: String(meta.research_focus ?? ""),
-    research_type: (RESEARCH_TYPES.includes(meta.research_type as ResearchType)
-      ? meta.research_type
-      : "Researcher") as ResearchType,
+    research_type: normalizeResearchRole(String(meta.research_type ?? "Researcher")),
   };
 }
 

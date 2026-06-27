@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  MenuItem,
   Paper,
   Stack,
   TextField,
@@ -16,12 +15,16 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { peggyApi } from "@/lib/api";
 import {
-  RESEARCH_TYPES,
   formatDisplayName,
+  normalizeResearchRole,
+  normalizeTitle,
   profileFromMetadata,
   saveActiveWorkspaceId,
-  type ResearchType,
+  type ResearchRole,
+  type TitleOption,
 } from "@/lib/userProfile";
+import { ProfileNameFields } from "@/components/ProfileNameFields";
+import { ResearchRoleField } from "@/components/ResearchRoleField";
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -29,12 +32,12 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [title, setTitle] = useState("Dr");
+  const [title, setTitle] = useState<TitleOption>("Dr");
   const [name, setName] = useState("");
   const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
   const [researchFocus, setResearchFocus] = useState("");
-  const [researchType, setResearchType] = useState<ResearchType>("Researcher");
+  const [researchRole, setResearchRole] = useState<ResearchRole>("Researcher");
 
   const [wsTitle, setWsTitle] = useState("");
   const [wsAim, setWsAim] = useState("");
@@ -61,11 +64,11 @@ export default function OnboardingPage() {
       }
 
       const meta = profileFromMetadata(authData.user.user_metadata ?? {}, authData.user.email ?? "");
-      if (meta.title) setTitle(meta.title);
+      if (meta.title) setTitle(normalizeTitle(meta.title));
       if (meta.name) setName(meta.name);
       if (meta.surname) setSurname(meta.surname);
       if (meta.research_focus) setResearchFocus(meta.research_focus);
-      if (meta.research_type) setResearchType(meta.research_type);
+      if (meta.research_type) setResearchRole(normalizeResearchRole(String(meta.research_type)));
       if (meta.research_focus && !wsTitle) {
         setWsTitle(meta.research_focus.slice(0, 80));
       }
@@ -86,7 +89,7 @@ export default function OnboardingPage() {
         surname: surname.trim(),
         email: email.trim(),
         research_focus: researchFocus.trim(),
-        research_type: researchType,
+        research_type: researchRole,
       });
 
       const objectives = wsObjectives
@@ -144,25 +147,16 @@ export default function OnboardingPage() {
 
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2}>
-            <Stack direction="row" spacing={1}>
-              <TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ width: 90 }} />
-              <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
-              <TextField
-                label="Surname"
-                value={surname}
-                onChange={(e) => setSurname(e.target.value)}
-                required
-                fullWidth
-              />
-            </Stack>
+            <ProfileNameFields
+              title={title}
+              name={name}
+              surname={surname}
+              onTitleChange={setTitle}
+              onNameChange={setName}
+              onSurnameChange={setSurname}
+            />
             <TextField label="Email" type="email" value={email} required fullWidth disabled />
-            <TextField select label="Research type" value={researchType} onChange={(e) => setResearchType(e.target.value as ResearchType)} fullWidth>
-              {RESEARCH_TYPES.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {t}
-                </MenuItem>
-              ))}
-            </TextField>
+            <ResearchRoleField value={researchRole} onChange={setResearchRole} />
             <TextField
               label="Research focus"
               value={researchFocus}

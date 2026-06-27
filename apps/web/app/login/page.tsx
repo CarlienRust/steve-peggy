@@ -7,7 +7,6 @@ import {
   Box,
   Button,
   CircularProgress,
-  MenuItem,
   Paper,
   Stack,
   Tab,
@@ -16,7 +15,9 @@ import {
   Typography,
 } from "@mui/material";
 import { createClient } from "@/lib/supabase/client";
-import { RESEARCH_TYPES, type ResearchType } from "@/lib/userProfile";
+import { RESEARCH_ROLES, type ResearchRole, type TitleOption } from "@/lib/userProfile";
+import { ProfileNameFields } from "@/components/ProfileNameFields";
+import { ResearchRoleField } from "@/components/ResearchRoleField";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -25,11 +26,11 @@ function LoginForm() {
   const [tab, setTab] = useState(0);
 
   const [email, setEmail] = useState("");
-  const [title, setTitle] = useState("Dr");
+  const [title, setTitle] = useState<TitleOption>("Dr");
   const [name, setName] = useState("");
   const [surname, setSurname] = useState("");
   const [researchFocus, setResearchFocus] = useState("");
-  const [researchType, setResearchType] = useState<ResearchType>("Researcher");
+  const [researchRole, setResearchRole] = useState<ResearchRole>("Researcher");
 
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(authError ? "Sign-in failed. Try again." : null);
@@ -52,7 +53,7 @@ function LoginForm() {
         name: name.trim(),
         surname: surname.trim(),
         research_focus: researchFocus.trim(),
-        research_type: researchType,
+        research_type: researchRole,
       };
     }
 
@@ -95,42 +96,15 @@ function LoginForm() {
             <Stack spacing={2}>
               {tab === 1 && (
                 <>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      label="Title"
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="Dr, Prof"
-                      sx={{ width: 100 }}
-                    />
-                    <TextField
-                      label="Name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      required
-                      fullWidth
-                    />
-                    <TextField
-                      label="Surname"
-                      value={surname}
-                      onChange={(e) => setSurname(e.target.value)}
-                      required
-                      fullWidth
-                    />
-                  </Stack>
-                  <TextField
-                    select
-                    label="Research type"
-                    value={researchType}
-                    onChange={(e) => setResearchType(e.target.value as ResearchType)}
-                    fullWidth
-                  >
-                    {RESEARCH_TYPES.map((t) => (
-                      <MenuItem key={t} value={t}>
-                        {t}
-                      </MenuItem>
-                    ))}
-                  </TextField>
+                  <ProfileNameFields
+                    title={title}
+                    name={name}
+                    surname={surname}
+                    onTitleChange={setTitle}
+                    onNameChange={setName}
+                    onSurnameChange={setSurname}
+                  />
+                  <ResearchRoleField value={researchRole} onChange={setResearchRole} />
                   <TextField
                     label="Research focus"
                     value={researchFocus}

@@ -5,7 +5,14 @@ from __future__ import annotations
 import re
 import uuid
 
-RESEARCH_TYPES = frozenset({"Researcher", "Professor", "Supervisor", "RA"})
+RESEARCH_TYPES = frozenset({
+    "Researcher",
+    "Supervisor",
+    "RA",
+    "Junior researcher",
+    "Senior researcher",
+    "Student",
+})
 
 
 def format_display_name(title: str, name: str, surname: str) -> str:
