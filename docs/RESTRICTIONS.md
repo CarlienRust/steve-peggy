@@ -23,6 +23,43 @@ All limits are configurable via environment variables (defaults below). The API 
 
 Rate limits use in-memory buckets locally; set **Upstash Redis** (`UPSTASH_REDIS_REST_URL` + token) on Render for consistent limits across restarts/instances.
 
+### Per-user usage (`GET /usage`, auth required)
+
+Returns current-hour quota for chat and agent:
+
+```json
+{
+  "chat": {
+    "action": "chat",
+    "used": 5,
+    "limit": 30,
+    "remaining": 25,
+    "resets_at": "2026-06-01T15:00:00Z",
+    "window_sec": 3600
+  },
+  "agent": { "...": "..." },
+  "max_text_query_len": 4000
+}
+```
+
+When a rate limit is exceeded, the API returns **429** with a JSON body:
+
+```json
+{
+  "detail": {
+    "code": "rate_limit_exceeded",
+    "action": "chat",
+    "limit": 30,
+    "used": 30,
+    "remaining": 0,
+    "resets_at": "2026-06-01T15:00:00Z",
+    "message": "You've used all 30 chat messages for this hour."
+  }
+}
+```
+
+The response includes a `Retry-After` header (seconds until reset).
+
 PubMed NCBI traffic is additionally capped at **3 requests/second** globally (`core/cache/redis_client.py`).
 
 ## Embeddings & Render OOM

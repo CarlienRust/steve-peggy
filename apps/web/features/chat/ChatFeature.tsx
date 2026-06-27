@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Box,
@@ -16,7 +16,15 @@ import {
   Typography,
 } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
-import { peggyApi, type AgentResponse, type AgentStreamEvent, type ChatMode } from "@/lib/api";
+import {
+  PeggyApiError,
+  peggyApi,
+  queryKeys,
+  type AgentResponse,
+  type AgentStreamEvent,
+  type ChatMode,
+  type RateLimitBucket,
+} from "@/lib/api";
 import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
 
@@ -37,6 +45,28 @@ function getSessionId(): string {
     sessionStorage.setItem(SESSION_KEY, id);
   }
   return id;
+}
+
+function formatResetsAt(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function usageLabel(bucket: RateLimitBucket, unitLabel: string): string {
+  if (bucket.remaining === 0) {
+    return `No ${unitLabel} left this hour · resets ${formatResetsAt(bucket.resets_at)}`;
+  }
+  return `${bucket.remaining} of ${bucket.limit} ${unitLabel} left · resets ${formatResetsAt(bucket.resets_at)}`;
+}
+
+function formatApiError(err: unknown): string {
+  if (err instanceof PeggyApiError) {
+    if (err.resetsAt) {
+      return `${err.message} Resets ${formatResetsAt(err.resetsAt)}.`;
+    }
+    return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return "Something went wrong.";
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -65,8 +95,26 @@ export function ChatFeature() {
 
   const sourceTypes = includeFindings ? ["literature", "own_findings"] : ["literature"];
 
+  const queryClient = useQueryClient();
+
+  const refreshUsage = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.usage });
+  }, [queryClient]);
+
+  const usageQuery = useQuery({
+    queryKey: [...queryKeys.usage, mode],
+    queryFn: () => peggyApi.usage(),
+  });
+
+  const activeBucket = mode === "auto" ? usageQuery.data?.agent : usageQuery.data?.chat;
+  const maxQueryLen = usageQuery.data?.max_text_query_len ?? 4000;
+  const queryTooLong = query.length > maxQueryLen;
+  const quotaExhausted = activeBucket?.remaining === 0;
+  const unitLabel = mode === "auto" ? "agent runs" : "messages";
+
   const chat = useMutation({
     mutationFn: (q: string) => peggyApi.chat(q, { mode, sourceTypes }),
+    onSuccess: refreshUsage,
   });
 
   const runAgent = useCallback(
@@ -80,14 +128,16 @@ export function ChatFeature() {
         for await (const event of peggyApi.agentStream(q, { sessionId: sid, sourceTypes, mode: "auto" })) {
           applyStreamEvent(event);
         }
+        refreshUsage();
       } catch (err) {
-        setAgentError((err as Error).message);
+        setAgentError(formatApiError(err));
+        refreshUsage();
       } finally {
         setAgentPending(false);
         setStepLabel(null);
       }
     },
-    [sessionId, sourceTypes]
+    [sessionId, sourceTypes, refreshUsage]
   );
 
   function applyStreamEvent(event: AgentStreamEvent) {
@@ -107,7 +157,7 @@ export function ChatFeature() {
   }
 
   const handleSend = () => {
-    if (!query) return;
+    if (!query || queryTooLong || quotaExhausted) return;
     if (mode === "auto") {
       void runAgent(query);
     } else {
@@ -117,6 +167,7 @@ export function ChatFeature() {
 
   const isPending = mode === "auto" ? agentPending : chat.isPending;
   const activeMode = mode === "auto" ? "auto" : (chat.data?.mode ?? mode);
+  const sendDisabled = !query || isPending || queryTooLong || quotaExhausted;
 
   return (
     <Stack spacing={2}>
@@ -135,6 +186,17 @@ export function ChatFeature() {
         {MODES.find((m) => m.id === mode)?.hint}
       </Typography>
 
+      {usageQuery.isError && (
+        <Alert severity="warning" variant="outlined">
+          Usage unavailable — hourly message limits still apply on the server.
+        </Alert>
+      )}
+      {activeBucket && !usageQuery.isError && (
+        <Alert severity={quotaExhausted ? "warning" : "info"}>
+          {usageLabel(activeBucket, unitLabel)}
+        </Alert>
+      )}
+
       <FormControlLabel
         control={<Switch checked={includeFindings} onChange={(e) => setIncludeFindings(e.target.checked)} />}
         label="Include our findings in retrieval"
@@ -147,6 +209,12 @@ export function ChatFeature() {
         fullWidth
         multiline
         rows={3}
+        error={queryTooLong}
+        helperText={
+          queryTooLong
+            ? `Question must be under ${maxQueryLen.toLocaleString()} characters.`
+            : `${query.length.toLocaleString()} / ${maxQueryLen.toLocaleString()} characters`
+        }
         placeholder={
           mode === "gap_analysis"
             ? "e.g. Gaps in microbiome and type-2 diabetes research given our cohort results"
@@ -155,7 +223,7 @@ export function ChatFeature() {
               : "Ask anything about your literature and findings corpus"
         }
       />
-      <Button variant="contained" disabled={!query || isPending} onClick={handleSend}>
+      <Button variant="contained" disabled={sendDisabled} onClick={handleSend}>
         {isPending ? <CircularProgress size={24} /> : "Send"}
       </Button>
 
@@ -171,7 +239,7 @@ export function ChatFeature() {
       )}
 
       {mode === "auto" && agentError && <Alert severity="error">{agentError}</Alert>}
-      {mode !== "auto" && chat.isError && <Alert severity="error">{(chat.error as Error).message}</Alert>}
+      {mode !== "auto" && chat.isError && <Alert severity="error">{formatApiError(chat.error)}</Alert>}
 
       {mode === "auto" && agentData && (
         <Paper sx={{ p: 2 }}>

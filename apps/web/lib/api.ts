@@ -125,6 +125,80 @@ export type TierLimits = {
   };
 };
 
+export type RateLimitBucket = {
+  action: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  resets_at: string;
+  window_sec: number;
+};
+
+export type UserUsage = {
+  chat: RateLimitBucket;
+  agent: RateLimitBucket;
+  max_text_query_len: number;
+};
+
+type ApiErrorDetail = {
+  code?: string;
+  action?: string;
+  limit?: number;
+  used?: number;
+  remaining?: number;
+  resets_at?: string;
+  length?: number;
+  message?: string;
+};
+
+export class PeggyApiError extends Error {
+  status: number;
+  code?: string;
+  resetsAt?: string;
+  retryAfter?: number;
+
+  constructor(status: number, message: string, detail?: ApiErrorDetail, retryAfter?: number) {
+    super(message);
+    this.name = "PeggyApiError";
+    this.status = status;
+    this.code = detail?.code;
+    this.resetsAt = detail?.resets_at;
+    this.retryAfter = retryAfter;
+  }
+}
+
+function parseApiErrorDetail(raw: string): ApiErrorDetail | undefined {
+  try {
+    const parsed = JSON.parse(raw) as { detail?: ApiErrorDetail | string };
+    if (parsed.detail && typeof parsed.detail === "object") {
+      return parsed.detail;
+    }
+  } catch {
+    /* plain text error */
+  }
+  return undefined;
+}
+
+async function throwApiError(res: Response, text: string): Promise<never> {
+  const detail = parseApiErrorDetail(text);
+  const retryAfterHeader = res.headers.get("Retry-After");
+  const retryAfter = retryAfterHeader ? Number(retryAfterHeader) : undefined;
+  let message = text || res.statusText;
+  if (detail?.message) {
+    message = detail.message;
+  } else {
+    try {
+      const parsed = JSON.parse(text) as { detail?: string };
+      if (typeof parsed.detail === "string") {
+        message = parsed.detail;
+      }
+    } catch {
+      /* keep text */
+    }
+  }
+  throw new PeggyApiError(res.status, message, detail, Number.isFinite(retryAfter) ? retryAfter : undefined);
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}${path}`, {
@@ -133,7 +207,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(text || res.statusText);
+    await throwApiError(res, text);
   }
   return res.json() as Promise<T>;
 }
@@ -181,6 +255,8 @@ export const peggyApi = {
     }>("/health"),
 
   limits: () => apiFetch<TierLimits>("/limits"),
+
+  usage: () => apiFetch<UserUsage>("/usage"),
 
   ingestPubmed: (body: {
     pmids?: string[];
@@ -256,7 +332,7 @@ export const peggyApi = {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || res.statusText);
+      await throwApiError(res, text);
     }
     const reader = res.body?.getReader();
     if (!reader) throw new Error("No response body");
@@ -349,6 +425,7 @@ export const peggyApi = {
 export const queryKeys = {
   health: ["health"] as const,
   limits: ["limits"] as const,
+  usage: ["usage"] as const,
   corpus: (sourceType?: string) => ["corpus", sourceType] as const,
   job: (id: string) => ["job", id] as const,
   profile: ["profile"] as const,

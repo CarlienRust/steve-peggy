@@ -2,11 +2,13 @@ import pytest
 from unittest.mock import AsyncMock, patch
 
 import config
+from core.cache import redis_client
 from core.limits import (
     cap_discover_results,
     enforce_ingest_batch,
     enforce_text_length,
     enforce_upload_size,
+    enforce_user_rate,
     limits_snapshot,
 )
 from fastapi import HTTPException
@@ -74,3 +76,47 @@ async def test_workspace_quota(client):
         with patch("core.limits.catalog.count_workspaces", new_callable=AsyncMock, return_value=0):
             r = await client.post("/workspaces", json={"title": "New project"})
     assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_usage_empty_bucket():
+    redis_client._memory.clear()
+    usage = await redis_client.rate_limit_usage("test:user:chat", limit=30, window_sec=3600)
+    assert usage["used"] == 0
+    assert usage["remaining"] == 30
+    assert usage["resets_at"].endswith("Z")
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_usage_after_requests():
+    redis_client._memory.clear()
+    key = "test:user:chat"
+    for _ in range(3):
+        assert await redis_client.rate_limit(key, limit=5, window_sec=3600)
+    usage = await redis_client.rate_limit_usage(key, limit=5, window_sec=3600)
+    assert usage["used"] == 3
+    assert usage["remaining"] == 2
+
+
+@pytest.mark.asyncio
+async def test_enforce_user_rate_structured_429():
+    redis_client._memory.clear()
+    await enforce_user_rate("user-1", "chat", 1)
+    with pytest.raises(HTTPException) as exc:
+        await enforce_user_rate("user-1", "chat", 1)
+    assert exc.value.status_code == 429
+    assert exc.value.detail["code"] == "rate_limit_exceeded"
+    assert exc.value.detail["action"] == "chat"
+    assert exc.value.detail["remaining"] == 0
+    assert "Retry-After" in exc.value.headers
+
+
+@pytest.mark.asyncio
+async def test_get_usage_endpoint(client):
+    redis_client._memory.clear()
+    r = await client.get("/usage")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["chat"]["remaining"] == config.RATE_LIMIT_CHAT_PER_HOUR
+    assert data["agent"]["remaining"] == config.RATE_LIMIT_AGENT_PER_HOUR
+    assert data["max_text_query_len"] == config.MAX_TEXT_QUERY_LEN
