@@ -42,13 +42,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && !profileComplete && path !== "/onboarding" && !path.startsWith("/auth/")) {
+  if (user && !profileComplete && path !== "/projects" && path !== "/onboarding" && !path.startsWith("/auth/") && path !== "/login") {
     const url = request.nextUrl.clone();
-    url.pathname = "/onboarding";
+    url.pathname = "/projects";
     return NextResponse.redirect(url);
   }
 
-  if (user && profileComplete && path === "/onboarding") {
+  if (
+    user &&
+    profileComplete &&
+    path === "/onboarding" &&
+    request.nextUrl.searchParams.get("update") !== "1"
+  ) {
     return NextResponse.redirect(new URL("/projects", request.url));
   }
 
@@ -57,7 +62,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && path === "/login") {
-    return NextResponse.redirect(new URL(profileComplete ? "/projects" : "/onboarding", request.url));
+    return NextResponse.redirect(new URL("/projects", request.url));
   }
 
   return supabaseResponse;

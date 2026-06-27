@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Paper,
   Stack,
   TextField,
@@ -24,6 +25,7 @@ import { peggyApi, queryKeys } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
+import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
 export default function ProjectsPage() {
@@ -32,6 +34,11 @@ export default function ProjectsPage() {
   const { data, isLoading, error: loadError } = useQuery({
     queryKey: queryKeys.workspaces,
     queryFn: () => peggyApi.listWorkspaces(),
+  });
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: queryKeys.profile,
+    queryFn: () => peggyApi.getProfile(),
+    retry: false,
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -79,7 +86,9 @@ export default function ProjectsPage() {
   };
 
   const workspaces = data?.workspaces ?? [];
-  const isFirstProjectSetup = !isLoading && workspaces.length === 0 && !canBackToDashboard;
+  const hasProfile = !!profile;
+  const createProjectLabel = workspaces.length === 0 ? "Create first project" : "Create new project";
+  const pageLoading = isLoading || profileLoading;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", p: 3 }}>
@@ -101,57 +110,70 @@ export default function ProjectsPage() {
           </Button>
         )}
 
-        <Typography sx={eyebrowSx}>Research projects</Typography>
-        <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
-          {isFirstProjectSetup ? "Create your first project" : "Choose a project"}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {isFirstProjectSetup
-            ? "Set up a research project to enter your workspace."
-            : "Open an existing project or create a new one."}
-        </Typography>
-
-        {loadError && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            Could not load projects. If this persists, check API CORS includes this site on Render.
-          </Alert>
-        )}
-
-        {isLoading ? (
+        {pageLoading ? (
           <Box sx={{ display: "grid", placeItems: "center", py: 6 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Stack spacing={2}>
-            {workspaces.map((ws) => (
-              <Paper
-                key={ws.id}
-                sx={{
-                  p: 2.5,
-                  cursor: "pointer",
-                  border: 1,
-                  borderColor: "divider",
-                  "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
-                }}
-                onClick={() => openProject(ws.id)}
-              >
-                <Typography fontWeight={600}>{ws.title}</Typography>
-                {ws.aim && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                    {ws.aim}
-                  </Typography>
-                )}
-              </Paper>
-            ))}
+          <>
+            <PeggyWelcomeHub
+              hasProfile={hasProfile}
+              onCreateProject={() => setDialogOpen(true)}
+              createProjectLabel={createProjectLabel}
+            />
 
-            <Button variant="outlined" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)} sx={{ alignSelf: "flex-start" }}>
-              Create new project
-            </Button>
-          </Stack>
+            {workspaces.length > 0 && (
+              <>
+                <Divider sx={{ mb: 3 }} />
+                <Typography sx={eyebrowSx}>Research projects</Typography>
+                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
+                  Choose a project
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Open an existing project to enter your workspace.
+                </Typography>
+
+                {loadError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    Could not load projects. If this persists, check API CORS includes this site on Render.
+                  </Alert>
+                )}
+
+                <Stack spacing={2}>
+                  {workspaces.map((ws) => (
+                    <Paper
+                      key={ws.id}
+                      sx={{
+                        p: 2.5,
+                        cursor: "pointer",
+                        border: 1,
+                        borderColor: "divider",
+                        "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
+                      }}
+                      onClick={() => openProject(ws.id)}
+                    >
+                      <Typography fontWeight={600}>{ws.title}</Typography>
+                      {ws.aim && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                          {ws.aim}
+                        </Typography>
+                      )}
+                    </Paper>
+                  ))}
+                </Stack>
+              </>
+            )}
+
+            {!workspaces.length && loadError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                Could not load projects. If this persists, check API CORS includes this site on Render.
+              </Alert>
+            )}
+          </>
         )}
 
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>New research project</DialogTitle>
+          <DialogTitle>{workspaces.length === 0 ? "Create your first project" : "New research project"}</DialogTitle>
           <Box component="form" onSubmit={onSubmit}>
             <DialogContent>
               <Stack spacing={2} sx={{ pt: 1 }}>

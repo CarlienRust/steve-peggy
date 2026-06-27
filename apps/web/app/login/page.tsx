@@ -41,7 +41,7 @@ function LoginForm() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(tab === 1 ? "/onboarding" : next)}`;
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(tab === 1 ? "/projects" : next)}`;
 
     const options: { emailRedirectTo: string; data?: Record<string, string> } = {
       emailRedirectTo: redirectTo,

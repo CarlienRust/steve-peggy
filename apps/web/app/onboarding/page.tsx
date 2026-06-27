@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Box,
@@ -12,6 +12,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { createClient } from "@/lib/supabase/client";
 import { peggyApi } from "@/lib/api";
 import {
@@ -19,15 +20,17 @@ import {
   normalizeResearchRole,
   normalizeTitle,
   profileFromMetadata,
-  saveActiveWorkspaceId,
   type ResearchRole,
   type TitleOption,
 } from "@/lib/userProfile";
 import { ProfileNameFields } from "@/components/ProfileNameFields";
 import { ResearchRoleField } from "@/components/ResearchRoleField";
 
-export default function OnboardingPage() {
+function OnboardingForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isUpdate = searchParams.get("update") === "1";
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,10 +41,6 @@ export default function OnboardingPage() {
   const [email, setEmail] = useState("");
   const [researchFocus, setResearchFocus] = useState("");
   const [researchRole, setResearchRole] = useState<ResearchRole>("Researcher");
-
-  const [wsTitle, setWsTitle] = useState("");
-  const [wsAim, setWsAim] = useState("");
-  const [wsObjectives, setWsObjectives] = useState("");
 
   useEffect(() => {
     const init = async () => {
@@ -55,12 +54,24 @@ export default function OnboardingPage() {
       if (authData.user.email) setEmail(authData.user.email);
 
       try {
-        await peggyApi.getProfile();
-        await supabase.auth.updateUser({ data: { profile_complete: true } });
-        router.replace("/projects");
+        const profile = await peggyApi.getProfile();
+        if (!isUpdate) {
+          await supabase.auth.updateUser({ data: { profile_complete: true } });
+          router.replace("/projects");
+          return;
+        }
+        setTitle(normalizeTitle(profile.title));
+        setName(profile.name);
+        setSurname(profile.surname);
+        setResearchFocus(profile.research_focus ?? "");
+        setResearchRole(normalizeResearchRole(profile.research_type));
+        setLoading(false);
         return;
       } catch {
-        /* no profile yet */
+        if (isUpdate) {
+          router.replace("/projects");
+          return;
+        }
       }
 
       const meta = profileFromMetadata(authData.user.user_metadata ?? {}, authData.user.email ?? "");
@@ -69,14 +80,11 @@ export default function OnboardingPage() {
       if (meta.surname) setSurname(meta.surname);
       if (meta.research_focus) setResearchFocus(meta.research_focus);
       if (meta.research_type) setResearchRole(normalizeResearchRole(String(meta.research_type)));
-      if (meta.research_focus && !wsTitle) {
-        setWsTitle(meta.research_focus.slice(0, 80));
-      }
 
       setLoading(false);
     };
     void init();
-  }, [router]);
+  }, [router, isUpdate]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -92,30 +100,9 @@ export default function OnboardingPage() {
         research_type: researchRole,
       });
 
-      const objectives = wsObjectives
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
-
-      const { count } = await peggyApi.listWorkspaces();
-      let workspaceId: string | null = null;
-      if (count === 0 && wsTitle.trim()) {
-        const ws = await peggyApi.createWorkspace({
-          title: wsTitle.trim(),
-          aim: wsAim.trim(),
-          objectives,
-        });
-        workspaceId = ws.id;
-      }
-
       const supabase = createClient();
       await supabase.auth.updateUser({ data: { profile_complete: true } });
-      if (workspaceId) {
-        saveActiveWorkspaceId(workspaceId);
-        router.replace("/");
-      } else {
-        router.replace("/projects");
-      }
+      router.replace("/projects");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile");
       setSaving(false);
@@ -135,8 +122,15 @@ export default function OnboardingPage() {
   return (
     <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 3, bgcolor: "background.default" }}>
       <Paper sx={{ p: 4, maxWidth: 520, width: "100%" }}>
+        <Button
+          startIcon={<ArrowBackIcon />}
+          onClick={() => router.push("/projects")}
+          sx={{ textTransform: "none", mb: 2, px: 0, minWidth: 0 }}
+        >
+          Back to welcome
+        </Button>
         <Typography variant="h5" fontWeight={600} gutterBottom>
-          Complete your profile
+          {isUpdate ? "Update your profile" : "Complete your profile"}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
           Your display name will appear as{" "}
@@ -165,44 +159,27 @@ export default function OnboardingPage() {
               required
             />
 
-            <Typography variant="subtitle2" sx={{ pt: 2 }}>
-              First research project (workspace)
-            </Typography>
-            <TextField
-              label="Project title"
-              value={wsTitle}
-              onChange={(e) => setWsTitle(e.target.value)}
-              fullWidth
-              required
-              placeholder="e.g. Microbiome & T2D systematic review"
-            />
-            <TextField
-              label="Aim"
-              value={wsAim}
-              onChange={(e) => setWsAim(e.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-              placeholder="Overall aim of this research project"
-            />
-            <TextField
-              label="Objectives"
-              value={wsObjectives}
-              onChange={(e) => setWsObjectives(e.target.value)}
-              fullWidth
-              multiline
-              minRows={3}
-              placeholder="One objective per line"
-              helperText="Enter each objective on a new line"
-            />
-
             {error && <Alert severity="error">{error}</Alert>}
             <Button type="submit" variant="contained" disabled={saving} fullWidth>
-              {saving ? "Saving…" : "Save & continue"}
+              {saving ? "Saving…" : isUpdate ? "Save profile" : "Save & continue"}
             </Button>
           </Stack>
         </Box>
       </Paper>
     </Box>
+  );
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense
+      fallback={
+        <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center" }}>
+          <CircularProgress />
+        </Box>
+      }
+    >
+      <OnboardingForm />
+    </Suspense>
   );
 }

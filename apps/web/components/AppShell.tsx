@@ -82,7 +82,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
         bgcolor: peggyColors.sidebar,
       }}
     >
-      <Box component={Link} href="/" onClick={onNavigate} sx={{ mb: 5, textDecoration: "none", color: "inherit" }}>
+      <Box component={Link} href="/projects" onClick={onNavigate} sx={{ mb: 5, textDecoration: "none", color: "inherit" }}>
         <PeggyBrandLockup variant="sidebar" />
       </Box>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <MenuIcon />
               </IconButton>
-              <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
+              <Box component={Link} href="/projects" sx={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
                 <PeggyBrandLockup variant="compact" />
               </Box>
             </Toolbar>
