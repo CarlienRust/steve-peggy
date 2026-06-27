@@ -17,7 +17,7 @@ sequenceDiagram
   Next->>Supa: signInWithOtp
   Supa-->>Next: session JWT
   Next->>API: Authorization Bearer JWT
-  API->>API: verify HS256 (SUPABASE_JWT_SECRET)
+  API->>API: verify JWT (HS256 secret or ES256 JWKS)
   API->>DB: WHERE user_id = sub
   API->>Qdrant: filter payload user_id
 ```
@@ -52,6 +52,17 @@ Vercel cannot call `localhost:8000`. On the deployed URL users can sign in/out; 
    - `https://<your-vercel-domain>.vercel.app/auth/callback`
 3. Set env vars per [ENV.md](ENV.md)
 4. Set `AUTH_REQUIRED=true` on the API when using real auth locally
+
+## JWT algorithms (Supabase)
+
+Supabase now issues **ES256** (asymmetric) tokens by default. Legacy projects may still use **HS256** with the JWT secret.
+
+| Algorithm | API env required | Verification |
+|-----------|------------------|--------------|
+| ES256 / RS256 | `SUPABASE_URL` | JWKS at `{SUPABASE_URL}/auth/v1/.well-known/jwks.json` |
+| HS256 (legacy) | `SUPABASE_JWT_SECRET` | Shared secret from Settings → API |
+
+If you see `Invalid token: The specified alg value is not allowed`, deploy the latest API (hybrid verifier) and ensure **`SUPABASE_URL`** is set on Render.
 
 ## Dev bypass
 
