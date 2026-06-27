@@ -55,6 +55,7 @@ export function profileFromMetadata(meta: Record<string, unknown>, email: string
 }
 
 export const ACTIVE_WORKSPACE_KEY = "peggy_active_workspace_id";
+export const ACTIVE_WORKSPACE_COOKIE = "peggy_active_workspace_id";
 
 export function loadActiveWorkspaceId(): string | null {
   if (typeof window === "undefined") return null;
@@ -63,6 +64,11 @@ export function loadActiveWorkspaceId(): string | null {
 
 export function saveActiveWorkspaceId(id: string | null): void {
   if (typeof window === "undefined") return;
-  if (id) localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
-  else localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+  if (id) {
+    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
+    document.cookie = `${ACTIVE_WORKSPACE_COOKIE}=${encodeURIComponent(id)}; path=/; max-age=31536000; SameSite=Lax`;
+  } else {
+    localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+    document.cookie = `${ACTIVE_WORKSPACE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
+  }
 }

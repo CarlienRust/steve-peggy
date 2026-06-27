@@ -31,7 +31,8 @@ app.add_middleware(
     allow_origins=config.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    # Wildcard headers break credentialed preflight (browser gets 400, no Allow-Origin).
+    allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
 
 app.include_router(ingest_router.router)

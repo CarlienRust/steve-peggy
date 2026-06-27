@@ -72,11 +72,11 @@ function LoginForm() {
     <Paper sx={{ p: 4, maxWidth: 480, width: "100%" }}>
       <Stack spacing={3}>
         <Box>
-          <Typography variant="h5" fontWeight={600}>
-            Peggy Research Assistant
+          <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em">
+            Peggy
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Sign in or register with a magic link — no password required.
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Research Assistant
           </Typography>
         </Box>
 

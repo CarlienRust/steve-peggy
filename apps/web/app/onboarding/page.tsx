@@ -19,6 +19,7 @@ import {
   RESEARCH_TYPES,
   formatDisplayName,
   profileFromMetadata,
+  saveActiveWorkspaceId,
   type ResearchType,
 } from "@/lib/userProfile";
 
@@ -53,7 +54,7 @@ export default function OnboardingPage() {
       try {
         await peggyApi.getProfile();
         await supabase.auth.updateUser({ data: { profile_complete: true } });
-        router.replace("/");
+        router.replace("/projects");
         return;
       } catch {
         /* no profile yet */
@@ -94,17 +95,24 @@ export default function OnboardingPage() {
         .filter(Boolean);
 
       const { count } = await peggyApi.listWorkspaces();
+      let workspaceId: string | null = null;
       if (count === 0 && wsTitle.trim()) {
-        await peggyApi.createWorkspace({
+        const ws = await peggyApi.createWorkspace({
           title: wsTitle.trim(),
           aim: wsAim.trim(),
           objectives,
         });
+        workspaceId = ws.id;
       }
 
       const supabase = createClient();
       await supabase.auth.updateUser({ data: { profile_complete: true } });
-      router.replace("/");
+      if (workspaceId) {
+        saveActiveWorkspaceId(workspaceId);
+        router.replace("/");
+      } else {
+        router.replace("/projects");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save profile");
       setSaving(false);

@@ -30,17 +30,6 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
 
   const workspaces = data?.workspaces ?? [];
 
-  useEffect(() => {
-    if (!workspaces.length) return;
-    const stored = loadActiveWorkspaceId();
-    const valid = stored && workspaces.some((w) => w.id === stored);
-    if (!valid) {
-      const first = workspaces[0].id;
-      saveActiveWorkspaceId(first);
-      setActiveIdState(first);
-    }
-  }, [workspaces]);
-
   const setActiveWorkspaceId = useCallback(
     (id: string) => {
       saveActiveWorkspaceId(id);
@@ -50,7 +39,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   const activeWorkspace = useMemo(
-    () => workspaces.find((w) => w.id === activeId) ?? workspaces[0] ?? null,
+    () => (activeId ? workspaces.find((w) => w.id === activeId) ?? null : null),
     [workspaces, activeId]
   );
 

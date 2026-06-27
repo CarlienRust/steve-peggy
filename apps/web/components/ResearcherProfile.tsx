@@ -17,12 +17,14 @@ import {
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { peggyApi, queryKeys } from "@/lib/api";
 import {
   RESEARCH_TYPES,
   formatDisplayName,
+  saveActiveWorkspaceId,
   type ResearchType,
   type ResearcherProfile,
 } from "@/lib/userProfile";
@@ -66,9 +68,15 @@ export function ResearcherProfile() {
   };
 
   const logout = async () => {
+    saveActiveWorkspaceId(null);
     const supabase = createClient();
     await supabase.auth.signOut();
     router.push("/login");
+  };
+
+  const switchProject = () => {
+    saveActiveWorkspaceId(null);
+    router.push("/projects");
   };
 
   const displayName = profile?.display_name ?? "Researcher";
@@ -104,6 +112,16 @@ export function ResearcherProfile() {
             </Button>
           )}
         </Stack>
+        <Button
+          fullWidth
+          size="small"
+          variant="text"
+          startIcon={<SwapHorizIcon fontSize="small" />}
+          onClick={switchProject}
+          sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+        >
+          Switch project
+        </Button>
         <Button
           fullWidth
           size="small"

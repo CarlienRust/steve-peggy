@@ -1,7 +1,8 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/userProfile";
 
-const PROTECTED = ["/ingest", "/findings", "/chat", "/gaps", "/compare", "/workspaces"];
+const WORKSPACE_ROUTES = ["/", "/ingest", "/findings", "/chat", "/gaps", "/compare"];
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -30,10 +31,11 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isProtected = PROTECTED.some((p) => path === p || path.startsWith(`${p}/`));
   const profileComplete = user?.user_metadata?.profile_complete === true;
+  const activeWorkspaceId = request.cookies.get(ACTIVE_WORKSPACE_COOKIE)?.value;
+  const needsWorkspace = WORKSPACE_ROUTES.some((p) => path === p || path.startsWith(`${p}/`));
 
-  if (!user && isProtected) {
+  if (!user && needsWorkspace) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
@@ -47,11 +49,15 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && profileComplete && path === "/onboarding") {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/projects", request.url));
+  }
+
+  if (user && profileComplete && needsWorkspace && !activeWorkspaceId) {
+    return NextResponse.redirect(new URL("/projects", request.url));
   }
 
   if (user && path === "/login") {
-    return NextResponse.redirect(new URL(profileComplete ? "/" : "/onboarding", request.url));
+    return NextResponse.redirect(new URL(profileComplete ? "/projects" : "/onboarding", request.url));
   }
 
   return supabaseResponse;
