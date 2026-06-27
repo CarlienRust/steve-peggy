@@ -8,7 +8,7 @@ export default function IngestPage() {
       <PageHeader
         eyebrow="02 · Corpus"
         title="Research corpus"
-        description="Peer-reviewed literature only — PubMed and PDF papers. Add your own work under Our findings."
+        description="Peer-reviewed literature only — PubMed and PDF papers."
       />
       <Paper sx={{ p: 3 }}>
         <CorpusManagement />

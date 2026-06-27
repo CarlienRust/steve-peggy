@@ -20,8 +20,7 @@ export function FindingsManagement() {
   return (
     <>
       <Alert severity="info" sx={{ mb: 3 }}>
-        Our findings are kept separate from the literature corpus. Peggy uses them as the baseline for comparison and can
-        include them in gap analysis alongside published research.
+        Our findings are kept separate from the literature corpus.
       </Alert>
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>

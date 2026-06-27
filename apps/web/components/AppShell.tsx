@@ -179,7 +179,9 @@ export function AppShell({ children }: { children: ReactNode }) {
           },
         }}
       >
-        <Box sx={{ p: { xs: 2, sm: 3, lg: 6 }, maxWidth: 960, mx: { xs: "auto", md: 0 } }}>{children}</Box>
+        <Box sx={{ p: { xs: 2, sm: 3, lg: 6 }, width: "100%", maxWidth: "100%", boxSizing: "border-box" }}>
+          {children}
+        </Box>
       </Box>
     </Box>
   );

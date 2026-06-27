@@ -1,26 +1,28 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import {
   Box,
   Chip,
   Divider,
   Grid,
+  IconButton,
   Paper,
   Stack,
+  Tooltip,
   Typography,
-  alpha,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
+import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { llmHealthHint } from "@/lib/llmHealthHint";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { cardHoverSx, eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const DEFAULT_TITLE = process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Research project";
-const DEFAULT_FOCUS =
-  process.env.NEXT_PUBLIC_WORKSPACE_FOCUS ?? "Add a workspace to define your project aim and objectives";
 
 type ActivityItem = {
   time: string;
@@ -38,13 +40,12 @@ const DEMO_ACTIVITY: ActivityItem[] = [
 ];
 
 export function DashboardPage() {
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, refetch } = useWorkspace();
+  const [editOpen, setEditOpen] = useState(false);
   const health = useQuery({ queryKey: queryKeys.health, queryFn: () => peggyApi.health() });
   const corpus = useQuery({ queryKey: queryKeys.corpus(), queryFn: () => peggyApi.listCorpus() });
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
-  const workspaceAim = activeWorkspace?.aim ?? DEFAULT_FOCUS;
-  const objectives = activeWorkspace?.objectives ?? [];
 
   const count = corpus.data?.count ?? 0;
   const literatureCount = corpus.data?.papers?.filter((p) => p.source_type === "literature").length ?? 0;
@@ -68,61 +69,46 @@ export function DashboardPage() {
   return (
     <Box>
       <LocalDevBanner />
-      <Typography sx={{ ...eyebrowSx, mb: 2 }}>
-        Workspace · {count > 0 ? "Active corpus" : "Empty corpus"}
-      </Typography>
+      <Typography sx={{ ...eyebrowSx, mb: 2 }}>Dashboard · Project workspace</Typography>
 
-      <Typography
-        variant="h1"
-        sx={{ fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 600, letterSpacing: "-0.02em", mb: 2 }}
-      >
-        {workspaceTitle}
-      </Typography>
+      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+        <Typography
+          variant="h1"
+          sx={{ fontSize: { xs: "2rem", md: "2.5rem" }, fontWeight: 600, letterSpacing: "-0.02em" }}
+        >
+          {workspaceTitle}
+        </Typography>
+        {activeWorkspace && (
+          <Tooltip title="Edit project aim & objectives">
+            <IconButton
+              size="small"
+              aria-label="Edit project aim and objectives"
+              onClick={() => setEditOpen(true)}
+              sx={{ color: "text.secondary" }}
+            >
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Stack>
 
-      <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, lineHeight: 1.7, mb: 2 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 640, lineHeight: 1.7, mb: 4 }}>
         {count > 0 ? (
           <>
             Systematic review of {literatureCount} peer-reviewed article{literatureCount === 1 ? "" : "s"}
             {ownCount > 0 ? ` plus ${ownCount} internal dataset${ownCount === 1 ? "" : "s"}` : ""}.
-            {workspaceAim && (
-              <>
-                {" "}
-                Aim:{" "}
-                <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
-                  {workspaceAim}
-                </Box>
-              </>
-            )}
           </>
         ) : (
-          <>
-            Ingest publications via PubMed or add internal datasets.
-            {workspaceAim ? (
-              <>
-                {" "}
-                Aim:{" "}
-                <Box component="em" sx={{ fontStyle: "italic", color: "text.primary" }}>
-                  {workspaceAim}
-                </Box>
-              </>
-            ) : (
-              <> Create a workspace under Workspaces to set your project aim.</>
-            )}
-          </>
+          <>Ingest publications via PubMed or add internal datasets.</>
         )}
       </Typography>
 
-      {objectives.length > 0 && (
-        <Box component="ul" sx={{ maxWidth: 640, pl: 2.5, mb: 4, color: "text.secondary" }}>
-          {objectives.map((obj, i) => (
-            <Typography component="li" variant="body2" key={i} sx={{ mb: 0.5 }}>
-              {obj}
-            </Typography>
-          ))}
-        </Box>
-      )}
-
-      {!objectives.length && <Box sx={{ mb: 4 }} />}
+      <WorkspaceEditDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        workspace={activeWorkspace}
+        onSaved={refetch}
+      />
 
       {health.data && (
         <Stack direction="row" flexWrap="wrap" gap={1} sx={{ mb: 3 }}>
@@ -224,9 +210,13 @@ export function DashboardPage() {
         ))}
       </Paper>
 
-      <Box sx={{ mt: 8, pt: 4, borderTop: 1, borderColor: "divider" }}>
+      <Box sx={{ mt: 8, pt: 4, borderTop: 1, borderColor: "divider", width: "100%" }}>
         <Typography sx={eyebrowSx}>Trust over sparkle</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 520 }}>
+        <Typography
+          variant="body2"
+          color="text.secondary"
+          sx={{ mt: 1, width: "100%", textAlign: "justify" }}
+        >
           Peggy never invents citations. Every claim links back to a paper in your corpus, with confidence and
           known limitations shown alongside.
         </Typography>

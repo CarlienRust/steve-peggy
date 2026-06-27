@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -17,11 +17,12 @@ import {
   Typography,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
-import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
@@ -38,6 +39,11 @@ export default function ProjectsPage() {
   const [aim, setAim] = useState("");
   const [objectives, setObjectives] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [canBackToDashboard, setCanBackToDashboard] = useState(false);
+
+  useEffect(() => {
+    setCanBackToDashboard(!!loadActiveWorkspaceId());
+  }, []);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -73,6 +79,7 @@ export default function ProjectsPage() {
   };
 
   const workspaces = data?.workspaces ?? [];
+  const isFirstProjectSetup = !isLoading && workspaces.length === 0 && !canBackToDashboard;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", p: 3 }}>
@@ -84,12 +91,24 @@ export default function ProjectsPage() {
           </Button>
         </Stack>
 
+        {canBackToDashboard && (
+          <Button
+            startIcon={<ArrowBackIcon />}
+            onClick={() => router.push("/")}
+            sx={{ textTransform: "none", mb: 2, px: 0, minWidth: 0 }}
+          >
+            Back to dashboard
+          </Button>
+        )}
+
         <Typography sx={eyebrowSx}>Research projects</Typography>
         <Typography variant="h5" fontWeight={600} sx={{ mb: 1 }}>
-          Choose a project
+          {isFirstProjectSetup ? "Create your first project" : "Choose a project"}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          Open an existing project or create a new one to enter your workspace.
+          {isFirstProjectSetup
+            ? "Set up a research project to enter your workspace."
+            : "Open an existing project or create a new one."}
         </Typography>
 
         {loadError && (
