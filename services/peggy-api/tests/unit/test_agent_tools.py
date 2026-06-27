@@ -36,3 +36,13 @@ def test_tool_schemas_for_chat_mode():
 
 def test_mode_tools_gap_includes_gap():
     assert "run_gap_analysis" in tools.MODE_TOOLS["gap_analysis"]
+
+
+def test_clamp_tool_arguments():
+    import config
+
+    long = "x" * (config.MAX_TEXT_QUERY_LEN + 100)
+    clamped = tools._clamp_tool_arguments({"query": long, "limit": 5})
+    assert len(clamped["query"]) == config.MAX_TEXT_QUERY_LEN
+    assert clamped["limit"] == 5
+

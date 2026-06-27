@@ -17,6 +17,11 @@ jobs:
         working-directory: services/peggy-api
         run: |
           pip install -r requirements.txt -r requirements-dev.txt
+      - name: pip-audit
+        working-directory: services/peggy-api
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt --desc on
       - name: Pytest
         working-directory: services/peggy-api
         run: pytest -v
@@ -34,4 +39,5 @@ jobs:
         working-directory: apps/web
         run: |
           npm ci
+          npm audit --audit-level=high
           npm run build

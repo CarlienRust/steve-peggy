@@ -16,7 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { peggyApi, type DiscoveryCandidate, type DiscoveryResponse } from "@/lib/api";
+import { peggyApi, formatApiError, type DiscoveryCandidate, type DiscoveryResponse } from "@/lib/api";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 
 function CandidateCard({
@@ -144,7 +144,7 @@ export function DiscoveryPanel() {
         </Button>
       </Stack>
 
-      {discover.isError && <Alert severity="error">{(discover.error as Error).message}</Alert>}
+      {discover.isError && <Alert severity="error">{formatApiError(discover.error)}</Alert>}
 
       {result && (
         <Stack spacing={1.5}>
@@ -191,7 +191,7 @@ export function DiscoveryPanel() {
       )}
 
       {ingestMsg && <Alert severity="success">{ingestMsg}</Alert>}
-      {ingestMut.isError && <Alert severity="error">{(ingestMut.error as Error).message}</Alert>}
+      {ingestMut.isError && <Alert severity="error">{formatApiError(ingestMut.error)}</Alert>}
     </Stack>
   );
 }

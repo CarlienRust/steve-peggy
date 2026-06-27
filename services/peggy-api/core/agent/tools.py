@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Callable, Awaitable
 
+import config
 from core.ingest.pubmed import fetch_by_pmid, search_pubmed
 from core.llm.provider import get_llm
 from core.rag import workflows
@@ -305,6 +306,18 @@ _EXECUTORS: dict[str, Callable[[dict, dict], Awaitable[ToolResult]]] = {
 }
 
 
+def _clamp_tool_arguments(arguments: dict) -> dict:
+    """Truncate long string tool args to the configured query length cap."""
+    cap = config.MAX_TEXT_QUERY_LEN
+    clamped: dict = {}
+    for key, value in arguments.items():
+        if isinstance(value, str) and len(value) > cap:
+            clamped[key] = value[:cap]
+        else:
+            clamped[key] = value
+    return clamped
+
+
 async def execute_tool(name: str, arguments: dict | str, context: dict | None = None) -> ToolResult:
     """Run a registered tool; returns uniform {result, source_ids, confidence, error}."""
     ctx = context or {}
@@ -317,6 +330,7 @@ async def execute_tool(name: str, arguments: dict | str, context: dict | None = 
             arguments = {}
     if not isinstance(arguments, dict):
         arguments = {}
+    arguments = _clamp_tool_arguments(arguments)
     return await _EXECUTORS[name](arguments, ctx)
 
 

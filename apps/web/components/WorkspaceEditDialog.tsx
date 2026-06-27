@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect } from "react";
+import { Controller, useForm } from "react-hook-form";
 import {
   Alert,
   Box,
@@ -13,7 +15,8 @@ import {
   TextField,
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { peggyApi, queryKeys, type Workspace } from "@/lib/api";
+import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
+import { objectivesFromText, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 
 type WorkspaceEditDialogProps = {
   open: boolean;
@@ -24,30 +27,32 @@ type WorkspaceEditDialogProps = {
 
 export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: WorkspaceEditDialogProps) {
   const queryClient = useQueryClient();
-  const [title, setTitle] = useState("");
-  const [aim, setAim] = useState("");
-  const [objectives, setObjectives] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors },
+  } = useForm<WorkspaceFormValues>({
+    resolver: zodResolver(workspaceFormSchema),
+    defaultValues: { title: "", aim: "", objectives: "" },
+  });
 
   useEffect(() => {
     if (!workspace || !open) return;
-    setTitle(workspace.title);
-    setAim(workspace.aim ?? "");
-    setObjectives((workspace.objectives ?? []).join("\n"));
-    setError(null);
-  }, [workspace, open]);
+    reset({
+      title: workspace.title,
+      aim: workspace.aim ?? "",
+      objectives: (workspace.objectives ?? []).join("\n"),
+    });
+  }, [workspace, open, reset]);
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (values: WorkspaceFormValues) => {
       if (!workspace) throw new Error("No project selected");
-      const objs = objectives
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
       return peggyApi.updateWorkspace(workspace.id, {
-        title: title.trim(),
-        aim: aim.trim(),
-        objectives: objs,
+        title: values.title.trim(),
+        aim: (values.aim ?? "").trim(),
+        objectives: objectivesFromText(values.objectives),
       });
     },
     onSuccess: () => {
@@ -55,13 +60,9 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
       onSaved?.();
       onClose();
     },
-    onError: (err: Error) => setError(err.message),
   });
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    saveMutation.mutate();
-  };
+  const onSubmit = handleSubmit((values) => saveMutation.mutate(values));
 
   return (
     <Dialog open={open && !!workspace} onClose={onClose} maxWidth="sm" fullWidth>
@@ -69,32 +70,50 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
       <Box component="form" onSubmit={onSubmit}>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label="Project title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-              fullWidth
+            <Controller
+              name="title"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Project title"
+                  required
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                  fullWidth
+                />
+              )}
             />
-            <TextField
-              label="Aim"
-              value={aim}
-              onChange={(e) => setAim(e.target.value)}
-              fullWidth
-              multiline
-              minRows={2}
-              placeholder="Overall aim of this research project"
+            <Controller
+              name="aim"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Aim"
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  placeholder="Overall aim of this research project"
+                />
+              )}
             />
-            <TextField
-              label="Objectives"
-              value={objectives}
-              onChange={(e) => setObjectives(e.target.value)}
-              fullWidth
-              multiline
-              minRows={3}
-              helperText="One objective per line"
+            <Controller
+              name="objectives"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Objectives"
+                  fullWidth
+                  multiline
+                  minRows={3}
+                  helperText="One objective per line"
+                />
+              )}
             />
-            {error && <Alert severity="error">{error}</Alert>}
+            {saveMutation.isError && <Alert severity="error">{formatApiError(saveMutation.error)}</Alert>}
+            {errors.root && <Alert severity="error">{errors.root.message}</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions>

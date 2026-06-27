@@ -199,6 +199,21 @@ async function throwApiError(res: Response, text: string): Promise<never> {
   throw new PeggyApiError(res.status, message, detail, Number.isFinite(retryAfter) ? retryAfter : undefined);
 }
 
+export function formatResetsAt(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+export function formatApiError(err: unknown): string {
+  if (err instanceof PeggyApiError) {
+    if (err.resetsAt) {
+      return `${err.message} Resets ${formatResetsAt(err.resetsAt)}.`;
+    }
+    return err.message;
+  }
+  if (err instanceof Error) return err.message;
+  return "Something went wrong.";
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders();
   const res = await fetch(`${API_URL}${path}`, {
@@ -393,7 +408,7 @@ export const peggyApi = {
     const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", headers, body: form });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || res.statusText);
+      await throwApiError(res, text);
     }
     return res.json() as Promise<UploadResponse>;
   },

@@ -11,6 +11,8 @@ Lean research assistant: literature corpus + separate own-findings space, RAG wo
 ## Frontend
 
 - TanStack Query; `queryKeys.corpus(sourceType)` for split corpora
+- Shared API errors: `formatApiError()` / `PeggyApiError` in [`apps/web/lib/api.ts`](../apps/web/lib/api.ts)
+- Multi-field forms: `react-hook-form` + Zod (`IngestFeature`, onboarding, `WorkspaceEditDialog`); single-field chat query uses controlled `TextField`
 - MUI shell; health chips on dashboard
 - **Corpus** (`/ingest`) — literature ingest modal (PubMed + PDF)
 - **Our findings** (`/findings`) — narrative + research PDF
@@ -35,6 +37,8 @@ Lean research assistant: literature corpus + separate own-findings space, RAG wo
 
 1. Qdrant purge on `DELETE /corpus/{id}`
 2. OpenAPI → TypeScript types for web client
-3. Reactive agent — [AGENT.md](AGENT.md)
+3. Migrate `ResearcherProfile` edit dialog to RHF + Zod (login/register stay legacy useState)
 4. Frontend Vitest
 5. Inngest when async ingest at scale
+
+See also [SECURITY.md](SECURITY.md).

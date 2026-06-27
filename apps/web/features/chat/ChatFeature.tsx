@@ -3,12 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
-  Box,
   Button,
   Chip,
   CircularProgress,
   FormControlLabel,
-  LinearProgress,
   Paper,
   Stack,
   Switch,
@@ -17,16 +15,17 @@ import {
 } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
 import {
-  PeggyApiError,
+  formatApiError,
   peggyApi,
   queryKeys,
   type AgentResponse,
   type AgentStreamEvent,
   type ChatMode,
-  type RateLimitBucket,
 } from "@/lib/api";
 import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
+import { AgentResultPanel } from "@/features/chat/AgentResultPanel";
+import { UsageQuotaBanner } from "@/features/chat/UsageQuotaBanner";
 
 const MODES: { id: ChatMode; label: string; hint: string }[] = [
   { id: "auto", label: "Auto", hint: "Reactive agent — searches corpus and picks tools automatically" },
@@ -45,28 +44,6 @@ function getSessionId(): string {
     sessionStorage.setItem(SESSION_KEY, id);
   }
   return id;
-}
-
-function formatResetsAt(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function usageLabel(bucket: RateLimitBucket, unitLabel: string): string {
-  if (bucket.remaining === 0) {
-    return `No ${unitLabel} left this hour · resets ${formatResetsAt(bucket.resets_at)}`;
-  }
-  return `${bucket.remaining} of ${bucket.limit} ${unitLabel} left · resets ${formatResetsAt(bucket.resets_at)}`;
-}
-
-function formatApiError(err: unknown): string {
-  if (err instanceof PeggyApiError) {
-    if (err.resetsAt) {
-      return `${err.message} Resets ${formatResetsAt(err.resetsAt)}.`;
-    }
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return "Something went wrong.";
 }
 
 const TOOL_LABELS: Record<string, string> = {
@@ -104,6 +81,7 @@ export function ChatFeature() {
   const usageQuery = useQuery({
     queryKey: [...queryKeys.usage, mode],
     queryFn: () => peggyApi.usage(),
+    retry: 1,
   });
 
   const activeBucket = mode === "auto" ? usageQuery.data?.agent : usageQuery.data?.chat;
@@ -186,16 +164,12 @@ export function ChatFeature() {
         {MODES.find((m) => m.id === mode)?.hint}
       </Typography>
 
-      {usageQuery.isError && (
-        <Alert severity="warning" variant="outlined">
-          Usage unavailable — hourly message limits still apply on the server.
-        </Alert>
-      )}
-      {activeBucket && !usageQuery.isError && (
-        <Alert severity={quotaExhausted ? "warning" : "info"}>
-          {usageLabel(activeBucket, unitLabel)}
-        </Alert>
-      )}
+      <UsageQuotaBanner
+        isError={usageQuery.isError}
+        bucket={activeBucket}
+        unitLabel={unitLabel}
+        quotaExhausted={quotaExhausted}
+      />
 
       <FormControlLabel
         control={<Switch checked={includeFindings} onChange={(e) => setIncludeFindings(e.target.checked)} />}
@@ -227,51 +201,11 @@ export function ChatFeature() {
         {isPending ? <CircularProgress size={24} /> : "Send"}
       </Button>
 
-      {mode === "auto" && agentPending && (
-        <Box>
-          <LinearProgress />
-          {stepLabel && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
-              {stepLabel}
-            </Typography>
-          )}
-        </Box>
+      {mode === "auto" && (
+        <AgentResultPanel pending={agentPending} stepLabel={stepLabel} error={agentError} data={agentData} />
       )}
 
-      {mode === "auto" && agentError && <Alert severity="error">{agentError}</Alert>}
       {mode !== "auto" && chat.isError && <Alert severity="error">{formatApiError(chat.error)}</Alert>}
-
-      {mode === "auto" && agentData && (
-        <Paper sx={{ p: 2 }}>
-          <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mb: 1 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.06em", mr: 1 }}>
-              Agent
-            </Typography>
-            {agentData.tools_used.map((t) => (
-              <Chip key={t} label={t.replace(/_/g, " ")} size="small" variant="outlined" />
-            ))}
-          </Stack>
-          {agentData.truncated && (
-            <Alert severity="warning" sx={{ mb: 1 }}>
-              Agent reached the step limit — answer may be incomplete.
-            </Alert>
-          )}
-          <Typography variant="body1" sx={{ whiteSpace: "pre-wrap" }}>
-            {agentData.answer}
-          </Typography>
-          <WorkflowResults
-            mode={
-              agentData.body && "gaps" in agentData.body
-                ? "gap_analysis"
-                : agentData.body && "agreement" in agentData.body
-                  ? "compare"
-                  : "chat"
-            }
-            body={agentData.body}
-          />
-          <SourceCards sources={agentData.sources} confidence={agentData.confidence} limitations={agentData.limitations} />
-        </Paper>
-      )}
 
       {mode !== "auto" && chat.data && (
         <Paper sx={{ p: 2 }}>

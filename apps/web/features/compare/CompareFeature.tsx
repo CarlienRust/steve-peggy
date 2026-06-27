@@ -19,7 +19,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { peggyApi, queryKeys } from "@/lib/api";
+import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { SourceCards } from "@/components/SourceCards";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
@@ -27,6 +27,7 @@ export function CompareFeature() {
   const [finding, setFinding] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
 
   const findings = useQuery({
     queryKey: queryKeys.corpus("own_findings"),
@@ -48,6 +49,7 @@ export function CompareFeature() {
   const importSelectedFindings = async () => {
     if (selectedIds.size === 0) return;
     setImporting(true);
+    setImportError(null);
     try {
       const blocks: string[] = [];
       for (const id of selectedIds) {
@@ -58,6 +60,8 @@ export function CompareFeature() {
       }
       const imported = blocks.join("\n\n---\n\n");
       setFinding((prev) => (prev.trim() ? `${prev.trim()}\n\n---\n\n${imported}` : imported));
+    } catch (err) {
+      setImportError(formatApiError(err));
     } finally {
       setImporting(false);
     }
@@ -102,6 +106,11 @@ export function CompareFeature() {
           >
             {importing ? <CircularProgress size={20} /> : `Import selected (${selectedIds.size})`}
           </Button>
+          {importError && (
+            <Alert severity="error" sx={{ mt: 1 }}>
+              {importError}
+            </Alert>
+          )}
         </Paper>
       )}
 
@@ -123,7 +132,7 @@ export function CompareFeature() {
       <Button variant="contained" disabled={!finding || compare.isPending} onClick={() => compare.mutate(finding)}>
         {compare.isPending ? <CircularProgress size={24} /> : "Compare to literature"}
       </Button>
-      {compare.isError && <Alert severity="error">{(compare.error as Error).message}</Alert>}
+      {compare.isError && <Alert severity="error">{formatApiError(compare.error)}</Alert>}
       {compare.data && (
         <Grid container spacing={2}>
           <Grid item xs={12} md={4}>

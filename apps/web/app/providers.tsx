@@ -11,6 +11,8 @@ function AuthTokenBridge() {
   useEffect(() => {
     const supabase = createClient();
     setAccessTokenProvider(async () => {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return null;
       const { data } = await supabase.auth.getSession();
       return data.session?.access_token ?? null;
     });

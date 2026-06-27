@@ -11,7 +11,7 @@ import {
   TextField,
 } from "@mui/material";
 import { useState } from "react";
-import { peggyApi } from "@/lib/api";
+import { peggyApi, formatApiError } from "@/lib/api";
 import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
 
@@ -34,7 +34,7 @@ export function GapsFeature() {
       <Button variant="contained" disabled={gap.isPending} onClick={() => gap.mutate(query)}>
         {gap.isPending ? <CircularProgress size={24} /> : "Run gap analysis"}
       </Button>
-      {gap.isError && <Alert severity="error">{(gap.error as Error).message}</Alert>}
+      {gap.isError && <Alert severity="error">{formatApiError(gap.error)}</Alert>}
       {gap.data && (
         <>
           <WorkflowResults mode="gap_analysis" body={gap.data.body} />

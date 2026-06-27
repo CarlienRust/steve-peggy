@@ -32,7 +32,8 @@
 4. **Deploy** — wait for build; note service URL `https://….onrender.com`
 5. **Vercel** — set `NEXT_PUBLIC_API_URL` to Render URL; redeploy web app
 6. **CORS** — on Render, `CORS_ORIGINS` must include your Vercel URL (comma-separated)
-7. **Smoke test:**
+7. **Upstash Redis** (recommended) — `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` for consistent hourly rate limits across restarts/instances. See [RESTRICTIONS.md](RESTRICTIONS.md).
+8. **Smoke test:**
 
    ```bash
    API_URL=https://your-peggy-api.onrender.com ./scripts/smoke-remote.sh
@@ -74,5 +75,6 @@ flowchart TB
 | `SQLITE_DB` / unset `DATABASE_URL` | `DATABASE_URL` → Supabase pooler `:6543` |
 | `AUTH_REQUIRED=false` (tests) | `AUTH_REQUIRED=true` |
 | `CORS_ORIGINS=http://localhost:3000` | `https://your-app.vercel.app,http://localhost:3000` |
+| — | `UPSTASH_REDIS_REST_URL` + token (recommended) |
 
 See [ENV.md](ENV.md), [DATABASE.md](DATABASE.md), [AUTH.md](AUTH.md).

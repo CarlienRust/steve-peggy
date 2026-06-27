@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +58,11 @@ async def health():
         qdrant_ok = True
     except Exception:
         pass
+
+    minimal = bool(os.getenv("RENDER")) and not config.PUBLIC_HEALTH_DETAIL
+    if minimal:
+        return {"status": "ok", "qdrant": qdrant_ok}
+
     from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
     from core.store.qdrant_store import embedding_mode
     from core.limits import limits_snapshot

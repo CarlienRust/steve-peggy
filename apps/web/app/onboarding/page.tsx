@@ -1,6 +1,8 @@
 "use client";
 
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Suspense, useEffect, useState } from "react";
+import { Controller, useForm } from "react-hook-form";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
@@ -14,15 +16,14 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { createClient } from "@/lib/supabase/client";
-import { peggyApi } from "@/lib/api";
+import { formatApiError, peggyApi } from "@/lib/api";
 import {
   formatDisplayName,
   normalizeResearchRole,
   normalizeTitle,
   profileFromMetadata,
-  type ResearchRole,
-  type TitleOption,
 } from "@/lib/userProfile";
+import { profileFormSchema, type ProfileFormValues } from "@/lib/schemas/profile";
 import { ProfileNameFields } from "@/components/ProfileNameFields";
 import { ResearchRoleField } from "@/components/ResearchRoleField";
 
@@ -32,15 +33,27 @@ function OnboardingForm() {
   const isUpdate = searchParams.get("update") === "1";
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [title, setTitle] = useState<TitleOption>("Dr");
-  const [name, setName] = useState("");
-  const [surname, setSurname] = useState("");
   const [email, setEmail] = useState("");
-  const [researchFocus, setResearchFocus] = useState("");
-  const [researchRole, setResearchRole] = useState<ResearchRole>("Researcher");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const {
+    control,
+    handleSubmit,
+    reset,
+    watch,
+    formState: { isSubmitting },
+  } = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileFormSchema),
+    defaultValues: {
+      title: "Dr",
+      name: "",
+      surname: "",
+      research_focus: "",
+      research_type: "Researcher",
+    },
+  });
+
+  const watched = watch();
 
   useEffect(() => {
     const init = async () => {
@@ -60,11 +73,13 @@ function OnboardingForm() {
           router.replace("/projects");
           return;
         }
-        setTitle(normalizeTitle(profile.title));
-        setName(profile.name);
-        setSurname(profile.surname);
-        setResearchFocus(profile.research_focus ?? "");
-        setResearchRole(normalizeResearchRole(profile.research_type));
+        reset({
+          title: normalizeTitle(profile.title),
+          name: profile.name,
+          surname: profile.surname,
+          research_focus: profile.research_focus ?? "",
+          research_type: normalizeResearchRole(profile.research_type),
+        });
         setLoading(false);
         return;
       } catch {
@@ -75,39 +90,38 @@ function OnboardingForm() {
       }
 
       const meta = profileFromMetadata(authData.user.user_metadata ?? {}, authData.user.email ?? "");
-      if (meta.title) setTitle(normalizeTitle(meta.title));
-      if (meta.name) setName(meta.name);
-      if (meta.surname) setSurname(meta.surname);
-      if (meta.research_focus) setResearchFocus(meta.research_focus);
-      if (meta.research_type) setResearchRole(normalizeResearchRole(String(meta.research_type)));
+      reset({
+        title: meta.title ? normalizeTitle(meta.title) : "Dr",
+        name: meta.name ?? "",
+        surname: meta.surname ?? "",
+        research_focus: meta.research_focus ?? "",
+        research_type: meta.research_type ? normalizeResearchRole(String(meta.research_type)) : "Researcher",
+      });
 
       setLoading(false);
     };
     void init();
-  }, [router, isUpdate]);
+  }, [router, isUpdate, reset]);
 
-  const onSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    setError(null);
+  const onSubmit = handleSubmit(async (values) => {
+    setSubmitError(null);
     try {
       await peggyApi.upsertProfile({
-        title: title.trim(),
-        name: name.trim(),
-        surname: surname.trim(),
+        title: values.title,
+        name: values.name,
+        surname: values.surname,
         email: email.trim(),
-        research_focus: researchFocus.trim(),
-        research_type: researchRole,
+        research_focus: values.research_focus,
+        research_type: values.research_type,
       });
 
       const supabase = createClient();
       await supabase.auth.updateUser({ data: { profile_complete: true } });
       router.replace("/projects");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save profile");
-      setSaving(false);
+      setSubmitError(formatApiError(err));
     }
-  };
+  });
 
   if (loading) {
     return (
@@ -117,7 +131,7 @@ function OnboardingForm() {
     );
   }
 
-  const preview = formatDisplayName(title, name, surname);
+  const preview = formatDisplayName(watched.title, watched.name, watched.surname);
 
   return (
     <Box sx={{ minHeight: "100vh", display: "grid", placeItems: "center", p: 3, bgcolor: "background.default" }}>
@@ -141,27 +155,27 @@ function OnboardingForm() {
 
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2}>
-            <ProfileNameFields
-              title={title}
-              name={name}
-              surname={surname}
-              onTitleChange={setTitle}
-              onNameChange={setName}
-              onSurnameChange={setSurname}
-            />
+            <ProfileNameFields control={control} titleName="title" nameName="name" surnameName="surname" />
             <TextField label="Email" type="email" value={email} required fullWidth disabled />
-            <ResearchRoleField value={researchRole} onChange={setResearchRole} />
-            <TextField
-              label="Research focus"
-              value={researchFocus}
-              onChange={(e) => setResearchFocus(e.target.value)}
-              fullWidth
-              required
+            <ResearchRoleField control={control} name="research_type" />
+            <Controller
+              name="research_focus"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  label="Research focus"
+                  required
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message}
+                  fullWidth
+                />
+              )}
             />
 
-            {error && <Alert severity="error">{error}</Alert>}
-            <Button type="submit" variant="contained" disabled={saving} fullWidth>
-              {saving ? "Saving…" : isUpdate ? "Save profile" : "Save & continue"}
+            {submitError && <Alert severity="error">{submitError}</Alert>}
+            <Button type="submit" variant="contained" disabled={isSubmitting} fullWidth>
+              {isSubmitting ? "Saving…" : isUpdate ? "Save profile" : "Save & continue"}
             </Button>
           </Stack>
         </Box>

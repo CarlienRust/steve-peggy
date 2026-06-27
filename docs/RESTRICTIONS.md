@@ -4,7 +4,7 @@ This document maps provider free-tier caps to **hard limits enforced in code** s
 
 ## Enforced API limits
 
-All limits are configurable via environment variables (defaults below). The API exposes them at `GET /limits` and in `/health`.
+All limits are configurable via environment variables (defaults below). The API exposes them at `GET /limits`. Full limits also appear in `/health` locally; on Render, `/health` returns minimal `{ status, qdrant }` unless `PUBLIC_HEALTH_DETAIL=true`.
 
 | Limit | Default | Env var | HTTP when exceeded |
 |-------|---------|---------|---------------------|

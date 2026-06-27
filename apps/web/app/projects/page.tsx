@@ -21,7 +21,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { peggyApi, queryKeys } from "@/lib/api";
+import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { createClient } from "@/lib/supabase/client";
 import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
@@ -65,7 +65,7 @@ export default function ProjectsPage() {
       setDialogOpen(false);
       openProject(ws.id);
     },
-    onError: (err: Error) => setError(err.message),
+    onError: (err: unknown) => setError(formatApiError(err)),
   });
 
   const openProject = (id: string) => {

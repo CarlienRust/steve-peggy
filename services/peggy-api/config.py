@@ -32,7 +32,8 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 # JWT Secret from Supabase Settings → API (not the anon/publishable key).
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
-AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", "false").lower() in ("1", "true", "yes")
+_AUTH_DEFAULT = "true" if os.getenv("RENDER") else "false"
+AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", _AUTH_DEFAULT).lower() in ("1", "true", "yes")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL", "peggy@example.com")
 NCBI_API_KEY = os.getenv("NCBI_API_KEY", "")
 
@@ -67,3 +68,6 @@ RATE_LIMIT_AGENT_PER_HOUR = int(os.getenv("RATE_LIMIT_AGENT_PER_HOUR", "15"))
 RATE_LIMIT_INGEST_PER_HOUR = int(os.getenv("RATE_LIMIT_INGEST_PER_HOUR", "20"))
 RATE_LIMIT_DISCOVER_PER_HOUR = int(os.getenv("RATE_LIMIT_DISCOVER_PER_HOUR", "20"))
 RATE_LIMIT_WORKFLOW_PER_HOUR = int(os.getenv("RATE_LIMIT_WORKFLOW_PER_HOUR", "15"))
+
+# When false on Render, /health returns minimal status (no LLM/limits detail).
+PUBLIC_HEALTH_DETAIL = os.getenv("PUBLIC_HEALTH_DETAIL", "false").lower() in ("1", "true", "yes")
