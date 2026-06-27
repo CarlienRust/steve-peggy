@@ -21,15 +21,12 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
       <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em" sx={{ mb: 2 }}>
         Welcome to Peggy
       </Typography>
-      <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, mb: 2, maxWidth: 560 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, mb: 2, width: "100%", textAlign: "justify" }}>
+        Peer-reviewed Evidence Gathering, Grounding &amp; Yielding knowledge.
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3, width: "100%", textAlign: "justify" }}>
         Peggy is your evidence-grounded research assistant. Ingest literature and your own findings, then ask
         questions, compare results, and run gap analysis — every answer cites sources from your corpus.
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, mb: 3, maxWidth: 560 }}>
-        <Box component="span" sx={{ fontWeight: 600, color: "text.primary" }}>
-          Peggy
-        </Box>{" "}
-        stands for Peer-reviewed Evidence Gathering, Grounding &amp; Yielding knowledge.
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
         <Button variant="contained" startIcon={<AddIcon />} onClick={onCreateProject} sx={{ textTransform: "none" }}>
