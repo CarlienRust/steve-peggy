@@ -1,9 +1,14 @@
 from contextlib import asynccontextmanager
+import logging
 import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import ResponseValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 import config
+
+logger = logging.getLogger(__name__)
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
 from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
@@ -24,6 +29,7 @@ async def lifespan(app: FastAPI):
         print(f"[Peggy] LLM: {config.LLM_PROVIDER} (configured: {is_llm_configured()})")
     except Exception as e:
         print(f"[startup] Qdrant/embedder not ready: {e}")
+    print(f"[Peggy] CORS origins: {config.CORS_ORIGINS}")
     yield
 
 
@@ -37,6 +43,21 @@ app.add_middleware(
     # Wildcard headers break credentialed preflight (browser gets 400, no Allow-Origin).
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+
+@app.exception_handler(ResponseValidationError)
+async def response_validation_handler(request: Request, exc: ResponseValidationError) -> JSONResponse:
+    logger.error("Response validation failed on %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    if isinstance(exc, HTTPException):
+        raise exc
+    logger.exception("Unhandled error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
 
 app.include_router(limits_router.router)
 app.include_router(ingest_router.router)

@@ -443,6 +443,6 @@ export const queryKeys = {
   usage: ["usage"] as const,
   corpus: (sourceType?: string) => ["corpus", sourceType] as const,
   job: (id: string) => ["job", id] as const,
-  profile: ["profile"] as const,
-  workspaces: ["workspaces"] as const,
+  profile: (userId?: string) => (userId ? (["profile", userId] as const) : (["profile"] as const)),
+  workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),
 };

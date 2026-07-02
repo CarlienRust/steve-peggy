@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
+import { useAuthSession } from "@/lib/authContext";
 import { objectivesFromText, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 
 type WorkspaceEditDialogProps = {
@@ -27,6 +28,7 @@ type WorkspaceEditDialogProps = {
 
 export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: WorkspaceEditDialogProps) {
   const queryClient = useQueryClient();
+  const { userId } = useAuthSession();
   const {
     control,
     handleSubmit,
@@ -56,7 +58,11 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
       });
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      }
       onSaved?.();
       onClose();
     },

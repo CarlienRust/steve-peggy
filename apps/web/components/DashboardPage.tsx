@@ -16,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { useAuthSession } from "@/lib/authContext";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { llmHealthHint } from "@/lib/llmHealthHint";
@@ -41,9 +42,20 @@ const DEMO_ACTIVITY: ActivityItem[] = [
 
 export function DashboardPage() {
   const { activeWorkspace, refetch } = useWorkspace();
+  const { ready, userId } = useAuthSession();
   const [editOpen, setEditOpen] = useState(false);
-  const health = useQuery({ queryKey: queryKeys.health, queryFn: () => peggyApi.health() });
-  const corpus = useQuery({ queryKey: queryKeys.corpus(), queryFn: () => peggyApi.listCorpus() });
+  const health = useQuery({
+    queryKey: queryKeys.health,
+    queryFn: () => peggyApi.health(),
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+  const corpus = useQuery({
+    queryKey: queryKeys.corpus(),
+    queryFn: () => peggyApi.listCorpus(),
+    enabled: ready && !!userId,
+  });
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
 

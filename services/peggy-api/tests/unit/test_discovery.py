@@ -50,3 +50,21 @@ async def test_discover_with_topic_returns_candidates():
     assert len(result["candidates"]) == 1
     assert result["candidates"][0]["title"] == "New paper"
     assert result["query_used"] == "microbiome"
+
+
+@pytest.mark.asyncio
+async def test_discover_continues_when_qdrant_scroll_fails():
+    with patch("core.ingest.discovery.qdrant_store.scroll_texts", side_effect=RuntimeError("qdrant down")):
+        with patch("core.ingest.discovery.search_pubmed", new_callable=AsyncMock, return_value=[]):
+            with patch("core.ingest.discovery.search_europe_pmc", new_callable=AsyncMock, return_value=[{
+                "title": "Fallback paper",
+                "abstract": "still works",
+                "doi": None,
+                "pmid": "123",
+                "year": 2024,
+                "source": "europe_pmc",
+            }]):
+                with patch("core.ingest.discovery.catalog.find_existing_paper", new_callable=AsyncMock, return_value=None):
+                    result = await discover_literature(topic="microbiome", max_results=5)
+    assert len(result["candidates"]) == 1
+    assert result["candidates"][0]["title"] == "Fallback paper"

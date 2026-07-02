@@ -22,6 +22,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
+import { useAuthSession } from "@/lib/authContext";
 import { createClient } from "@/lib/supabase/client";
 import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
@@ -31,13 +32,16 @@ import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 export default function ProjectsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { ready, userId } = useAuthSession();
   const { data, isLoading, error: loadError } = useQuery({
-    queryKey: queryKeys.workspaces,
+    queryKey: queryKeys.workspaces(userId ?? undefined),
     queryFn: () => peggyApi.listWorkspaces(),
+    enabled: ready && !!userId,
   });
   const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: queryKeys.profile,
+    queryKey: queryKeys.profile(userId ?? undefined),
     queryFn: () => peggyApi.getProfile(),
+    enabled: ready && !!userId,
     retry: false,
   });
 
@@ -61,7 +65,9 @@ export default function ProjectsPage() {
       return peggyApi.createWorkspace({ title: title.trim(), aim: aim.trim(), objectives: objs });
     },
     onSuccess: (ws) => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      }
       setDialogOpen(false);
       openProject(ws.id);
     },
@@ -88,7 +94,7 @@ export default function ProjectsPage() {
   const workspaces = data?.workspaces ?? [];
   const hasProfile = !!profile;
   const createProjectLabel = workspaces.length === 0 ? "Create first project" : "Create new project";
-  const pageLoading = isLoading || profileLoading;
+  const pageLoading = !ready || isLoading || profileLoading;
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default", p: 3 }}>

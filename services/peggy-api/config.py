@@ -44,9 +44,14 @@ COLLECTION_LITERATURE = "peggy_literature"
 COLLECTION_OWN_FINDINGS = "peggy_own_findings"
 COLLECTION_CHAT = "chat_history_logs"
 
+_CORS_DEFAULT = (
+    "https://peggy-ra.vercel.app,http://localhost:3000"
+    if os.getenv("RENDER")
+    else "http://localhost:3000"
+)
 CORS_ORIGINS = [
     o.strip()
-    for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+    for o in os.getenv("CORS_ORIGINS", _CORS_DEFAULT).split(",")
     if o.strip()
 ]
 

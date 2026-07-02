@@ -1,8 +1,12 @@
+import logging
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, Field
 from typing import Optional
 
 import config
+
+logger = logging.getLogger(__name__)
 from core.auth.deps import AuthUser, get_current_user
 from core.ingest.discovery import discover_literature
 from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job
@@ -133,5 +137,13 @@ async def discover(body: DiscoverRequest, user: AuthUser = Depends(get_current_u
         enforce_text_length(body.topic, label="Topic")
     await enforce_user_rate(user.id, "discover", config.RATE_LIMIT_DISCOVER_PER_HOUR)
     capped = cap_discover_results(body.max_results)
-    result = await discover_literature(topic=body.topic, max_results=capped, user_id=user.id)
-    return result
+    try:
+        return await discover_literature(topic=body.topic, max_results=capped, user_id=user.id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.exception("Discover failed for user %s: %s", user.id, exc)
+        raise HTTPException(
+            status_code=503,
+            detail="Literature discovery is temporarily unavailable. Try again in a moment.",
+        ) from exc

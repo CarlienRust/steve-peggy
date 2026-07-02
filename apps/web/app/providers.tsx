@@ -2,23 +2,9 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { CssBaseline, ThemeProvider } from "@mui/material";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { createPeggyTheme } from "@/theme/peggyTheme";
-import { createClient } from "@/lib/supabase/client";
-import { setAccessTokenProvider } from "@/lib/api";
-
-function AuthTokenBridge() {
-  useEffect(() => {
-    const supabase = createClient();
-    setAccessTokenProvider(async () => {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return null;
-      const { data } = await supabase.auth.getSession();
-      return data.session?.access_token ?? null;
-    });
-  }, []);
-  return null;
-}
+import { AuthSessionBridge } from "@/lib/authContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   const theme = useMemo(() => createPeggyTheme(), []);
@@ -35,8 +21,7 @@ export function Providers({ children }: { children: ReactNode }) {
     <QueryClientProvider client={client}>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthTokenBridge />
-        {children}
+        <AuthSessionBridge>{children}</AuthSessionBridge>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -19,6 +19,7 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
+import { useAuthSession } from "@/lib/authContext";
 import { peggyApi, queryKeys } from "@/lib/api";
 import {
   formatDisplayName,
@@ -34,9 +35,11 @@ import { ResearchRoleField } from "@/components/ResearchRoleField";
 export function ResearcherProfile() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { ready, userId } = useAuthSession();
   const { data: profile, isLoading } = useQuery({
-    queryKey: queryKeys.profile,
+    queryKey: queryKeys.profile(userId ?? undefined),
     queryFn: () => peggyApi.getProfile(),
+    enabled: ready && !!userId,
     retry: false,
   });
 
@@ -54,7 +57,9 @@ export function ResearcherProfile() {
         research_type: draft.research_type ?? "Researcher",
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: queryKeys.profile });
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
+      }
       setEditOpen(false);
     },
   });
