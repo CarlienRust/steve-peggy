@@ -42,7 +42,7 @@ const DEMO_ACTIVITY: ActivityItem[] = [
 
 export function DashboardPage() {
   const { activeWorkspace, refetch } = useWorkspace();
-  const { ready, userId } = useAuthSession();
+  const { ready: authReady, userId } = useAuthSession();
   const [editOpen, setEditOpen] = useState(false);
   const health = useQuery({
     queryKey: queryKeys.health,
@@ -54,7 +54,7 @@ export function DashboardPage() {
   const corpus = useQuery({
     queryKey: queryKeys.corpus(),
     queryFn: () => peggyApi.listCorpus(),
-    enabled: ready && !!userId,
+    enabled: authReady && !!userId,
   });
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
@@ -63,9 +63,9 @@ export function DashboardPage() {
   const literatureCount = corpus.data?.papers?.filter((p) => p.source_type === "literature").length ?? 0;
   const ownCount = count - literatureCount;
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
-  const ready = Boolean(health.data?.qdrant && llmReady);
+  const systemReady = Boolean(health.data?.qdrant && llmReady);
   const embeddingsOk = health.data?.embeddings === "sentence-transformers";
-  const readinessPct = count === 0 ? 0 : ready && embeddingsOk ? 94 : ready ? 70 : 40;
+  const readinessPct = count === 0 ? 0 : systemReady && embeddingsOk ? 94 : systemReady ? 70 : 40;
   const setupHint = llmHealthHint(health.data);
 
   const activity: ActivityItem[] =

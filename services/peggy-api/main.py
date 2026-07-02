@@ -1,4 +1,5 @@
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
+import asyncio
 import logging
 import os
 
@@ -14,23 +15,37 @@ from core.store.qdrant_store import ensure_collections, get_client
 from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await init_catalog()
+async def _warm_up_services() -> None:
     try:
-        ensure_collections()
+        await asyncio.wait_for(init_catalog(), timeout=20)
+    except Exception as e:
+        print(f"[startup] Catalog init failed: {e}")
+        return
+    try:
+        await asyncio.wait_for(asyncio.to_thread(ensure_collections), timeout=20)
         from core.store.qdrant_store import _init_embedder, embedding_mode
+
         _init_embedder()
         print(f"[Peggy] Qdrant ready at {config.QDRANT_URL}")
         print(f"[Peggy] Embeddings: {embedding_mode()}")
         from core.limits import limits_snapshot
+
         print(f"[Peggy] Tier limits: {limits_snapshot()}")
         from core.llm.health import is_llm_configured
+
         print(f"[Peggy] LLM: {config.LLM_PROVIDER} (configured: {is_llm_configured()})")
     except Exception as e:
         print(f"[startup] Qdrant/embedder not ready: {e}")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     print(f"[Peggy] CORS origins: {config.CORS_ORIGINS}")
+    warm_task = asyncio.create_task(_warm_up_services())
     yield
+    warm_task.cancel()
+    with suppress(asyncio.CancelledError):
+        await warm_task
 
 
 app = FastAPI(title="Peggy Research Assistant API", version="2.0.0", lifespan=lifespan)

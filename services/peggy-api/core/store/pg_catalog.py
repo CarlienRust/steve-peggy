@@ -19,7 +19,13 @@ async def init_catalog(db_path: str | None = None) -> None:
     if not config.DATABASE_URL:
         return
     if _pool is None:
-        _pool = await asyncpg.create_pool(config.DATABASE_URL, min_size=1, max_size=5)
+        _pool = await asyncpg.create_pool(
+            config.DATABASE_URL,
+            min_size=1,
+            max_size=5,
+            timeout=10,
+            command_timeout=30,
+        )
 
 
 async def _pool_conn():
