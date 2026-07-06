@@ -41,7 +41,16 @@ def _norm_title(title: str) -> str:
 
 
 def _row_to_dict(row: asyncpg.Record) -> dict:
-    return dict(row)
+    d = dict(row)
+    out: dict[str, Any] = {}
+    for key, value in d.items():
+        if isinstance(value, uuid.UUID):
+            out[key] = str(value)
+        elif isinstance(value, datetime):
+            out[key] = value.isoformat()
+        else:
+            out[key] = value
+    return out
 
 
 async def find_existing_paper(

@@ -40,7 +40,7 @@ export default function ProjectsPage() {
   });
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: queryKeys.profile(userId ?? undefined),
-    queryFn: () => peggyApi.getProfile(),
+    queryFn: () => peggyApi.getProfileOptional(),
     enabled: ready && !!userId,
     retry: false,
   });

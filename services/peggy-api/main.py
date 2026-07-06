@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import config
 
 logger = logging.getLogger(__name__)
+from core.http.cors import cors_headers_for_request
 from core.llm.provider import LLMProviderError
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
@@ -17,11 +18,6 @@ from routers import agent_router, chat_router, corpus_router, feedback_router, i
 
 
 async def _warm_up_services() -> None:
-    try:
-        await asyncio.wait_for(init_catalog(), timeout=20)
-    except Exception as e:
-        print(f"[startup] Catalog init failed: {e}")
-        return
     try:
         await asyncio.wait_for(asyncio.to_thread(ensure_collections), timeout=20)
         from core.store.qdrant_store import _init_embedder, embedding_mode
@@ -42,6 +38,11 @@ async def _warm_up_services() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     print(f"[Peggy] CORS origins: {config.CORS_ORIGINS}")
+    try:
+        await asyncio.wait_for(init_catalog(), timeout=20)
+        print("[Peggy] Catalog ready")
+    except Exception as e:
+        print(f"[startup] Catalog init failed: {e}")
     warm_task = asyncio.create_task(_warm_up_services())
     yield
     warm_task.cancel()
@@ -61,23 +62,41 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
+    headers = dict(exc.headers or {})
+    headers.update(cors_headers_for_request(request))
+    detail = exc.detail
+    return JSONResponse(status_code=exc.status_code, content={"detail": detail}, headers=headers)
+
+
 @app.exception_handler(LLMProviderError)
 async def llm_provider_error_handler(request: Request, exc: LLMProviderError) -> JSONResponse:
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.message},
+        headers=cors_headers_for_request(request),
+    )
 
 
 @app.exception_handler(ResponseValidationError)
 async def response_validation_handler(request: Request, exc: ResponseValidationError) -> JSONResponse:
     logger.error("Response validation failed on %s %s: %s", request.method, request.url.path, exc)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=cors_headers_for_request(request),
+    )
 
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    if isinstance(exc, HTTPException):
-        raise exc
     logger.exception("Unhandled error on %s %s", request.method, request.url.path)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=cors_headers_for_request(request),
+    )
 
 
 app.include_router(limits_router.router)

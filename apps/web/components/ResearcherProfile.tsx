@@ -38,7 +38,7 @@ export function ResearcherProfile() {
   const { ready, userId } = useAuthSession();
   const { data: profile, isLoading } = useQuery({
     queryKey: queryKeys.profile(userId ?? undefined),
-    queryFn: () => peggyApi.getProfile(),
+    queryFn: () => peggyApi.getProfileOptional(),
     enabled: ready && !!userId,
     retry: false,
   });

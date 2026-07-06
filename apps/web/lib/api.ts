@@ -421,6 +421,17 @@ export const peggyApi = {
 
   getProfile: () => apiFetch<ResearcherProfile>("/profile"),
 
+  getProfileOptional: async (): Promise<ResearcherProfile | null> => {
+    const headers = await authHeaders();
+    const res = await fetch(`${API_URL}/profile`, { headers });
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    return res.json() as Promise<ResearcherProfile>;
+  },
+
   upsertProfile: (body: {
     title: string;
     name: string;
