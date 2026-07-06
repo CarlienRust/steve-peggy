@@ -51,12 +51,10 @@ When `DATABASE_URL` is set, the API uses Postgres for catalog; `SQLITE_DB` is ig
 
 | Scenario | `LLM_PROVIDER` | What you need |
 |----------|----------------|---------------|
-| Local dev (default) | `ollama` | `ollama serve` + model pulled |
-| **Render / cloud API** | `groq` | Free key from [console.groq.com](https://console.groq.com) → API Keys |
-| Production quality | `anthropic` | `ANTHROPIC_API_KEY` |
-| OpenAI | `openai` | `OPENAI_API_KEY` |
+| **Local dev (default)** | `ollama` | `ollama serve` + model pulled |
+| **Render / cloud deploy** | `gemini` | Free key from [Google AI Studio](https://aistudio.google.com/apikey) |
 
-Embeddings run on the **API host** via `sentence-transformers` (not Groq). Render free tier may need **1GB+ RAM** for ingest.
+Embeddings run on the **API host** (hash on Render; sentence-transformers locally). See [RESTRICTIONS.md](RESTRICTIONS.md) for free-tier safeguards.
 
 ## API `services/peggy-api/.env`
 
@@ -68,9 +66,11 @@ Embeddings run on the **API host** via `sentence-transformers` (not Groq). Rende
 | `DATABASE_URL` | Auth + Render | — | Supabase pooler URI |
 | `SUPABASE_JWT_SECRET` | If `AUTH_REQUIRED=true` | — | JWT Secret from API settings |
 | `AUTH_REQUIRED` | No | `false` in tests | `true` for real Supabase auth |
-| `LLM_PROVIDER` | No | `ollama` | `groq` on Render |
-| `GROQ_API_KEY` | If groq | — | Free tier at console.groq.com |
-| `GROQ_MODEL` | No | `llama-3.3-70b-versatile` | |
+| `LLM_PROVIDER` | No | `ollama` locally; `gemini` when `RENDER=true` | |
+| `GEMINI_API_KEY` | If gemini | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GEMINI_MODEL` | No | `gemini-2.0-flash` | |
+| `OLLAMA_URL` | Local ollama | `http://localhost:11434` | |
+| `OLLAMA_MODEL` | No | `llama3.2` | |
 | `CORS_ORIGINS` | Render | `http://localhost:3000` | Comma-separated origins, **no spaces** |
 | `NCBI_EMAIL` | **Yes** (PubMed) | — | Your email |
 
@@ -119,7 +119,7 @@ curl http://localhost:8000/health   # qdrant, llm_reachable, embeddings
 
 1. Fill [`services/peggy-api/.env.render.local`](../services/peggy-api/.env.render.local) from [`.env.render.example`](../services/peggy-api/.env.render.example)
 2. Paste into **Render** → Environment (secrets marked **Secret**)
-3. Add **`GROQ_API_KEY`** when ready (required for chat/agent on Render)
+3. Add **`GEMINI_API_KEY`** from Google AI Studio (required for chat/agent on Render)
 4. Set **`CORS_ORIGINS`** to include your Vercel URL
 5. **Vercel:** `NEXT_PUBLIC_API_URL=https://your-service.onrender.com`
 6. Verify:

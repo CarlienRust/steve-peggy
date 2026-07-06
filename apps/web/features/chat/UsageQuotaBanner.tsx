@@ -1,6 +1,6 @@
 "use client";
 
-import { Alert } from "@mui/material";
+import { Alert, Stack } from "@mui/material";
 import { formatResetsAt, type RateLimitBucket } from "@/lib/api";
 
 function usageLabel(bucket: RateLimitBucket, unitLabel: string): string {
@@ -15,9 +15,16 @@ type UsageQuotaBannerProps = {
   bucket?: RateLimitBucket;
   unitLabel: string;
   quotaExhausted: boolean;
+  freeTierNotice?: string;
 };
 
-export function UsageQuotaBanner({ isError, bucket, unitLabel, quotaExhausted }: UsageQuotaBannerProps) {
+export function UsageQuotaBanner({
+  isError,
+  bucket,
+  unitLabel,
+  quotaExhausted,
+  freeTierNotice,
+}: UsageQuotaBannerProps) {
   if (isError) {
     return (
       <Alert severity="warning" variant="outlined">
@@ -25,10 +32,18 @@ export function UsageQuotaBanner({ isError, bucket, unitLabel, quotaExhausted }:
       </Alert>
     );
   }
-  if (!bucket) return null;
   return (
-    <Alert severity={quotaExhausted ? "warning" : "info"}>
-      {usageLabel(bucket, unitLabel)}
-    </Alert>
+    <Stack spacing={1}>
+      {freeTierNotice && (
+        <Alert severity="info" variant="outlined" sx={{ fontSize: 13 }}>
+          {freeTierNotice}
+        </Alert>
+      )}
+      {bucket && (
+        <Alert severity={quotaExhausted ? "warning" : "info"}>
+          {usageLabel(bucket, unitLabel)}
+        </Alert>
+      )}
+    </Stack>
   );
 }

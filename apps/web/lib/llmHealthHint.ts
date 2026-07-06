@@ -19,12 +19,9 @@ export function llmHealthHint(health: HealthResponse | undefined): string | unde
   switch (health.llm_provider) {
     case "ollama":
       return "Start Ollama (ollama serve) and pull your model";
-    case "groq":
-      return "Set GROQ_API_KEY in services/peggy-api/.env";
-    case "anthropic":
-      return "Set ANTHROPIC_API_KEY in .env";
-    case "openai":
+    case "gemini":
+      return "Set GEMINI_API_KEY in Render (Google AI Studio → API key)";
     default:
-      return "Set OPENAI_API_KEY in .env";
+      return "Configure LLM_PROVIDER and API credentials in services/peggy-api/.env";
   }
 }

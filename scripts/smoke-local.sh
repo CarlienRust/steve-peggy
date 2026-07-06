@@ -27,7 +27,7 @@ checks = [
 for name, ok in checks:
   print('  OK ' + name if ok else '  WARN ' + name + ' — ' + str(d.get(name, d.get('llm_provider'))))
 if d.get('llm_provider') == 'ollama' and not d.get('llm_reachable'):
-  print('  WARN llm_reachable — start Ollama (ollama serve) or use LLM_PROVIDER=groq + GROQ_API_KEY')
+  print('  WARN llm_reachable — start Ollama (ollama serve) or set GEMINI_API_KEY on Render')
 " 2>/dev/null || true
 fi
 echo

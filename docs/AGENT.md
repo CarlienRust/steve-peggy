@@ -99,7 +99,7 @@ Qdrant `chat_history_logs` remains unused (cross-session semantic memory deferre
 - **Groq / OpenAI:** native OpenAI-style `tools` API
 - **Ollama:** native tools if supported; else JSON fallback `{"type":"tool_call",…}`
 
-For agent development, use `LLM_PROVIDER=groq` + `GROQ_API_KEY` ([LOCAL.md](LOCAL.md)).
+For agent development, use `LLM_PROVIDER=ollama` locally or `gemini` on Render ([LOCAL.md](LOCAL.md)).
 
 ## Guardrails
 

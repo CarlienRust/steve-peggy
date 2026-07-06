@@ -46,7 +46,7 @@
 | **Render free** | Spins down after idle; first request slow (cold start) |
 | **Render RAM** | 512 MB may OOM on `sentence-transformers` — upgrade to 1 GB if ingest crashes |
 | **Qdrant Cloud free** | One cluster; re-ingest after switching from local Qdrant |
-| **Groq** | Use `LLM_PROVIDER=groq` on Render (no Ollama) |
+| **Gemini** | Use `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` on Render (no Ollama) |
 
 Collections are created automatically: `peggy_literature`, `peggy_own_findings`, `chat_history_logs` (384-dim cosine). Cluster **display name** in Qdrant UI does not matter — only URL + API key.
 
@@ -70,7 +70,7 @@ flowchart TB
 
 | Local `.env` | Render / production |
 |--------------|---------------------|
-| `LLM_PROVIDER=ollama` | `LLM_PROVIDER=groq` + `GROQ_API_KEY` |
+| `LLM_PROVIDER=ollama` | `LLM_PROVIDER=gemini` + `GEMINI_API_KEY` |
 | `QDRANT_URL=http://localhost:6333` | `QDRANT_URL` + `QDRANT_API_KEY` (Qdrant Cloud) |
 | `SQLITE_DB` / unset `DATABASE_URL` | `DATABASE_URL` → Supabase pooler `:6543` |
 | `AUTH_REQUIRED=false` (tests) | `AUTH_REQUIRED=true` |

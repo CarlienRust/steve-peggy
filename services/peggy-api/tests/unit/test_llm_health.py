@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import config
 from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
-from core.llm.provider import GroqProvider, get_llm
+from core.llm.provider import GeminiProvider, get_llm
 
 
 def test_is_llm_configured_ollama():
@@ -11,17 +11,17 @@ def test_is_llm_configured_ollama():
         assert is_llm_configured() is True
 
 
-def test_is_llm_configured_groq_requires_key():
-    with patch.object(config, "LLM_PROVIDER", "groq"):
-        with patch.object(config, "GROQ_API_KEY", ""):
+def test_is_llm_configured_gemini_requires_key():
+    with patch.object(config, "LLM_PROVIDER", "gemini"):
+        with patch.object(config, "GEMINI_API_KEY", ""):
             assert is_llm_configured() is False
-        with patch.object(config, "GROQ_API_KEY", "gsk_test"):
+        with patch.object(config, "GEMINI_API_KEY", "test-key"):
             assert is_llm_configured() is True
 
 
-def test_get_llm_returns_groq():
-    with patch.object(config, "LLM_PROVIDER", "groq"):
-        assert isinstance(get_llm(), GroqProvider)
+def test_get_llm_returns_gemini():
+    with patch.object(config, "LLM_PROVIDER", "gemini"):
+        assert isinstance(get_llm(), GeminiProvider)
 
 
 @pytest.mark.asyncio

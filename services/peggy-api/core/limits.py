@@ -146,6 +146,22 @@ def cap_discover_results(max_results: int) -> int:
     return max(1, min(max_results, config.MAX_DISCOVER_RESULTS))
 
 
+def _llm_limits_info() -> dict:
+    model = config.OLLAMA_MODEL if config.LLM_PROVIDER == "ollama" else config.GEMINI_MODEL
+    info = {
+        "provider": config.LLM_PROVIDER,
+        "model": model,
+        "free_tier": config.LLM_PROVIDER == "gemini",
+    }
+    if config.LLM_PROVIDER == "gemini":
+        info["notice"] = (
+            "Gemini API free tier: limited model access, free input and output tokens, "
+            "Google AI Studio access. Content may be used to improve Google products. "
+            "Peggy hourly rate limits help you stay within free-tier quotas."
+        )
+    return info
+
+
 def limits_snapshot() -> dict:
     """Return active limits for clients and ops dashboards."""
     return {
@@ -164,4 +180,5 @@ def limits_snapshot() -> dict:
             "discover": config.RATE_LIMIT_DISCOVER_PER_HOUR,
             "workflow": config.RATE_LIMIT_WORKFLOW_PER_HOUR,
         },
+        "llm": _llm_limits_info(),
     }

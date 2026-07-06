@@ -5,7 +5,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 ## Now (unblock local use)
 
 - [ ] **Local stack** — [LOCAL.md](LOCAL.md): Qdrant + API + web (three terminals)
-- [ ] **LLM** — Ollama running or `GROQ_API_KEY`; `NCBI_EMAIL` set
+- [ ] **LLM** — Ollama running locally; `GEMINI_API_KEY` on Render; `NCBI_EMAIL` set
 - [ ] **Ingest** — literature via **Corpus**; findings via **Our findings**
 - [ ] **Smoke test** — `./scripts/smoke-local.sh` or [LOCAL.md](LOCAL.md) Phase 0 checklist
 - [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)

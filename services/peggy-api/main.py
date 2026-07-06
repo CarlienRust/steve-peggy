@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 import config
 
 logger = logging.getLogger(__name__)
+from core.llm.provider import LLMProviderError
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
 from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
@@ -58,6 +59,11 @@ app.add_middleware(
     # Wildcard headers break credentialed preflight (browser gets 400, no Allow-Origin).
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
 )
+
+
+@app.exception_handler(LLMProviderError)
+async def llm_provider_error_handler(request: Request, exc: LLMProviderError) -> JSONResponse:
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
 
 @app.exception_handler(ResponseValidationError)

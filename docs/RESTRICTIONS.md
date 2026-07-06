@@ -105,3 +105,32 @@ On Render, `EMBEDDING_BACKEND` defaults to `hash` when `RENDER=true`.
 
 - 0.5 vCPU, 1 GB RAM, 4 GB disk → paper + chunk caps protect vector storage
 
+### Google Gemini API — Free
+
+For developers and small projects getting started with the Gemini API.
+
+- Limited access to certain models (Peggy uses `gemini-2.0-flash` on Render)
+- Free input and output tokens
+- Google AI Studio access ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
+- Content may be used to improve Google products
+
+**How Peggy stays within Gemini free tier**
+
+| Safeguard | Purpose |
+|-----------|---------|
+| `RATE_LIMIT_CHAT_PER_HOUR=30` | Caps chat LLM calls per user per hour |
+| `RATE_LIMIT_AGENT_PER_HOUR=15` | Caps agent (Auto mode) runs — each run may use multiple Gemini calls |
+| `MAX_AGENT_STEPS=5` | Limits tool loops per agent run |
+| `MAX_TEXT_QUERY_LEN=4000` | Reduces token burn on long prompts |
+| `GET /usage` + chat UI banner | Shows remaining hourly quota before you hit limits |
+| `LLMProviderError` on Gemini 429 | Clear message when Google’s free-tier rate limit is hit |
+
+Peggy’s hourly limits are **stricter than Google’s** for typical personal use — they protect both the Gemini quota and Render/Supabase free tiers. If you see a Gemini rate-limit error, wait a minute and retry, or wait for the hourly reset shown in the usage banner.
+
+**Local vs deploy**
+
+| Environment | `LLM_PROVIDER` | Credentials |
+|-------------|----------------|-------------|
+| Local dev | `ollama` | `ollama serve` + pulled model (no API key) |
+| Render / Vercel deploy | `gemini` | `GEMINI_API_KEY` from Google AI Studio |
+

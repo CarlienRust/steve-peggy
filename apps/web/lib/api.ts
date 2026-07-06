@@ -123,6 +123,12 @@ export type TierLimits = {
     discover: number;
     workflow: number;
   };
+  llm?: {
+    provider: string;
+    model: string;
+    free_tier?: boolean;
+    notice?: string;
+  };
 };
 
 export type RateLimitBucket = {

@@ -32,7 +32,7 @@ EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 
 **Ollama (local, free):** install from [ollama.com/download](https://ollama.com/download), then `ollama pull llama3.2`. Menu bar app or `ollama serve`.
 
-**Groq (no local GPU):** `LLM_PROVIDER=groq` + `GROQ_API_KEY` — [ENV.md](ENV.md). **Recommended for agent dev** (Auto mode uses `complete_with_tools`; faster iteration than Ollama).
+**Agent dev:** Auto mode uses tool calling — Ollama locally is sufficient; on Render use Gemini ([ENV.md](ENV.md)).
 
 Optional dashboard + Supabase in `apps/web/.env.local`:
 
@@ -90,13 +90,7 @@ Manual Phase 0 (after ingesting at least one PDF):
 3. `/gaps` — structured gaps, not only sample-gap placeholder
 4. `/agent/run` — Auto agent returns `tools_used` (e.g. `search_corpus`)
 
-Agent dev profile in `services/peggy-api/.env`:
-
-```env
-LLM_PROVIDER=groq
-GROQ_API_KEY=gsk_...
-GROQ_MODEL=llama-3.3-70b-versatile
-```
+Agent dev uses Ollama locally (`LLM_PROVIDER=ollama`). On Render, use `gemini` + `GEMINI_API_KEY` — see [ENV.md](ENV.md).
 
 ## Add content
 
@@ -126,8 +120,8 @@ Duplicates (same PMID, DOI, or title in that space) are rejected with `status: d
 |---------|-----|
 | `Qdrant not found` | `./scripts/install-qdrant.sh` |
 | `qdrant: false` | Restart `./scripts/start-qdrant.sh` |
-| `ollama: command not found` | Install Ollama or use Groq |
-| `llm_reachable: false` | `ollama serve` + model pulled, or Groq key |
+| `ollama: command not found` | Install Ollama from ollama.com |
+| `llm_reachable: false` | `ollama serve` + model pulled (local), or `GEMINI_API_KEY` on Render |
 | `embeddings: hash-fallback` | `pip install sentence-transformers` in API venv |
 | PubMed ingest fails | Set `NCBI_EMAIL` |
 | UI blank / 404 static | `npm run dev:clean`, hard-refresh |

@@ -25,7 +25,7 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 | **Health dashboard** | Status chips for Qdrant, LLM provider, embeddings |
 | **Profile** | Sidebar edit + Supabase sign-out; display prefs in `user_metadata` |
 | **Embeddings** | `sentence-transformers` locally (no OpenAI embeddings required) |
-| **LLM** | **Ollama** (default), Groq (free cloud), OpenAI, Anthropic — `LLM_PROVIDER` in `.env` |
+| **LLM** | **Ollama** locally; **Gemini** free tier on Render — `LLM_PROVIDER` in `.env` |
 
 **UI:** Next.js + Material UI (`theme/peggyTheme.ts`).
 
@@ -46,7 +46,7 @@ Re-uploading the same paper or finding set is blocked at the catalog layer (dupl
 
 ## Quick start (no Docker)
 
-Prerequisites: **Python 3**, **Node/npm**, **Qdrant** (`./scripts/install-qdrant.sh`), **Ollama** ([ollama.com](https://ollama.com/download)) or **Groq** API key.
+Prerequisites: **Python 3**, **Node/npm**, **Qdrant** (`./scripts/install-qdrant.sh`), **Ollama** ([ollama.com](https://ollama.com/download)) for local LLM.
 
 ```bash
 chmod +x scripts/*.sh
@@ -68,7 +68,7 @@ QDRANT_URL=http://localhost:6333
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
-Install and run Ollama (or use Groq — see [docs/ENV.md](docs/ENV.md)):
+Install and run Ollama (deploy uses Gemini — see [docs/ENV.md](docs/ENV.md)):
 
 ```bash
 ollama pull llama3.2
@@ -135,7 +135,7 @@ Diagram: [docs/peggy_architecture.svg](docs/peggy_architecture.svg)
 | Doc | Purpose |
 |-----|---------|
 | [docs/LOCAL.md](docs/LOCAL.md) | **Primary** — native dev workflow |
-| [docs/ENV.md](docs/ENV.md) | Ollama / Groq / paid LLM profiles |
+| [docs/ENV.md](docs/ENV.md) | Ollama local / Gemini deploy LLM setup |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Done vs outstanding |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | API, collections, routes |
 | [docs/AGENT.md](docs/AGENT.md) | Chat modes today; reactive agent plan |

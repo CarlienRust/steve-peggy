@@ -5,9 +5,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import config
 from core.llm.provider import (
     FinalAnswer,
-    GroqProvider,
+    GeminiProvider,
     OllamaProvider,
-    OpenAIProvider,
     ToolCall,
     _parse_json_tool_fallback,
     _parse_openai_message,
@@ -50,16 +49,16 @@ def test_json_fallback_final():
 
 
 @pytest.mark.asyncio
-async def test_groq_complete_with_tools_sends_tools():
+async def test_gemini_complete_with_tools_sends_tools():
     mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
+    mock_response.is_success = True
     mock_response.json.return_value = {
-        "choices": [{"message": {"content": "final", "tool_calls": []}}],
+        "candidates": [{"content": {"parts": [{"text": "final answer"}]}}],
     }
-    with patch.object(config, "GROQ_API_KEY", "gsk_test"):
+    with patch.object(config, "GEMINI_API_KEY", "test-key"):
         with patch("core.llm.provider.httpx.AsyncClient") as mock_client:
             mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-            provider = GroqProvider()
+            provider = GeminiProvider()
             result = await provider.complete_with_tools(
                 [{"role": "user", "content": "hi"}],
                 [{"type": "function", "function": {"name": "search_corpus", "parameters": {}}}],
@@ -67,28 +66,7 @@ async def test_groq_complete_with_tools_sends_tools():
             call_kwargs = mock_client.return_value.__aenter__.return_value.post.call_args
             body = call_kwargs.kwargs["json"]
             assert "tools" in body
-            assert body["tool_choice"] == "auto"
             assert isinstance(result, FinalAnswer)
-
-
-@pytest.mark.asyncio
-async def test_openai_complete_with_tools_includes_tool_definitions():
-    mock_response = MagicMock()
-    mock_response.raise_for_status = MagicMock()
-    mock_response.json.return_value = {
-        "choices": [{
-            "message": {
-                "tool_calls": [{"id": "1", "function": {"name": "search_corpus", "arguments": "{}"}}],
-            },
-        }],
-    }
-    with patch.object(config, "OPENAI_API_KEY", "sk-test"):
-        with patch("core.llm.provider.httpx.AsyncClient") as mock_client:
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
-            provider = OpenAIProvider()
-            result = await provider.complete_with_tools([{"role": "user", "content": "q"}], [])
-            assert isinstance(result, ToolCall)
-            assert result.name == "search_corpus"
 
 
 @pytest.mark.asyncio

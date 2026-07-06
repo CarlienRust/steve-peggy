@@ -83,6 +83,11 @@ export function ChatFeature() {
     queryFn: () => peggyApi.usage(),
     retry: 1,
   });
+  const limitsQuery = useQuery({
+    queryKey: queryKeys.limits,
+    queryFn: () => peggyApi.limits(),
+    staleTime: 5 * 60_000,
+  });
 
   const activeBucket = mode === "auto" ? usageQuery.data?.agent : usageQuery.data?.chat;
   const maxQueryLen = usageQuery.data?.max_text_query_len ?? 4000;
@@ -169,6 +174,7 @@ export function ChatFeature() {
         bucket={activeBucket}
         unitLabel={unitLabel}
         quotaExhausted={quotaExhausted}
+        freeTierNotice={limitsQuery.data?.llm?.free_tier ? limitsQuery.data.llm.notice : undefined}
       />
 
       <FormControlLabel

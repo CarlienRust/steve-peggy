@@ -53,9 +53,8 @@ Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant 
 
 | `LLM_PROVIDER` | Use case |
 |----------------|----------|
-| `ollama` | Default local (free) |
-| `groq` | Free cloud tier |
-| `openai` / `anthropic` | Paid production |
+| `ollama` | Local dev (free) |
+| `gemini` | Render deploy — Google AI Studio free tier |
 
 Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embeddings`).
 

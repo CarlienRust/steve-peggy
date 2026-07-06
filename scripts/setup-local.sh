@@ -10,7 +10,7 @@ mkdir -p services/peggy-api/data data/qdrant
 
 if [[ ! -f .env ]]; then
   cp .env.example .env
-  echo "Created .env — edit OPENAI_API_KEY (or use Ollama) and NCBI_EMAIL"
+  echo "Created .env — set NCBI_EMAIL and run Ollama locally"
 fi
 
 if [[ ! -f services/peggy-api/.env ]]; then
@@ -35,9 +35,9 @@ cd "$ROOT"
 echo "==> Frontend"
 (cd apps/web && npm install)
 
-if ! grep -qE 'OPENAI_API_KEY=.+|LLM_PROVIDER=ollama' .env services/peggy-api/.env 2>/dev/null; then
+if ! grep -qE 'LLM_PROVIDER=ollama|NCBI_EMAIL=.+' .env services/peggy-api/.env 2>/dev/null; then
   echo ""
-  echo "⚠️  Set OPENAI_API_KEY in .env, or LLM_PROVIDER=ollama + run Ollama locally"
+  echo "⚠️  Set NCBI_EMAIL and LLM_PROVIDER=ollama + run Ollama locally"
 fi
 
 echo ""
