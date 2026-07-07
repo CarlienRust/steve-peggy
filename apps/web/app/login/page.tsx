@@ -41,7 +41,7 @@ function LoginForm() {
     setLoading(true);
     setError(null);
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(tab === 1 ? "/projects" : next)}`;
+    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(tab === 1 ? "/" : next)}`;
 
     const options: { emailRedirectTo: string; data?: Record<string, string> } = {
       emailRedirectTo: redirectTo,
@@ -99,6 +99,8 @@ function LoginForm() {
                   />
                   <ResearchRoleField value={researchRole} onChange={setResearchRole} />
                   <TextField
+                    id="register-research-focus"
+                    name="research_focus"
                     label="Research focus"
                     value={researchFocus}
                     onChange={(e) => setResearchFocus(e.target.value)}
@@ -108,6 +110,8 @@ function LoginForm() {
                 </>
               )}
               <TextField
+                id="login-email"
+                name="email"
                 label="Email"
                 type="email"
                 value={email}

@@ -37,6 +37,7 @@ export function ProfileNameFields<T extends FieldValues>(props: ProfileNameField
           render={({ field, fieldState }) => (
             <TextField
               {...field}
+              id={String(titleName)}
               select
               label="Title"
               error={!!fieldState.error}
@@ -58,6 +59,7 @@ export function ProfileNameFields<T extends FieldValues>(props: ProfileNameField
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
+                id={String(nameName)}
                 label="Name"
                 required
                 error={!!fieldState.error}
@@ -72,6 +74,7 @@ export function ProfileNameFields<T extends FieldValues>(props: ProfileNameField
             render={({ field, fieldState }) => (
               <TextField
                 {...field}
+                id={String(surnameName)}
                 label="Surname"
                 required
                 error={!!fieldState.error}
@@ -91,6 +94,8 @@ export function ProfileNameFields<T extends FieldValues>(props: ProfileNameField
   return (
     <Stack spacing={2}>
       <TextField
+        id="profile-title"
+        name="title"
         select
         label="Title"
         value={safeTitle}
@@ -104,8 +109,10 @@ export function ProfileNameFields<T extends FieldValues>(props: ProfileNameField
         ))}
       </TextField>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-        <TextField label="Name" value={name} onChange={(e) => onNameChange(e.target.value)} required fullWidth />
+        <TextField id="profile-name" name="name" label="Name" value={name} onChange={(e) => onNameChange(e.target.value)} required fullWidth />
         <TextField
+          id="profile-surname"
+          name="surname"
           label="Surname"
           value={surname}
           onChange={(e) => onSurnameChange(e.target.value)}

@@ -62,10 +62,11 @@ export type AgentResponse = {
 };
 
 export type AgentStreamEvent = {
-  type: "step_start" | "tool_call" | "tool_result" | "final";
+  type: "step_start" | "tool_call" | "tool_result" | "final" | "error";
   step?: number;
   tool?: string;
   summary?: string;
+  message?: string;
   arguments?: Record<string, unknown>;
   error?: string | null;
   response?: AgentResponse;
@@ -359,6 +360,8 @@ export const peggyApi = {
     if (!reader) throw new Error("No response body");
     const decoder = new TextDecoder();
     let buffer = "";
+    let sawFinal = false;
+    let sawError = false;
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
@@ -368,12 +371,18 @@ export const peggyApi = {
       for (const line of lines) {
         if (line.startsWith("data: ")) {
           try {
-            yield JSON.parse(line.slice(6)) as AgentStreamEvent;
+            const event = JSON.parse(line.slice(6)) as AgentStreamEvent;
+            if (event.type === "final") sawFinal = true;
+            if (event.type === "error") sawError = true;
+            yield event;
           } catch {
             /* skip malformed */
           }
         }
       }
+    }
+    if (!sawFinal && !sawError) {
+      throw new Error("Agent stream ended without a response. The language model may be unavailable — try again shortly.");
     }
   },
 

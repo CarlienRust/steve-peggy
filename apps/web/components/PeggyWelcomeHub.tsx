@@ -16,7 +16,7 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
   const profileHref = hasProfile ? "/onboarding?update=1" : "/onboarding";
 
   return (
-    <Box sx={{ mb: 4 }}>
+    <Box sx={{ mb: 0 }}>
       <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>Research Assistant</Typography>
       <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em" sx={{ mb: 2 }}>
         Welcome to Peggy

@@ -124,6 +124,9 @@ export function ChatFeature() {
   );
 
   function applyStreamEvent(event: AgentStreamEvent) {
+    if (event.type === "error" && event.message) {
+      setAgentError(event.message);
+    }
     if (event.type === "step_start") {
       setStepLabel(event.summary ?? "Working…");
     }
@@ -178,11 +181,20 @@ export function ChatFeature() {
       />
 
       <FormControlLabel
-        control={<Switch checked={includeFindings} onChange={(e) => setIncludeFindings(e.target.checked)} />}
+        control={
+          <Switch
+            id="peggy-include-findings"
+            name="include_findings"
+            checked={includeFindings}
+            onChange={(e) => setIncludeFindings(e.target.checked)}
+          />
+        }
         label="Include our findings in retrieval"
       />
 
       <TextField
+        id="peggy-chat-query"
+        name="query"
         label={mode === "compare" ? "Your finding to compare" : "Ask Peggy"}
         value={query}
         onChange={(e) => setQuery(e.target.value)}

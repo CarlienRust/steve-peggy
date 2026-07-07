@@ -9,7 +9,7 @@ from typing import Any
 
 from core.agent import memory, tools
 from core.agent.memory import ensure_session
-from core.llm.provider import FinalAnswer, ToolCall, get_llm
+from core.llm.provider import FinalAnswer, LLMProviderError, ToolCall, ToolResponse, get_llm
 from core.rag import prompts
 from schemas.agent import AgentResponse, AgentStep
 
@@ -50,6 +50,35 @@ def _limitations(sources: list[dict], truncated: bool, tools_used: list[str]) ->
     if "search_pubmed" in tools_used and "search_corpus" not in tools_used:
         lim.append("PubMed IDs returned but not ingested — corpus search may be empty.")
     return lim
+
+
+def _error_response(session_id: str, message: str) -> AgentResponse:
+    return AgentResponse(
+        answer=message,
+        sources=[],
+        steps=[],
+        tools_used=[],
+        confidence="low",
+        limitations=["LLM request failed before the agent could finish."],
+        truncated=True,
+        session_id=session_id,
+    )
+
+
+async def _llm_with_tools(
+    llm,
+    messages: list[dict[str, Any]],
+    tool_defs: list[dict],
+) -> ToolResponse:
+    try:
+        return await llm.complete_with_tools(messages, tool_defs)
+    except LLMProviderError:
+        raise
+    except Exception as exc:
+        raise LLMProviderError(
+            "The language model request failed. Try again in a moment.",
+            status_code=502,
+        ) from exc
 
 
 async def run_agent(
@@ -138,7 +167,13 @@ async def _agent_events(
         step_num += 1
         yield {"type": "step_start", "step": step_num, "summary": "Thinking"}
 
-        response = await llm.complete_with_tools(messages, tool_defs)
+        try:
+            response = await _llm_with_tools(llm, messages, tool_defs)
+        except LLMProviderError as exc:
+            final = _error_response(session_id, exc.message)
+            yield {"type": "error", "message": exc.message}
+            yield {"type": "final", "response": final}
+            return
 
         if isinstance(response, FinalAnswer):
             answer = response.text.strip()
@@ -202,12 +237,26 @@ async def _agent_events(
         })
 
     truncated = True
-    partial = await llm.complete(
-        prompts.build_system_prompt(),
-        f"User asked: {query}\n\nTools used: {', '.join(tools_used) or 'none'}\n"
-        f"Sources found: {len(accumulated_sources)}\n\n"
-        "Provide the best partial answer with limitations.",
-    )
+    try:
+        partial = await llm.complete(
+            prompts.build_system_prompt(),
+            f"User asked: {query}\n\nTools used: {', '.join(tools_used) or 'none'}\n"
+            f"Sources found: {len(accumulated_sources)}\n\n"
+            "Provide the best partial answer with limitations.",
+        )
+    except LLMProviderError as exc:
+        final = _error_response(session_id, exc.message)
+        yield {"type": "error", "message": exc.message}
+        yield {"type": "final", "response": final}
+        return
+    except Exception:
+        final = _error_response(
+            session_id,
+            "The language model request failed while finishing the agent response.",
+        )
+        yield {"type": "error", "message": final.answer}
+        yield {"type": "final", "response": final}
+        return
     await memory.append(session_id, user_id, "user", query)
     await memory.append(session_id, user_id, "assistant", partial)
     final = AgentResponse(

@@ -2,7 +2,8 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/userProfile";
 
-const WORKSPACE_ROUTES = ["/", "/ingest", "/findings", "/chat", "/gaps", "/compare"];
+const WORKSPACE_ROUTES = ["/dashboard", "/ingest", "/findings", "/chat", "/gaps", "/compare"];
+const PROJECTS_HOME = "/";
 
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
@@ -31,20 +32,30 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
+
+  if (path === "/projects") {
+    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
+  }
+
   const profileComplete = user?.user_metadata?.profile_complete === true;
   const activeWorkspaceId = request.cookies.get(ACTIVE_WORKSPACE_COOKIE)?.value;
   const needsWorkspace = WORKSPACE_ROUTES.some((p) => path === p || path.startsWith(`${p}/`));
+  const isSetupRoute =
+    path === PROJECTS_HOME ||
+    path === "/onboarding" ||
+    path === "/login" ||
+    path.startsWith("/auth/");
 
-  if (!user && needsWorkspace) {
+  if (!user && (needsWorkspace || path === PROJECTS_HOME)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
     return NextResponse.redirect(url);
   }
 
-  if (user && !profileComplete && path !== "/projects" && path !== "/onboarding" && !path.startsWith("/auth/") && path !== "/login") {
+  if (user && !profileComplete && !isSetupRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/projects";
+    url.pathname = PROJECTS_HOME;
     return NextResponse.redirect(url);
   }
 
@@ -54,15 +65,15 @@ export async function middleware(request: NextRequest) {
     path === "/onboarding" &&
     request.nextUrl.searchParams.get("update") !== "1"
   ) {
-    return NextResponse.redirect(new URL("/projects", request.url));
+    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
   }
 
   if (user && profileComplete && needsWorkspace && !activeWorkspaceId) {
-    return NextResponse.redirect(new URL("/projects", request.url));
+    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
   }
 
   if (user && path === "/login") {
-    return NextResponse.redirect(new URL("/projects", request.url));
+    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
   }
 
   return supabaseResponse;

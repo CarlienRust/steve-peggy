@@ -158,10 +158,17 @@ def _raise_gemini_error(response: httpx.Response) -> None:
         message = err.get("message") or message
         if response.status_code == 429 or err.get("status") == "RESOURCE_EXHAUSTED":
             status_code = 429
-            message = (
-                "Gemini free-tier limit reached. Wait a minute and try again, "
-                "or check your remaining Peggy hourly quota."
-            )
+            if "limit: 0" in message:
+                message = (
+                    "Gemini API quota is unavailable for this project (limit: 0). "
+                    "Enable the Generative Language API in Google Cloud, confirm billing/free tier "
+                    "for your API key, or wait and retry."
+                )
+            else:
+                message = (
+                    "Gemini free-tier limit reached. Wait a minute and try again, "
+                    "or check your remaining Peggy hourly quota."
+                )
     except Exception:
         pass
     raise LLMProviderError(message, status_code=status_code)

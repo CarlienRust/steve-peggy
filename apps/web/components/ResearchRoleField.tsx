@@ -30,6 +30,7 @@ export function ResearchRoleField<T extends FieldValues>(props: ResearchRoleFiel
         render={({ field, fieldState }) => (
           <TextField
             {...field}
+            id={String(name)}
             select
             label="Research role"
             error={!!fieldState.error}
@@ -49,7 +50,15 @@ export function ResearchRoleField<T extends FieldValues>(props: ResearchRoleFiel
 
   const { value, onChange } = props;
   return (
-    <TextField select label="Research role" value={value} onChange={(e) => onChange(e.target.value as ResearchRole)} fullWidth>
+    <TextField
+      id="profile-research-role"
+      name="research_type"
+      select
+      label="Research role"
+      value={value}
+      onChange={(e) => onChange(e.target.value as ResearchRole)}
+      fullWidth
+    >
       {RESEARCH_ROLES.map((role) => (
         <MenuItem key={role} value={role}>
           {role}

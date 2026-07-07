@@ -84,7 +84,7 @@ export function ResearcherProfile() {
 
   const switchProject = () => {
     saveActiveWorkspaceId(null);
-    router.push("/projects");
+    router.push("/");
   };
 
   const displayName = profile?.display_name ?? "Researcher";

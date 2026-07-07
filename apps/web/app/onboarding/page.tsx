@@ -70,7 +70,7 @@ function OnboardingForm() {
         const profile = await peggyApi.getProfile();
         if (!isUpdate) {
           await supabase.auth.updateUser({ data: { profile_complete: true } });
-          router.replace("/projects");
+          router.replace("/");
           return;
         }
         reset({
@@ -84,7 +84,7 @@ function OnboardingForm() {
         return;
       } catch {
         if (isUpdate) {
-          router.replace("/projects");
+          router.replace("/");
           return;
         }
       }
@@ -117,7 +117,7 @@ function OnboardingForm() {
 
       const supabase = createClient();
       await supabase.auth.updateUser({ data: { profile_complete: true } });
-      router.replace("/projects");
+      router.replace("/");
     } catch (err) {
       setSubmitError(formatApiError(err));
     }
@@ -138,7 +138,7 @@ function OnboardingForm() {
       <Paper sx={{ p: 4, maxWidth: 520, width: "100%" }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => router.push("/projects")}
+          onClick={() => router.push("/")}
           sx={{ textTransform: "none", mb: 2, px: 0, minWidth: 0 }}
         >
           Back to welcome
@@ -156,7 +156,7 @@ function OnboardingForm() {
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2}>
             <ProfileNameFields control={control} titleName="title" nameName="name" surnameName="surname" />
-            <TextField label="Email" type="email" value={email} required fullWidth disabled />
+            <TextField id="onboarding-email" name="email" label="Email" type="email" value={email} required fullWidth disabled />
             <ResearchRoleField control={control} name="research_type" />
             <Controller
               name="research_focus"
@@ -164,6 +164,7 @@ function OnboardingForm() {
               render={({ field, fieldState }) => (
                 <TextField
                   {...field}
+                  id="research_focus"
                   label="Research focus"
                   required
                   error={!!fieldState.error}

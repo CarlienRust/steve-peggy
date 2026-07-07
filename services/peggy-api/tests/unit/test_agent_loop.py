@@ -1,8 +1,8 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from core.agent.loop import run_agent
-from core.llm.provider import FinalAnswer, ToolCall
+from core.agent.loop import run_agent, run_agent_stream
+from core.llm.provider import FinalAnswer, LLMProviderError, ToolCall
 
 
 @pytest.mark.asyncio
@@ -63,3 +63,25 @@ async def test_agent_loop_max_steps_truncated():
 
     assert result.truncated is True
     assert len(result.tools_used) == 2
+
+
+@pytest.mark.asyncio
+async def test_agent_stream_llm_error_yields_final():
+    async def raise_quota(messages, tools):
+        raise LLMProviderError("Gemini free-tier limit reached.", status_code=429)
+
+    with patch("core.agent.loop.get_llm") as mock_llm:
+        inst = mock_llm.return_value
+        inst.complete_with_tools = AsyncMock(side_effect=raise_quota)
+        with patch("core.agent.loop.memory.load", new_callable=AsyncMock, return_value=[]):
+            with patch("core.agent.loop.memory.append", new_callable=AsyncMock):
+                with patch("core.agent.loop.ensure_session", new_callable=AsyncMock):
+                    with patch("core.agent.loop.memory.summarise_if_long", new_callable=AsyncMock, side_effect=lambda m: m):
+                        events = [
+                            event
+                            async for event in run_agent_stream("Are you working?", "sess-3", max_steps=2)
+                        ]
+
+    assert any(e.get("type") == "error" for e in events)
+    final = next(e for e in events if e.get("type") == "final")
+    assert "Gemini" in final["response"].answer
