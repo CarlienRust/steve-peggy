@@ -47,7 +47,13 @@ NEXT_PUBLIC_WORKSPACE_FOCUS=Primary hypothesis or focus
 ### Supabase auth (full local Peggy)
 
 1. Run `services/peggy-api/migrations/001_supabase_initial.sql` in [Supabase SQL Editor](https://supabase.com/dashboard/project/lmaugorqwhdnotpcqnnf/sql)
-2. Enable Email magic link; redirect URL `http://localhost:3000/auth/callback`
+2. Enable Email provider; under **Authentication → URL configuration** add redirect URLs:
+   - `http://localhost:3000/auth/callback`
+   - `https://peggy-ra.vercel.app/auth/callback` (or your Vercel domain)
+
+   **Local dev:** use **Password** on the sign-in tab (no email redirect). Magic links and password-reset emails only work locally if `http://localhost:3000/auth/callback` is in the Supabase allowlist — otherwise links open production.
+
+   **Forgot password:** Sign in → Password → **Forgot password?** → email link → set new password at `/auth/update-password`.
 3. In `services/peggy-api/.env`:
 
 ```env

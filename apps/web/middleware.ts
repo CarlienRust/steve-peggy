@@ -44,6 +44,7 @@ export async function middleware(request: NextRequest) {
     path === PROJECTS_HOME ||
     path === "/onboarding" ||
     path === "/login" ||
+    path.startsWith("/login/") ||
     path.startsWith("/auth/");
 
   if (!user && (needsWorkspace || path === PROJECTS_HOME)) {

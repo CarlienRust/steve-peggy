@@ -27,6 +27,8 @@ sequenceDiagram
 | Layer | Status |
 |-------|--------|
 | Supabase email magic link | Next.js `/login`, `/auth/callback`, `middleware.ts` |
+| Supabase email + password | `/login` — password or magic link; register with password |
+| Password reset | `/login/forgot-password` → email link → `/auth/update-password` |
 | Bearer token on API calls | `lib/api.ts` + `AuthTokenBridge` in `providers.tsx` |
 | API JWT verification | `core/auth/jwt.py`, `core/auth/deps.py` |
 | User-scoped catalog | `user_id` on all tables; SQLite fallback when `DATABASE_URL` unset |
@@ -47,9 +49,13 @@ Vercel cannot call `localhost:8000`. On the deployed URL users can sign in/out; 
 ## Local setup
 
 1. Run migration in [Supabase SQL Editor](https://supabase.com/dashboard/project/lmaugorqwhdnotpcqnnf/sql): `services/peggy-api/migrations/001_supabase_initial.sql`
-2. Enable **Email** provider; add redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://<your-vercel-domain>.vercel.app/auth/callback`
+2. Enable **Email** provider (password + magic link). Under **Authentication → URL configuration**, set:
+   - **Site URL:** your production URL (e.g. `https://peggy-ra.vercel.app`)
+   - **Redirect URLs** (add both):
+     - `http://localhost:3000/auth/callback`
+     - `https://<your-vercel-domain>.vercel.app/auth/callback`
+   
+   If localhost is missing from Redirect URLs, magic links always open production even when you sign in from `localhost:3000`. **Password sign-in** avoids that for local dev.
 3. Set env vars per [ENV.md](ENV.md)
 4. Set `AUTH_REQUIRED=true` on the API when using real auth locally
 
@@ -82,7 +88,9 @@ apps/web/
   lib/supabase/server.ts
   middleware.ts
   app/login/page.tsx
+  app/login/forgot-password/page.tsx
   app/auth/callback/route.ts
+  app/auth/update-password/page.tsx
 
 services/peggy-api/
   core/auth/jwt.py
