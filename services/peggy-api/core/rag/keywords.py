@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -56,3 +57,31 @@ def rank_by_tfidf_similarity(
         ranked.append({**cand, "relevance_score": float(max(0.0, min(1.0, score)))})
     ranked.sort(key=lambda x: x.get("relevance_score") or 0.0, reverse=True)
     return ranked
+
+
+def rank_by_query_match(
+    candidates: list[dict[str, Any]],
+    query: str,
+    corpus_abstracts: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Rank candidates by query term overlap; corpus similarity is secondary."""
+    if not candidates:
+        return []
+    query_terms = {t.lower() for t in re.findall(r"[a-zA-Z]{3,}", query)}
+    corpus_ranked = rank_by_tfidf_similarity(candidates, corpus_abstracts or [])
+    corpus_scores = {id(c): c.get("relevance_score") or 0.0 for c in corpus_ranked}
+
+    scored: list[dict[str, Any]] = []
+    for cand in candidates:
+        text = f"{cand.get('title') or ''} {cand.get('abstract') or ''}".lower()
+        if query_terms:
+            hits = sum(1 for t in query_terms if t in text)
+            query_score = hits / len(query_terms)
+        else:
+            query_score = 0.0
+        corpus_score = corpus_scores.get(id(cand), 0.0) or 0.0
+        combined = 0.75 * query_score + 0.25 * corpus_score
+        scored.append({**cand, "relevance_score": float(max(0.0, min(1.0, combined)))})
+
+    scored.sort(key=lambda x: x.get("relevance_score") or 0.0, reverse=True)
+    return scored

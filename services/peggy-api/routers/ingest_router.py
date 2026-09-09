@@ -8,7 +8,7 @@ import config
 
 logger = logging.getLogger(__name__)
 from core.auth.deps import AuthUser, get_current_user
-from core.ingest.discovery import discover_literature
+from core.ingest.discovery import discover_literature, discover_suggestions
 from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job
 from core.limits import (
     cap_discover_results,
@@ -127,18 +127,44 @@ async def ingest_findings(body: FindingsIngestRequest, user: AuthUser = Depends(
 
 class DiscoverRequest(BaseModel):
     topic: Optional[str] = None
-    max_results: int = Field(default=20, ge=1)
+    workspace_id: Optional[str] = None
+    max_results: int = Field(default=50, ge=1)
+    offset: int = Field(default=0, ge=0)
+
+
+@discover_router.get("/discover/suggestions")
+async def discover_suggestion_chips(
+    workspace_id: Optional[str] = None,
+    user: AuthUser = Depends(get_current_user),
+):
+    if workspace_id:
+        ws = await catalog.get_workspace(user.id, workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
+    return await discover_suggestions(user.id, workspace_id)
 
 
 @discover_router.post("/discover", response_model=DiscoveryResponse)
 async def discover(body: DiscoverRequest, user: AuthUser = Depends(get_current_user)):
-    """Read-only literature discovery from PubMed + Europe PMC (no ingest)."""
+    """Read-only literature discovery from PubMed, Europe PMC, and OpenAlex."""
     if body.topic:
         enforce_text_length(body.topic, label="Topic")
+    workspace_aim = None
+    if body.workspace_id:
+        ws = await catalog.get_workspace(user.id, body.workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
+        workspace_aim = ws.get("aim") or None
     await enforce_user_rate(user.id, "discover", config.RATE_LIMIT_DISCOVER_PER_HOUR)
     capped = cap_discover_results(body.max_results)
     try:
-        return await discover_literature(topic=body.topic, max_results=capped, user_id=user.id)
+        return await discover_literature(
+            topic=body.topic,
+            max_results=capped,
+            user_id=user.id,
+            workspace_aim=workspace_aim,
+            offset=body.offset,
+        )
     except HTTPException:
         raise
     except Exception as exc:

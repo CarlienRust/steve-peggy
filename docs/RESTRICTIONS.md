@@ -11,7 +11,7 @@ All limits are configurable via environment variables (defaults below). The API 
 | Papers per user | 200 | `MAX_PAPERS_PER_USER` | 403 |
 | Projects (workspaces) per user | 10 | `MAX_WORKSPACES_PER_USER` | 403 |
 | PMIDs/DOIs per ingest request | 10 | `MAX_PMIDS_PER_INGEST` | 400 |
-| Discovery results (max) | 20 | `MAX_DISCOVER_RESULTS` | capped silently |
+| Discovery results (max) | 50 | `MAX_DISCOVER_RESULTS` | capped silently |
 | Upload file size | 5 MB | `MAX_UPLOAD_BYTES` | 413 |
 | Query / narrative text length | 4000 chars | `MAX_TEXT_QUERY_LEN` | 413 |
 | Agent tool steps | 5 | `MAX_AGENT_STEPS` | truncated at cap |

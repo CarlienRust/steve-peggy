@@ -2,13 +2,19 @@
 
 Living backlog. **Goal:** evidence-grounded synthesis from literature + own findings.
 
-## Now (unblock local use)
+## Now (local-first — production paused)
 
-- [ ] **Local stack** — [LOCAL.md](LOCAL.md): Qdrant + API + web (three terminals)
-- [ ] **LLM** — Ollama running locally; `GEMINI_API_KEY` on Render; `NCBI_EMAIL` set
-- [ ] **Ingest** — literature via **Corpus**; findings via **Our findings**
-- [ ] **Smoke test** — `./scripts/smoke-local.sh` or [LOCAL.md](LOCAL.md) Phase 0 checklist
+- [ ] **Solo local env** — `NEXT_PUBLIC_SOLO_LOCAL=true`, `AUTH_REQUIRED=false`, local Qdrant + Ollama ([LOCAL.md](LOCAL.md))
+- [ ] **Start stack** — `./scripts/start-local.sh` + `npm run dev`; `./scripts/check-local.sh`
+- [ ] **Ingest + chat** — Corpus, findings, Ask Peggy via Ollama
+- [ ] **Smoke test** — `./scripts/smoke-local.sh`
 - [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)
+
+## Later (when local loop is trusted)
+
+- [ ] Re-enable Render API + Gemini (`GEMINI_MODEL=gemini-2.5-flash`)
+- [ ] Qdrant Cloud or keep local vectors
+- [ ] Vercel → hosted API (disable solo mode)
 
 ## Done recently
 
@@ -33,7 +39,10 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Findings management | Done | `/findings` table |
 | Ingest dedup | Done | `duplicate` status, job `skipped` |
 | Ask Peggy (chat) | Done | Mode chips + intent routing |
-| Gap analysis | Done | Optional include our findings |
+| Gap analysis | Done | Optional include our findings; per-workspace history |
+| Literature discovery | Done | PubMed + Europe PMC + OpenAlex; suggestions; in-corpus badge |
+| GitHub repo link | Done | OAuth + README/docs sync per project |
+| Supabase keep-alive | Done | Weekly GitHub Actions cron |
 | Compare | Done | Literature + own findings retrieval |
 | Researcher profile | Stub | `localStorage` |
 | Corpus delete → Qdrant | Partial | SQLite only |

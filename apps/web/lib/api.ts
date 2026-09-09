@@ -106,6 +106,36 @@ export type Workspace = {
   title: string;
   aim: string;
   objectives: string[];
+  github_repo_owner?: string | null;
+  github_repo_name?: string | null;
+  github_repo_url?: string | null;
+  github_default_branch?: string | null;
+  github_last_synced_at?: string | null;
+};
+
+export type GapAnalysisRunSummary = {
+  id: string;
+  workspace_id: string;
+  query: string;
+  confidence: string;
+  created_at: string;
+};
+
+export type GapAnalysisRunDetail = WorkflowResponse & {
+  id: string;
+  workspace_id: string;
+  query: string;
+  source_types: string[];
+  created_at: string;
+};
+
+export type GitHubRepo = {
+  owner: string;
+  name: string;
+  full_name: string;
+  html_url: string;
+  default_branch: string;
+  private: boolean;
 };
 
 export type TierLimits = {
@@ -251,13 +281,14 @@ export type DiscoveryCandidate = {
   doi?: string | null;
   pmid?: string | null;
   year?: number | null;
-  source: "pubmed" | "europe_pmc";
+  source: "pubmed" | "europe_pmc" | "openalex";
   relevance_score?: number | null;
   already_in_corpus: boolean;
 };
 
 export type DiscoveryResponse = {
   query_used: string;
+  queries_tried: string[];
   candidates: DiscoveryCandidate[];
   total_found: number;
   total_after_dedup: number;
@@ -299,10 +330,25 @@ export const peggyApi = {
   getPaperText: (id: number) =>
     apiFetch<{ paper_id: number; title: string; text: string }>(`/corpus/${id}/text`),
 
-  discover: (topic?: string, maxResults = 20) =>
+  discoverSuggestions: (workspaceId?: string) => {
+    const q = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : "";
+    return apiFetch<{ suggestions: string[] }>(`/discover/suggestions${q}`);
+  },
+
+  discover: (options?: {
+    topic?: string;
+    workspaceId?: string;
+    maxResults?: number;
+    offset?: number;
+  }) =>
     apiFetch<DiscoveryResponse>("/discover", {
       method: "POST",
-      body: JSON.stringify({ topic: topic ?? null, max_results: maxResults }),
+      body: JSON.stringify({
+        topic: options?.topic ?? null,
+        workspace_id: options?.workspaceId ?? null,
+        max_results: options?.maxResults ?? 50,
+        offset: options?.offset ?? 0,
+      }),
     }),
 
   updatePaper: (id: number, data: Partial<PaperRecord>) =>
@@ -386,11 +432,54 @@ export const peggyApi = {
     }
   },
 
-  gapAnalysis: (query: string, sourceTypes?: string[]) =>
+  gapAnalysis: (
+    query: string,
+    options?: { sourceTypes?: string[]; workspaceId?: string }
+  ) =>
     apiFetch<WorkflowResponse>("/workflows/gap-analysis", {
       method: "POST",
-      body: JSON.stringify({ query, source_types: sourceTypes }),
+      body: JSON.stringify({
+        query,
+        source_types: options?.sourceTypes,
+        workspace_id: options?.workspaceId ?? null,
+      }),
     }),
+
+  gapAnalysisHistory: (workspaceId: string) =>
+    apiFetch<GapAnalysisRunSummary[]>(
+      `/workflows/gap-analysis/history?workspace_id=${encodeURIComponent(workspaceId)}`
+    ),
+
+  gapAnalysisRun: (runId: string) =>
+    apiFetch<GapAnalysisRunDetail>(`/workflows/gap-analysis/${encodeURIComponent(runId)}`),
+
+  githubConnection: () =>
+    apiFetch<{ connected: boolean; github_username?: string; connected_at?: string }>("/github/connection"),
+
+  githubLoginUrl: () => apiFetch<{ authorize_url: string }>("/auth/github/login"),
+
+  githubDisconnect: () =>
+    apiFetch<{ status: string }>("/github/connection", { method: "DELETE" }),
+
+  githubRepos: () => apiFetch<{ repos: GitHubRepo[] }>("/github/repos"),
+
+  linkWorkspaceGithub: (
+    workspaceId: string,
+    body: { owner: string; name: string; default_branch?: string }
+  ) =>
+    apiFetch<Workspace>(`/workspaces/${workspaceId}/github`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  unlinkWorkspaceGithub: (workspaceId: string) =>
+    apiFetch<Workspace>(`/workspaces/${workspaceId}/github`, { method: "DELETE" }),
+
+  syncWorkspaceGithub: (workspaceId: string) =>
+    apiFetch<{ ingested: string[]; skipped: string[]; synced_at: string }>(
+      `/workspaces/${workspaceId}/github/sync`,
+      { method: "POST" }
+    ),
 
   compare: (finding: string, sourceTypes = ["literature", "own_findings"]) =>
     apiFetch<WorkflowResponse>("/workflows/compare", {

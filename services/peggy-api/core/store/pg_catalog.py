@@ -454,3 +454,148 @@ async def delete_workspace(user_id: str, workspace_id: str) -> bool:
             user_id,
         )
     return result.endswith("1")
+
+
+async def save_workflow_run(
+    user_id: str,
+    workspace_id: str,
+    workflow_type: str,
+    query: str,
+    source_types: list[str],
+    body: dict,
+    sources: list,
+    confidence: str,
+    limitations: list[str],
+) -> dict:
+    run_id = str(uuid.uuid4())
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO workflow_runs
+               (id, user_id, workspace_id, workflow_type, query, source_types, body, sources, confidence, limitations)
+               VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::jsonb)
+               RETURNING *""",
+            run_id,
+            user_id,
+            workspace_id,
+            workflow_type,
+            query,
+            json.dumps(source_types),
+            json.dumps(body),
+            json.dumps(sources),
+            confidence,
+            json.dumps(limitations),
+        )
+    return _workflow_run_row(row)  # type: ignore[arg-type]
+
+
+def _workflow_run_row(row: asyncpg.Record) -> dict:
+    d = _row_to_dict(row)
+    for key in ("source_types", "body", "sources", "limitations"):
+        val = d.get(key)
+        if isinstance(val, str):
+            try:
+                d[key] = json.loads(val)
+            except json.JSONDecodeError:
+                d[key] = [] if key != "body" else {}
+    return d
+
+
+async def list_workflow_runs(user_id: str, workspace_id: str, workflow_type: str = "gap_analysis") -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT id, workspace_id, query, confidence, created_at
+               FROM workflow_runs
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid AND workflow_type = $3
+               ORDER BY created_at DESC
+               LIMIT 50""",
+            user_id,
+            workspace_id,
+            workflow_type,
+        )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def get_workflow_run(user_id: str, run_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM workflow_runs WHERE id = $1::uuid AND user_id = $2::uuid",
+            run_id,
+            user_id,
+        )
+    return _workflow_run_row(row) if row else None
+
+
+async def upsert_github_connection(
+    user_id: str,
+    access_token: str,
+    token_scope: str,
+    github_username: str,
+) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO github_connections (user_id, access_token, token_scope, github_username)
+               VALUES ($1::uuid, $2, $3, $4)
+               ON CONFLICT (user_id) DO UPDATE SET
+                 access_token = EXCLUDED.access_token,
+                 token_scope = EXCLUDED.token_scope,
+                 github_username = EXCLUDED.github_username,
+                 connected_at = NOW()
+               RETURNING user_id, github_username, connected_at""",
+            user_id,
+            access_token,
+            token_scope,
+            github_username,
+        )
+    return _row_to_dict(row)
+
+
+async def get_github_connection(user_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT user_id, access_token, token_scope, github_username, connected_at FROM github_connections WHERE user_id = $1::uuid",
+            user_id,
+        )
+    return _row_to_dict(row) if row else None
+
+
+async def delete_github_connection(user_id: str) -> bool:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM github_connections WHERE user_id = $1::uuid",
+            user_id,
+        )
+    return result.endswith("1")
+
+
+async def update_workspace_github(user_id: str, workspace_id: str, fields: dict) -> dict | None:
+    existing = await get_workspace(user_id, workspace_id)
+    if not existing:
+        return None
+    owner = fields.get("github_repo_owner", existing.get("github_repo_owner"))
+    name = fields.get("github_repo_name", existing.get("github_repo_name"))
+    url = fields.get("github_repo_url", existing.get("github_repo_url"))
+    branch = fields.get("github_default_branch", existing.get("github_default_branch") or "main")
+    last_synced = fields.get("github_last_synced_at", existing.get("github_last_synced_at"))
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """UPDATE workspaces SET
+                 github_repo_owner = $3, github_repo_name = $4, github_repo_url = $5,
+                 github_default_branch = $6, github_last_synced_at = $7, updated_at = NOW()
+               WHERE id = $1::uuid AND user_id = $2::uuid
+               RETURNING *""",
+            workspace_id,
+            user_id,
+            owner,
+            name,
+            url,
+            branch,
+            last_synced,
+        )
+    return _workspace_row(row) if row else None

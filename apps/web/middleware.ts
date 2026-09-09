@@ -1,11 +1,16 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/userProfile";
+import { isAuthOptional } from "@/lib/localMode";
 
 const WORKSPACE_ROUTES = ["/dashboard", "/ingest", "/findings", "/chat", "/gaps", "/compare"];
 const PROJECTS_HOME = "/";
 
 export async function middleware(request: NextRequest) {
+  if (isAuthOptional()) {
+    return NextResponse.next({ request });
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(

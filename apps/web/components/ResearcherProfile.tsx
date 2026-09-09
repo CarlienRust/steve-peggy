@@ -20,6 +20,7 @@ import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/authContext";
+import { isAuthOptional } from "@/lib/localMode";
 import { peggyApi, queryKeys } from "@/lib/api";
 import {
   formatDisplayName,
@@ -89,6 +90,27 @@ export function ResearcherProfile() {
 
   const displayName = profile?.display_name ?? "Researcher";
   const preview = formatDisplayName(draft.title ?? "", draft.name ?? "", draft.surname ?? "");
+
+  if (isAuthOptional()) {
+    return (
+      <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
+        <Typography sx={eyebrowSx}>Local researcher</Typography>
+        <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>
+          Solo mode · SQLite
+        </Typography>
+        <Button
+          fullWidth
+          size="small"
+          variant="text"
+          startIcon={<SwapHorizIcon fontSize="small" />}
+          onClick={switchProject}
+          sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+        >
+          Switch project
+        </Button>
+      </Box>
+    );
+  }
 
   return (
     <>

@@ -92,6 +92,7 @@ async def test_discover_endpoint(client):
     with patch("routers.ingest_router.discover_literature", new_callable=AsyncMock) as mock_disc:
         mock_disc.return_value = {
             "query_used": "microbiome",
+            "queries_tried": ["microbiome"],
             "candidates": [],
             "total_found": 0,
             "total_after_dedup": 0,

@@ -14,7 +14,7 @@ from core.http.cors import cors_headers_for_request
 from core.llm.provider import LLMProviderError
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
-from routers import agent_router, chat_router, corpus_router, feedback_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
+from routers import agent_router, chat_router, corpus_router, feedback_router, github_router, ingest_router, limits_router, profile_router, workflow_router, workspace_router
 
 
 async def _warm_up_services() -> None:
@@ -109,6 +109,7 @@ app.include_router(corpus_router.router)
 app.include_router(feedback_router.router)
 app.include_router(profile_router.router)
 app.include_router(workspace_router.router)
+app.include_router(github_router.router)
 
 
 @app.get("/health")

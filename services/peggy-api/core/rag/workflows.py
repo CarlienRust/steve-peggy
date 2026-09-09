@@ -7,7 +7,7 @@ import re
 
 from core.llm.provider import get_llm
 from core.rag import prompts
-from core.store import qdrant_store
+from core.store import catalog, qdrant_store
 
 
 def _confidence(sources: list[dict]) -> str:
@@ -46,10 +46,14 @@ async def grounded_chat(query: str, source_types: list[str] | None = None, user_
     }
 
 
-async def run_gap_analysis(query: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
-    sources = qdrant_store.search(
-        query, source_types=source_types or ["literature", "own_findings"], user_id=user_id
-    )
+async def run_gap_analysis(
+    query: str,
+    source_types: list[str] | None = None,
+    user_id: str = "dev-user",
+    workspace_id: str | None = None,
+) -> dict:
+    st = source_types or ["literature", "own_findings"]
+    sources = qdrant_store.search(query, source_types=st, user_id=user_id)
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -57,12 +61,26 @@ async def run_gap_analysis(query: str, source_types: list[str] | None = None, us
         json_mode=True,
     )
     body = _parse_json(raw)
-    return {
+    result = {
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
         "limitations": _default_limitations(sources),
     }
+    if workspace_id:
+        saved = await catalog.save_workflow_run(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            workflow_type="gap_analysis",
+            query=query,
+            source_types=st,
+            body=body,
+            sources=sources,
+            confidence=result["confidence"],
+            limitations=result["limitations"],
+        )
+        result["run_id"] = saved["id"]
+    return result
 
 
 async def run_compare(finding: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:

@@ -23,8 +23,10 @@ import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { createClient } from "@/lib/supabase/client";
 import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
+import { isAuthOptional } from "@/lib/localMode";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
+import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
 export function ProjectsPage() {
@@ -126,9 +128,11 @@ export function ProjectsPage() {
           }}
         >
           <PeggyBrandLockup variant="sidebar" />
-          <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
-            Log out
-          </Button>
+          {!isAuthOptional() && (
+            <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
+              Log out
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -143,6 +147,7 @@ export function ProjectsPage() {
           py: { xs: 3, sm: 4, md: 5 },
         }}
       >
+        <LocalDevBanner />
         {canBackToDashboard && (
           <Button
             startIcon={<ArrowBackIcon />}

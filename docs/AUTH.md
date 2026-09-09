@@ -46,6 +46,18 @@ sequenceDiagram
 
 Vercel cannot call `localhost:8000`. On the deployed URL users can sign in/out; corpus/chat/ingest require the local stack until Milestone 2.
 
+## GitHub OAuth (optional)
+
+Link a GitHub repo to a workspace for README and markdown doc sync. Tokens are stored server-side only (`github_connections` table); never exposed to the browser.
+
+1. Create a GitHub OAuth App: **Settings → Developer settings → OAuth Apps**
+2. **Authorization callback URL:** `http://localhost:8000/auth/github/callback` (or your API host)
+3. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`, `GITHUB_OAUTH_CALLBACK_URL`, `GITHUB_OAUTH_REDIRECT_WEB` on the API
+4. Run migrations `004_workflow_runs.sql` and `005_workspace_github.sql` when using Postgres
+5. In the web app: **Project details → Connect GitHub → pick repo → Sync documentation**
+
+Scope: `repo` (read-only usage: list repos, fetch file contents).
+
 ## Local setup
 
 1. Run migration in [Supabase SQL Editor](https://supabase.com/dashboard/project/lmaugorqwhdnotpcqnnf/sql): `services/peggy-api/migrations/001_supabase_initial.sql`

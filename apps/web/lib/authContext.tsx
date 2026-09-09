@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { setAccessTokenProvider } from "@/lib/api";
+import { isAuthOptional, SOLO_USER_ID } from "@/lib/localMode";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
 
 type AuthContextValue = {
@@ -18,6 +19,12 @@ export function AuthSessionBridge({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthContextValue>({ ready: false, userId: null });
 
   useEffect(() => {
+    if (isAuthOptional()) {
+      setAccessTokenProvider(async () => null);
+      setState({ ready: true, userId: SOLO_USER_ID });
+      return;
+    }
+
     const supabase = createClient();
 
     setAccessTokenProvider(async () => {

@@ -34,6 +34,11 @@ export type Workspace = {
   title: string;
   aim: string;
   objectives: string[];
+  github_repo_owner?: string | null;
+  github_repo_name?: string | null;
+  github_repo_url?: string | null;
+  github_default_branch?: string | null;
+  github_last_synced_at?: string | null;
 };
 
 export type PendingRegistration = {

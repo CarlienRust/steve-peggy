@@ -73,6 +73,21 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `OLLAMA_MODEL` | No | `llama3.2` | |
 | `CORS_ORIGINS` | Render | `http://localhost:3000` | Comma-separated origins, **no spaces** |
 | `NCBI_EMAIL` | **Yes** (PubMed) | — | Your email |
+| `MAX_DISCOVER_RESULTS` | No | `50` | Max papers returned per discover request |
+| `DISCOVER_FETCH_PER_SOURCE` | No | `75` | Fetch pool per index before ranking |
+| `OPENALEX_ENABLED` | No | `true` | Third discovery source |
+| `GITHUB_CLIENT_ID` | GitHub OAuth | — | GitHub OAuth App client ID |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth | — | OAuth secret (API only) |
+| `GITHUB_OAUTH_CALLBACK_URL` | GitHub OAuth | `http://localhost:8000/auth/github/callback` | API callback |
+| `GITHUB_OAUTH_REDIRECT_WEB` | GitHub OAuth | `http://localhost:3000/dashboard` | Browser redirect after connect |
+
+### GitHub Actions secrets (Supabase keep-alive)
+
+| Secret | Purpose |
+|--------|---------|
+| `SUPABASE_URL` | Project URL for auth + REST ping |
+| `SUPABASE_ANON_KEY` | Anon key for REST ping |
+| `DATABASE_URL` | Optional Postgres ping |
 
 Full list: [`services/peggy-api/.env.example`](../services/peggy-api/.env.example).
 

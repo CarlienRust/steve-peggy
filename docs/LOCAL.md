@@ -1,23 +1,32 @@
 # Local development (start here)
 
-Peggy runs on your machine with **no Docker required**:
+**Current focus:** run Peggy fully on your machine. Production (Vercel + Render + Qdrant Cloud) is paused until the local loop is solid. Vercel can stay deployed for later.
 
-1. **Qdrant** — `./scripts/install-qdrant.sh` then `./scripts/start-qdrant.sh`
-2. **peggy-api** — `./scripts/start-api.sh` (port 8000)
-3. **apps/web** — `npm run dev` (port 3000)
+Everything runs **without Docker**:
 
-**Keep Qdrant running** in its own terminal. Stopping it breaks search, chat, and gaps (`qdrant: false` on dashboard).
+| Component | Where | Data |
+|-----------|-------|------|
+| **Qdrant** | `localhost:6333` | `data/qdrant/` (or `PEGGY_QDRANT_DATA`) |
+| **API** | `localhost:8000` | `services/peggy-api/data/peggy.db` (SQLite) |
+| **Web** | `localhost:3000` | — |
+| **LLM** | Ollama | `localhost:11434` |
 
 ## One-time setup
 
 ```bash
 chmod +x scripts/*.sh
 ./scripts/setup-local.sh
-./scripts/install-qdrant.sh
-cp services/peggy-api/.env.example services/peggy-api/.env
+./scripts/install-qdrant.sh   # once, if Qdrant not installed
 ```
 
-Edit `services/peggy-api/.env`:
+Copy env templates (setup-local.sh does this if missing):
+
+```bash
+cp services/peggy-api/.env.example services/peggy-api/.env
+cp apps/web/.env.example apps/web/.env.local
+```
+
+Edit `services/peggy-api/.env` — **solo local defaults**:
 
 ```env
 LLM_PROVIDER=ollama
@@ -25,113 +34,121 @@ OLLAMA_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
 NCBI_EMAIL=you@university.ac.za
 QDRANT_URL=http://localhost:6333
-EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
-```
-
-### LLM — pick one
-
-**Ollama (local, free):** install from [ollama.com/download](https://ollama.com/download), then `ollama pull llama3.2`. Menu bar app or `ollama serve`.
-
-**Agent dev:** Auto mode uses tool calling — Ollama locally is sufficient; on Render use Gemini ([ENV.md](ENV.md)).
-
-Optional dashboard + Supabase in `apps/web/.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_SUPABASE_URL=https://lmaugorqwhdnotpcqnnf.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<from Supabase dashboard>
-NEXT_PUBLIC_WORKSPACE_TITLE=Your research topic
-NEXT_PUBLIC_WORKSPACE_FOCUS=Primary hypothesis or focus
-```
-
-### Supabase auth (full local Peggy)
-
-1. Run `services/peggy-api/migrations/001_supabase_initial.sql` in [Supabase SQL Editor](https://supabase.com/dashboard/project/lmaugorqwhdnotpcqnnf/sql)
-2. Enable Email provider; under **Authentication → URL configuration** add redirect URLs:
-   - `http://localhost:3000/auth/callback`
-   - `https://peggy-ra.vercel.app/auth/callback` (or your Vercel domain)
-
-   **Local dev:** use **Password** on the sign-in tab (no email redirect). Magic links and password-reset emails only work locally if `http://localhost:3000/auth/callback` is in the Supabase allowlist — otherwise links open production.
-
-   **Forgot password:** Sign in → Password → **Forgot password?** → email link → set new password at `/auth/update-password`.
-3. In `services/peggy-api/.env`:
-
-```env
-# See ENV.md for DATABASE_URL (Database → URI → pooler :6543)
-DATABASE_URL=postgresql://postgres.lmaugorqwhdnotpcqnnf:[PASSWORD]@aws-0-eu-west-1.pooler.supabase.com:6543/postgres
-SUPABASE_URL=https://lmaugorqwhdnotpcqnnf.supabase.co
-SUPABASE_JWT_SECRET=<JWT Secret from Settings → API, NOT anon key>
-AUTH_REQUIRED=true
+AUTH_REQUIRED=false
 CORS_ORIGINS=http://localhost:3000
-QDRANT_URL=https://YOUR-CLUSTER.cloud.qdrant.io
-QDRANT_API_KEY=<from Qdrant Cloud>
 ```
 
-Use **one URL** per variable (no commas). Skip `./scripts/start-qdrant.sh` when using Qdrant Cloud.
+Edit `apps/web/.env.local`:
 
-4. Sign in at http://localhost:3000/login — API calls include Bearer JWT
+```env
+NEXT_PUBLIC_SOLO_LOCAL=true
+NEXT_PUBLIC_API_URL=http://localhost:8000
+```
 
-Without Supabase env vars, pytest and `./scripts/smoke-local.sh` use SQLite + `AUTH_REQUIRED=false` (`dev-user`).
+**Solo mode** skips Supabase sign-in. The API uses `dev-user` and SQLite. No cloud API or Qdrant required.
 
-## Daily workflow (three terminals)
+**Signed-in local** (your current web setup): set `NEXT_PUBLIC_SOLO_LOCAL=false` in `.env.local` and on the API:
+
+```env
+AUTH_REQUIRED=true
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_JWT_SECRET=...
+DATABASE_URL=postgresql://...   # same Supabase Postgres as production
+QDRANT_URL=http://localhost:6333
+```
+
+Web and API must agree: solo + `AUTH_REQUIRED=false`, or sign-in + `AUTH_REQUIRED=true`. Mismatch causes empty profile/workspaces while sign-in still works.
+
+**Vercel hitting your Mac:** If Vercel’s `NEXT_PUBLIC_API_URL` is `http://localhost:8000`, the deployed site only talks to your local API when you browse from this machine. Set Vercel to your Render URL (or pause Vercel) and keep `localhost:8000` only in `.env.local`.
+
+**iCloud Drive:** Repos under `Mobile Documents/com~apple~CloudDocs` automatically store Qdrant data at `~/.local/share/peggy-qdrant` (WAL files break on iCloud). Override with `PEGGY_QDRANT_DATA` if needed.
+
+Install Ollama: [ollama.com/download](https://ollama.com/download), then:
 
 ```bash
-./scripts/start-qdrant.sh      # terminal 1
-./scripts/start-api.sh         # terminal 2
-cd apps/web && npm run dev     # terminal 3
+ollama pull llama3.2
+# Ollama menu bar app, or: ollama serve
 ```
 
-Open http://localhost:3000 — dashboard shows Qdrant, LLM, and embeddings chips.
+## Daily workflow
 
-## Smoke test
+**Option A — two terminals (recommended)**
 
 ```bash
-./scripts/smoke-local.sh
+./scripts/start-local.sh          # terminal 1 — Qdrant + API in background
+cd apps/web && npm run dev        # terminal 2 — http://localhost:3000
 ```
 
-Manual Phase 0 (after ingesting at least one PDF):
+Stop background services: `./scripts/start-local.sh stop`
 
-1. `curl http://localhost:8000/health` → `qdrant: true`, `embeddings: sentence-transformers`, `llm_reachable: true`
-2. `/chat` — real answer, not “could not reach LLM” fallback
-3. `/gaps` — structured gaps, not only sample-gap placeholder
-4. `/agent/run` — Auto agent returns `tools_used` (e.g. `search_corpus`)
+**Option B — three terminals (logs visible)**
 
-Agent dev uses Ollama locally (`LLM_PROVIDER=ollama`). On Render, use `gemini` + `GEMINI_API_KEY` — see [ENV.md](ENV.md).
+```bash
+./scripts/start-qdrant.sh         # terminal 1
+./scripts/start-api.sh            # terminal 2
+cd apps/web && npm run dev        # terminal 3
+```
+
+**Health check**
+
+```bash
+./scripts/check-local.sh
+./scripts/smoke-local.sh          # after ingest
+```
+
+Open http://localhost:3000 — no login screen in solo mode.
 
 ## Add content
 
 | What | Where |
 |------|-------|
-| PubMed / literature PDFs | **Corpus** (`/ingest`) → Add literature |
-| Your research / findings | **Our findings** (`/findings`) → Add our findings |
+| Literature PDFs / PubMed | **Corpus** (`/ingest`) |
+| Your findings | **Our findings** (`/findings`) |
 | Batch test PDFs | `python3 scripts/ingest-test-pdfs.py` |
 
-Duplicates (same PMID, DOI, or title in that space) are rejected with `status: duplicate`.
+## When you want sign-in again
 
-## Local stack
+Set in `apps/web/.env.local`:
 
-| Component | Port | Data |
-|-----------|------|------|
-| Qdrant | 6333 | `data/qdrant/` |
-| Peggy API | 8000 | `services/peggy-api/data/peggy.db` |
-| Next.js | 3000 | — |
+```env
+NEXT_PUBLIC_SOLO_LOCAL=false
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+```
 
-## Optional: Docker
+And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Password** sign-in on localhost. See [AUTH.md](AUTH.md).
 
-[DOCKER.md](DOCKER.md) — not required.
+## Supabase auth (optional, not needed for solo local)
+
+1. Run `services/peggy-api/migrations/001_supabase_initial.sql` in Supabase SQL Editor
+2. Redirect URLs: `http://localhost:3000/auth/callback` and your Vercel URL
+3. Password sign-in recommended for local dev
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---------|-----|
+| UI hits Render / prod API | `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env.local` |
+| Redirect to `/login` | `NEXT_PUBLIC_SOLO_LOCAL=true` in `.env.local` |
+| Login `Failed to fetch` | Supabase project paused or unreachable — restore/unpause in Supabase dashboard, or use solo local (`NEXT_PUBLIC_SOLO_LOCAL=true`) |
 | `Qdrant not found` | `./scripts/install-qdrant.sh` |
-| `qdrant: false` | Restart `./scripts/start-qdrant.sh` |
-| `ollama: command not found` | Install Ollama from ollama.com |
-| `llm_reachable: false` | `ollama serve` + model pulled (local), or `GEMINI_API_KEY` on Render |
+| Qdrant panic / `Wal error: Kind(WouldBlock)` | iCloud can lock WAL files under `data/qdrant/`. Run `./scripts/start-local.sh stop`, then `./scripts/reset-qdrant.sh`, then start again. Re-ingest after reset. For a permanent fix, keep the repo on iCloud but set `PEGGY_QDRANT_DATA=$HOME/.local/share/peggy-qdrant` (see below). |
+| `qdrant: false` on dashboard | `./scripts/start-qdrant.sh` or `./scripts/start-local.sh` |
+| `llm_reachable: false` | Start Ollama + `ollama pull llama3.2` |
 | `embeddings: hash-fallback` | `pip install sentence-transformers` in API venv |
-| PubMed ingest fails | Set `NCBI_EMAIL` |
-| UI blank / 404 static | `npm run dev:clean`, hard-refresh |
-| Duplicate upload message | Expected — paper already in catalog |
+| PubMed ingest fails | Set `NCBI_EMAIL` in API `.env` |
+| Ingest `Internal server error` | API `.env` still on cloud Qdrant or Postgres — use local `QDRANT_URL=http://localhost:6333`, comment out `DATABASE_URL`, set `AUTH_REQUIRED=false`, restart API. Run `./scripts/check-local.sh` — need `qdrant: true` in `/health`. |
+| Cloud Qdrant / Render down | Expected — use local URLs above |
+
+## Supabase keep-alive
+
+Free-tier Supabase projects pause after ~7 days without traffic. A scheduled workflow pings auth and REST weekly:
+
+- Workflow: [`.github/workflows/supabase-keepalive.yml`](../.github/workflows/supabase-keepalive.yml)
+- Schedule: Mondays 09:00 UTC (plus manual **workflow_dispatch**)
+- Repo secrets: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, optional `DATABASE_URL`
+
+This prevents pause during dev; it does not unpause an already-paused project (restore in the Supabase dashboard).
 
 ## Tests
 
@@ -139,13 +156,4 @@ Duplicates (same PMID, DOI, or title in that space) are rejected with `status: d
 cd services/peggy-api && source .venv/bin/activate && pytest -v
 ```
 
-See [TESTING.md](TESTING.md).
-
-## What stays local in Milestone 1
-
-- Qdrant vectors (not Qdrant Cloud until Milestone 2)
-- BackgroundTasks for ingest (not Inngest)
-- Delete corpus — catalog row removed; Qdrant vectors remain (stub)
-- Vercel deployment — auth/login only; full app on localhost
-
-Production path: [SCALE.md](SCALE.md) · Auth: [AUTH.md](AUTH.md)
+Production path (later): [SCALE.md](SCALE.md)

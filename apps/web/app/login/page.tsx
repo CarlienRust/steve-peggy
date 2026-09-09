@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -16,6 +16,10 @@ import {
   Typography,
 } from "@mui/material";
 import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { buildAuthProfileMetadata } from "@/lib/authProfileMetadata";
+import { authRequestErrorMessage } from "@/lib/authErrors";
+import { isAuthOptional } from "@/lib/localMode";
 import { AuthPageLayout, AuthPaper } from "@/components/AuthPageLayout";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { type ResearchRole, type TitleOption } from "@/lib/userProfile";
@@ -51,59 +55,72 @@ function LoginForm() {
     router.refresh();
   };
 
+  useEffect(() => {
+    if (isAuthOptional()) {
+      router.replace("/");
+    }
+  }, [router]);
+
+  const ensureSupabase = (): boolean => {
+    if (isSupabaseConfigured()) return true;
+    setError(
+      "Supabase is not configured. For solo local dev, set NEXT_PUBLIC_SOLO_LOCAL=true in .env.local and open http://localhost:3000 directly (no sign-in)."
+    );
+    return false;
+  };
+
   const sendMagicLink = async (e: FormEvent) => {
     e.preventDefault();
+    if (!ensureSupabase()) return;
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(tab === 1 ? "/" : next)}`;
+    try {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`;
 
-    const options: { emailRedirectTo: string; data?: Record<string, string> } = {
-      emailRedirectTo: redirectTo,
-    };
-
-    if (tab === 1) {
-      options.data = {
-        title: title.trim(),
-        name: name.trim(),
-        surname: surname.trim(),
-        research_focus: researchFocus.trim(),
-        research_type: researchRole,
-      };
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: { emailRedirectTo: redirectTo },
+      });
+      setLoading(false);
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+      setSent(true);
+      setSentMagicLink(true);
+    } catch (err) {
+      setLoading(false);
+      setError(authRequestErrorMessage(err));
     }
-
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options,
-    });
-    setLoading(false);
-    if (signInError) {
-      setError(signInError.message);
-      return;
-    }
-    setSent(true);
-    setSentMagicLink(true);
   };
 
   const signInWithPassword = async (e: FormEvent) => {
     e.preventDefault();
+    if (!ensureSupabase()) return;
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    setLoading(false);
-    if (signInError) {
-      setError(signInError.message);
-      return;
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      setLoading(false);
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+      redirectAfterAuth();
+    } catch (err) {
+      setLoading(false);
+      setError(authRequestErrorMessage(err));
     }
-    redirectAfterAuth();
   };
 
   const registerWithPassword = async (e: FormEvent) => {
     e.preventDefault();
+    if (!ensureSupabase()) return;
     if (password.length < 6) {
       setError("Password must be at least 6 characters.");
       return;
@@ -119,33 +136,38 @@ function LoginForm() {
 
     setLoading(true);
     setError(null);
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/")}`;
+    try {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/")}`;
 
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        emailRedirectTo: redirectTo,
-        data: {
-          title: title.trim(),
-          name: name.trim(),
-          surname: surname.trim(),
-          research_focus: researchFocus.trim(),
-          research_type: researchRole,
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email: email.trim(),
+        password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: buildAuthProfileMetadata({
+            title,
+            name,
+            surname,
+            researchFocus,
+            researchRole,
+          }),
         },
-      },
-    });
-    setLoading(false);
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
+      });
+      setLoading(false);
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+      if (data.session) {
+        redirectAfterAuth();
+        return;
+      }
+      setSent(true);
+    } catch (err) {
+      setLoading(false);
+      setError(authRequestErrorMessage(err));
     }
-    if (data.session) {
-      redirectAfterAuth();
-      return;
-    }
-    setSent(true);
   };
 
   const handleSubmit = (e: FormEvent) => {
@@ -181,6 +203,22 @@ function LoginForm() {
         : loading
           ? "Sending…"
           : "Send sign-in link";
+
+  if (isAuthOptional()) {
+    return (
+      <AuthPaper>
+        <Stack spacing={2} alignItems="center">
+          <PeggyBrandLockup variant="auth" centered showSubtitle />
+          <Alert severity="info" sx={{ width: "100%" }}>
+            Local mode — no Supabase sign-in required. Open Peggy directly.
+          </Alert>
+          <Button component={Link} href="/" variant="contained" sx={{ textTransform: "none" }}>
+            Open Peggy
+          </Button>
+        </Stack>
+      </AuthPaper>
+    );
+  }
 
   return (
     <AuthPaper>

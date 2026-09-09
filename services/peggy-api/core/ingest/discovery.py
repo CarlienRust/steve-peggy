@@ -1,4 +1,4 @@
-"""Literature discovery — PubMed + Europe PMC, TF-IDF ranked, deduped."""
+"""Literature discovery — PubMed, Europe PMC, OpenAlex; query-ranked."""
 
 from __future__ import annotations
 
@@ -6,9 +6,12 @@ import asyncio
 import logging
 from typing import Any
 
+import config
 from core.ingest.europe_pmc import search_europe_pmc
+from core.ingest.openalex import search_openalex
 from core.ingest.pubmed import fetch_by_pmid, search_pubmed
-from core.rag.keywords import extract_tfidf_keywords, rank_by_tfidf_similarity
+from core.ingest.query_expand import expand_discovery_queries
+from core.rag.keywords import extract_tfidf_keywords, rank_by_query_match
 from core.store import catalog, qdrant_store
 
 logger = logging.getLogger(__name__)
@@ -43,13 +46,13 @@ def _candidate_key(c: dict[str, Any]) -> str:
 
 def _sanitize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     source = candidate.get("source")
-    if source not in ("pubmed", "europe_pmc"):
+    if source not in ("pubmed", "europe_pmc", "openalex"):
         source = "pubmed" if candidate.get("pmid") else "europe_pmc"
     score = candidate.get("relevance_score")
     if score is not None:
         try:
             score = float(score)
-            if score != score:  # NaN
+            if score != score:
                 score = None
         except (TypeError, ValueError):
             score = None
@@ -77,9 +80,9 @@ def _sanitize_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _pubmed_candidates(query: str, max_results: int) -> list[dict[str, Any]]:
+async def _pubmed_candidates(query: str, fetch_limit: int) -> list[dict[str, Any]]:
     try:
-        pmids = await search_pubmed(query, max_results=max_results)
+        pmids = await search_pubmed(query, max_results=fetch_limit)
     except Exception:
         return []
     candidates: list[dict[str, Any]] = []
@@ -121,12 +124,30 @@ async def _corpus_abstracts(user_id: str) -> list[str]:
         return []
 
 
+async def _fetch_for_query(query: str, fetch_limit: int) -> list[dict[str, Any]]:
+    tasks = [
+        _pubmed_candidates(query, fetch_limit),
+        search_europe_pmc(query, max_results=fetch_limit),
+    ]
+    if config.OPENALEX_ENABLED:
+        tasks.append(search_openalex(query, max_results=fetch_limit))
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    combined: list[dict[str, Any]] = []
+    for batch in results:
+        if isinstance(batch, list):
+            combined.extend(batch)
+    return combined
+
+
 async def discover_literature(
     topic: str | None = None,
-    max_results: int = 20,
+    max_results: int = 50,
     user_id: str = "dev-user",
+    workspace_aim: str | None = None,
+    offset: int = 0,
 ) -> dict:
     corpus_abstracts = await _corpus_abstracts(user_id)
+    fetch_limit = config.DISCOVER_FETCH_PER_SOURCE
 
     if topic and topic.strip():
         query_used = topic.strip()
@@ -136,6 +157,7 @@ async def discover_literature(
     else:
         return {
             "query_used": "",
+            "queries_tried": [],
             "candidates": [],
             "total_found": 0,
             "total_after_dedup": 0,
@@ -144,14 +166,19 @@ async def discover_literature(
     if not query_used:
         return {
             "query_used": "",
+            "queries_tried": [],
             "candidates": [],
             "total_found": 0,
             "total_after_dedup": 0,
         }
 
-    pubmed_hits = await _pubmed_candidates(query_used, max_results=max_results)
-    europe_hits = await search_europe_pmc(query_used, max_results=max_results)
-    combined = pubmed_hits + europe_hits
+    queries_tried = await expand_discovery_queries(query_used, workspace_aim=workspace_aim)
+    if not queries_tried:
+        queries_tried = [query_used]
+
+    combined: list[dict[str, Any]] = []
+    for q in queries_tried:
+        combined.extend(await _fetch_for_query(q, fetch_limit))
     total_found = len(combined)
 
     seen: set[str] = set()
@@ -162,16 +189,50 @@ async def discover_literature(
             continue
         seen.add(key)
         in_corpus = await _is_in_corpus(user_id, c.get("pmid"), c.get("doi"), c.get("title", ""))
-        if in_corpus:
-            continue
-        deduped.append({**c, "already_in_corpus": False})
+        deduped.append({**c, "already_in_corpus": in_corpus})
 
-    ranked = rank_by_tfidf_similarity(deduped, corpus_abstracts)
-    candidates = [_sanitize_candidate(c) for c in ranked[:max_results]]
+    ranked = rank_by_query_match(deduped, query_used, corpus_abstracts)
+    page = ranked[offset : offset + max_results]
+    candidates = [_sanitize_candidate(c) for c in page]
 
     return {
         "query_used": query_used,
+        "queries_tried": queries_tried,
         "candidates": candidates,
         "total_found": total_found,
         "total_after_dedup": len(deduped),
     }
+
+
+async def discover_suggestions(user_id: str, workspace_id: str | None = None) -> dict:
+    """Suggestion chips from workspace aim/objectives, profile focus, corpus TF-IDF."""
+    suggestions: list[str] = []
+    seen: set[str] = set()
+
+    def add(s: str) -> None:
+        t = s.strip()
+        if not t or len(t) < 4:
+            return
+        key = t.lower()
+        if key in seen:
+            return
+        seen.add(key)
+        suggestions.append(t)
+
+    if workspace_id:
+        ws = await catalog.get_workspace(user_id, workspace_id)
+        if ws:
+            add(ws.get("aim") or "")
+            for obj in ws.get("objectives") or []:
+                add(str(obj))
+
+    profile = await catalog.get_profile(user_id)
+    if profile:
+        add(profile.get("research_focus") or "")
+
+    corpus_abstracts = await _corpus_abstracts(user_id)
+    if corpus_abstracts:
+        for kw in extract_tfidf_keywords(corpus_abstracts, top_n=12):
+            add(kw)
+
+    return {"suggestions": suggestions[:12]}

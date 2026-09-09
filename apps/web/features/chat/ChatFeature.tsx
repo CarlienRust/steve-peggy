@@ -26,6 +26,9 @@ import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { AgentResultPanel } from "@/features/chat/AgentResultPanel";
 import { UsageQuotaBanner } from "@/features/chat/UsageQuotaBanner";
+import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
+import { useWorkspace } from "@/lib/workspaceContext";
+import { useAuthSession } from "@/lib/authContext";
 
 const MODES: { id: ChatMode; label: string; hint: string }[] = [
   { id: "auto", label: "Auto", hint: "Reactive agent — searches corpus and picks tools automatically" },
@@ -57,6 +60,14 @@ const TOOL_LABELS: Record<string, string> = {
 };
 
 export function ChatFeature() {
+  const { activeWorkspace } = useWorkspace();
+  const { userId } = useAuthSession();
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile(userId ?? undefined),
+    queryFn: () => peggyApi.getProfileOptional(),
+    enabled: !!userId,
+  });
+  const [prefillQuery, setPrefillQuery] = useResearchQuestionPrefill(activeWorkspace, profileQuery.data);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<ChatMode>("auto");
   const [includeFindings, setIncludeFindings] = useState(true);
@@ -69,6 +80,12 @@ export function ChatFeature() {
   useEffect(() => {
     setSessionId(getSessionId());
   }, []);
+
+  useEffect(() => {
+    if (mode === "gap_analysis" && !query && prefillQuery) {
+      setQuery(prefillQuery);
+    }
+  }, [mode, prefillQuery, query]);
 
   const sourceTypes = includeFindings ? ["literature", "own_findings"] : ["literature"];
 

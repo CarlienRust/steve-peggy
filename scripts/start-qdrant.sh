@@ -2,10 +2,17 @@
 # Run Qdrant locally (repo binary, PATH, or optional Docker).
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-STORAGE="${ROOT}/data/qdrant"
+# shellcheck disable=SC1091
+source "$ROOT/scripts/lib/qdrant-home.sh"
+QDRANT_HOME="$(peggy_qdrant_home)"
+STORAGE="${QDRANT_HOME}"
 CONFIG="${STORAGE}/config.yaml"
 REPO_BIN="${ROOT}/tools/qdrant/qdrant"
 mkdir -p "${STORAGE}/storage"
+
+if [[ "$QDRANT_HOME" != "${ROOT}/data/qdrant" ]]; then
+  echo "Note: Qdrant data is outside iCloud: ${QDRANT_HOME}"
+fi
 
 if [[ ! -f "$CONFIG" ]]; then
   cat > "$CONFIG" <<EOF
@@ -32,6 +39,7 @@ fi
 
 if [[ -n "$qdrant_cmd" ]]; then
   echo "Starting Qdrant — config: $CONFIG"
+  echo "  data: ${STORAGE}/storage"
   echo "  http://localhost:6333"
   cd "$STORAGE"
   exec "$qdrant_cmd" --config-path "$CONFIG"

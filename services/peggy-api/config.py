@@ -60,7 +60,9 @@ EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", _EMBEDDING_DEFAULT).lower()
 MAX_PAPERS_PER_USER = int(os.getenv("MAX_PAPERS_PER_USER", "200"))
 MAX_WORKSPACES_PER_USER = int(os.getenv("MAX_WORKSPACES_PER_USER", "10"))
 MAX_PMIDS_PER_INGEST = int(os.getenv("MAX_PMIDS_PER_INGEST", "10"))
-MAX_DISCOVER_RESULTS = int(os.getenv("MAX_DISCOVER_RESULTS", "20"))
+MAX_DISCOVER_RESULTS = int(os.getenv("MAX_DISCOVER_RESULTS", "50"))
+DISCOVER_FETCH_PER_SOURCE = int(os.getenv("DISCOVER_FETCH_PER_SOURCE", "75"))
+OPENALEX_ENABLED = os.getenv("OPENALEX_ENABLED", "true").lower() in ("1", "true", "yes")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_TEXT_QUERY_LEN = int(os.getenv("MAX_TEXT_QUERY_LEN", "4000"))
 MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "5"))
@@ -73,3 +75,12 @@ RATE_LIMIT_WORKFLOW_PER_HOUR = int(os.getenv("RATE_LIMIT_WORKFLOW_PER_HOUR", "15
 
 # When false on Render, /health returns minimal status (no LLM/limits detail).
 PUBLIC_HEALTH_DETAIL = os.getenv("PUBLIC_HEALTH_DETAIL", "false").lower() in ("1", "true", "yes")
+
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+GITHUB_OAUTH_CALLBACK_URL = os.getenv(
+    "GITHUB_OAUTH_CALLBACK_URL",
+    f"http://localhost:{PORT}/auth/github/callback",
+)
+GITHUB_OAUTH_REDIRECT_WEB = os.getenv("GITHUB_OAUTH_REDIRECT_WEB", "http://localhost:3000/dashboard")
+GITHUB_SYNC_MAX_BYTES = int(os.getenv("GITHUB_SYNC_MAX_BYTES", str(512 * 1024)))

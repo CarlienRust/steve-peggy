@@ -18,6 +18,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { objectivesFromText, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
+import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
 
 type WorkspaceEditDialogProps = {
   open: boolean;
@@ -118,6 +119,7 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
                 />
               )}
             />
+            {workspace && <WorkspaceGithubSection workspace={workspace} onUpdated={onSaved} />}
             {saveMutation.isError && <Alert severity="error">{formatApiError(saveMutation.error)}</Alert>}
             {errors.root && <Alert severity="error">{errors.root.message}</Alert>}
           </Stack>

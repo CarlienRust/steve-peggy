@@ -16,6 +16,8 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { createClient } from "@/lib/supabase/client";
+import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { isAuthOptional } from "@/lib/localMode";
 import { formatApiError, peggyApi } from "@/lib/api";
 import {
   formatDisplayName,
@@ -57,6 +59,36 @@ function OnboardingForm() {
 
   useEffect(() => {
     const init = async () => {
+      if (isAuthOptional()) {
+        try {
+          const profile = await peggyApi.getProfile();
+          if (!isUpdate) {
+            router.replace("/");
+            return;
+          }
+          setEmail(profile.email ?? "");
+          reset({
+            title: normalizeTitle(profile.title),
+            name: profile.name,
+            surname: profile.surname,
+            research_focus: profile.research_focus ?? "",
+            research_type: normalizeResearchRole(profile.research_type),
+          });
+        } catch {
+          if (isUpdate) {
+            router.replace("/");
+            return;
+          }
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!isSupabaseConfigured()) {
+        router.replace("/login");
+        return;
+      }
+
       const supabase = createClient();
       const { data: authData } = await supabase.auth.getUser();
       if (!authData.user) {
@@ -110,10 +142,15 @@ function OnboardingForm() {
         title: values.title,
         name: values.name,
         surname: values.surname,
-        email: email.trim(),
+        email: email.trim() || "dev@local",
         research_focus: values.research_focus,
         research_type: values.research_type,
       });
+
+      if (isAuthOptional()) {
+        router.replace("/");
+        return;
+      }
 
       const supabase = createClient();
       await supabase.auth.updateUser({ data: { profile_complete: true } });
@@ -156,7 +193,17 @@ function OnboardingForm() {
         <Box component="form" onSubmit={onSubmit}>
           <Stack spacing={2}>
             <ProfileNameFields control={control} titleName="title" nameName="name" surnameName="surname" />
-            <TextField id="onboarding-email" name="email" label="Email" type="email" value={email} required fullWidth disabled />
+            <TextField
+              id="onboarding-email"
+              name="email"
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              fullWidth
+              disabled={!isAuthOptional()}
+            />
             <ResearchRoleField control={control} name="research_type" />
             <Controller
               name="research_focus"

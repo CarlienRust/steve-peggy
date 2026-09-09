@@ -2,7 +2,7 @@
 
 Evidence-grounded research synthesis: ingest peer-reviewed literature, add your own findings in a separate space, then chat, compare, and analyze gaps — with citations and stated limitations, not generic LLM answers.
 
-**Status:** Supabase Auth + Postgres; Vercel frontend; API on **Render** + **Qdrant Cloud** supported — see [SCALE.md](docs/SCALE.md) and [`services/peggy-api/.env.render.example`](services/peggy-api/.env.render.example).
+**Status:** **Local-first** — solo dev on your Mac (Ollama + local Qdrant + SQLite). Vercel/Render deploy paused until local loop is trusted — see [LOCAL.md](docs/LOCAL.md).
 
 | | |
 |---|---|
@@ -68,20 +68,22 @@ QDRANT_URL=http://localhost:6333
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
 ```
 
-Install and run Ollama (deploy uses Gemini — see [docs/ENV.md](docs/ENV.md)):
+Install Ollama:
 
 ```bash
 ollama pull llama3.2
 # Ollama app in menu bar, or: ollama serve
 ```
 
-Three terminals:
+**Solo local** (no sign-in, no cloud):
 
 ```bash
-./scripts/start-qdrant.sh      # 1 — vectors
-./scripts/start-api.sh         # 2 — http://localhost:8000
-cd apps/web && npm run dev     # 3 — http://localhost:3000
+./scripts/start-local.sh          # Qdrant + API (background)
+cd apps/web && npm run dev        # http://localhost:3000
+./scripts/check-local.sh          # verify stack
 ```
+
+Or three separate terminals — see [docs/LOCAL.md](docs/LOCAL.md).
 
 Ingest test PDFs (optional):
 
@@ -106,7 +108,8 @@ Smoke test (Qdrant + API running):
 
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
-| `/` | Dashboard | Stats, health chips, quick actions |
+| `/` | Project hub | Choose or create a research project |
+| `/dashboard` | Dashboard | Stats, health chips, quick actions |
 | `/ingest` | Corpus | Literature only — PubMed + PDF |
 | `/findings` | Our findings | Your research — narrative or PDF |
 | `/chat` | Ask Peggy | Q&A, gap analysis, or compare (mode chips) |
@@ -123,7 +126,7 @@ tools/qdrant/             macOS binary (install-qdrant.sh)
 test_pdfs/                Dev PDF corpus
 legacy/steve/             Archived (not used by Peggy)
 docker-compose.yml        Optional — not required locally
-scripts/                  install-qdrant, start-qdrant, start-api, smoke-local, smoke-remote, ingest-test-pdfs
+scripts/                  setup-local, start-local, check-local, start-qdrant, start-api, smoke-local
 ```
 
 Flow: **ingest** → chunk + embed → **Qdrant** + **SQLite** → **retrieve** → **LLM** → cited response.
@@ -156,7 +159,7 @@ pytest -v
 
 ## What's next
 
-See [docs/ROADMAP.md](docs/ROADMAP.md): dashboard demo placeholders when corpus is empty, Qdrant purge on delete, reactive agent loop, Supabase auth, deploy when the local loop is trusted.
+See [docs/ROADMAP.md](docs/ROADMAP.md): perfect the local loop first, then re-enable Render + Gemini when ready.
 
 ## Steve / bioinformatics
 

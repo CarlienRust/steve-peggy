@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Box, Button, CircularProgress, Stack, TextField, Typography } from "@mui/material";
 import { createClient } from "@/lib/supabase/client";
+import { isAuthOptional } from "@/lib/localMode";
 import { AuthPageLayout, AuthPaper } from "@/components/AuthPageLayout";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 
@@ -18,6 +19,10 @@ export default function UpdatePasswordPage() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (isAuthOptional()) {
+      router.replace("/");
+      return;
+    }
     const checkSession = async () => {
       const supabase = createClient();
       const { data } = await supabase.auth.getSession();
@@ -25,7 +30,7 @@ export default function UpdatePasswordPage() {
       setReady(true);
     };
     void checkSession();
-  }, []);
+  }, [router]);
 
   const updatePassword = async (e: FormEvent) => {
     e.preventDefault();

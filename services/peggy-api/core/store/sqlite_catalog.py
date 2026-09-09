@@ -85,6 +85,30 @@ CREATE TABLE IF NOT EXISTS workspaces (
 );
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces (user_id);
+
+CREATE TABLE IF NOT EXISTS workflow_runs (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    workspace_id TEXT NOT NULL,
+    workflow_type TEXT NOT NULL DEFAULT 'gap_analysis',
+    query TEXT NOT NULL,
+    source_types TEXT NOT NULL DEFAULT '[]',
+    body TEXT NOT NULL DEFAULT '{}',
+    sources TEXT NOT NULL DEFAULT '[]',
+    confidence TEXT NOT NULL DEFAULT 'low',
+    limitations TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_runs_user_ws ON workflow_runs (user_id, workspace_id, created_at);
+
+CREATE TABLE IF NOT EXISTS github_connections (
+    user_id TEXT PRIMARY KEY,
+    access_token TEXT NOT NULL,
+    token_scope TEXT NOT NULL DEFAULT '',
+    github_username TEXT NOT NULL DEFAULT '',
+    connected_at TEXT
+);
 """
 
 
@@ -95,6 +119,7 @@ async def init_catalog(db_path: str | None = None) -> None:
     async with aiosqlite.connect(path) as db:
         await db.executescript(SCHEMA)
         await _migrate_user_id_columns(db)
+        await _migrate_workspace_github(db)
         await db.commit()
 
 
@@ -102,6 +127,20 @@ async def _migrate_user_id_columns(db: aiosqlite.Connection) -> None:
     for table in ("papers", "ingest_jobs", "feedback_queue", "agent_sessions"):
         try:
             await db.execute(f"ALTER TABLE {table} ADD COLUMN user_id TEXT NOT NULL DEFAULT 'dev-user'")
+        except Exception:
+            pass
+
+
+async def _migrate_workspace_github(db: aiosqlite.Connection) -> None:
+    for col, default in (
+        ("github_repo_owner", "NULL"),
+        ("github_repo_name", "NULL"),
+        ("github_repo_url", "NULL"),
+        ("github_default_branch", "'main'"),
+        ("github_last_synced_at", "NULL"),
+    ):
+        try:
+            await db.execute(f"ALTER TABLE workspaces ADD COLUMN {col} TEXT DEFAULT {default}")
         except Exception:
             pass
 
@@ -475,3 +514,149 @@ async def delete_workspace(user_id: str, workspace_id: str) -> bool:
         )
         await db.commit()
         return cur.rowcount > 0
+
+
+async def save_workflow_run(
+    user_id: str,
+    workspace_id: str,
+    workflow_type: str,
+    query: str,
+    source_types: list[str],
+    body: dict,
+    sources: list,
+    confidence: str,
+    limitations: list[str],
+) -> dict:
+    run_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO workflow_runs
+               (id, user_id, workspace_id, workflow_type, query, source_types, body, sources, confidence, limitations, created_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                run_id,
+                user_id,
+                workspace_id,
+                workflow_type,
+                query,
+                json.dumps(source_types),
+                json.dumps(body),
+                json.dumps(sources),
+                confidence,
+                json.dumps(limitations),
+                now,
+            ),
+        )
+        await db.commit()
+    return {
+        "id": run_id,
+        "user_id": user_id,
+        "workspace_id": workspace_id,
+        "workflow_type": workflow_type,
+        "query": query,
+        "source_types": source_types,
+        "body": body,
+        "sources": sources,
+        "confidence": confidence,
+        "limitations": limitations,
+        "created_at": now,
+    }
+
+
+def _workflow_row(row: aiosqlite.Row) -> dict:
+    d = dict(row)
+    for key in ("source_types", "body", "sources", "limitations"):
+        try:
+            d[key] = json.loads(d.get(key) or "[]" if key != "body" else "{}")
+        except (json.JSONDecodeError, TypeError):
+            d[key] = [] if key != "body" else {}
+    return d
+
+
+async def list_workflow_runs(user_id: str, workspace_id: str, workflow_type: str = "gap_analysis") -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """SELECT id, workspace_id, query, confidence, created_at
+               FROM workflow_runs
+               WHERE user_id = ? AND workspace_id = ? AND workflow_type = ?
+               ORDER BY created_at DESC
+               LIMIT 50""",
+            (user_id, workspace_id, workflow_type),
+        )
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def get_workflow_run(user_id: str, run_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM workflow_runs WHERE id = ? AND user_id = ?",
+            (run_id, user_id),
+        )
+        row = await cur.fetchone()
+    return _workflow_row(row) if row else None
+
+
+async def upsert_github_connection(
+    user_id: str,
+    access_token: str,
+    token_scope: str,
+    github_username: str,
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO github_connections (user_id, access_token, token_scope, github_username, connected_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 access_token=excluded.access_token,
+                 token_scope=excluded.token_scope,
+                 github_username=excluded.github_username,
+                 connected_at=excluded.connected_at""",
+            (user_id, access_token, token_scope, github_username, now),
+        )
+        await db.commit()
+    return {"user_id": user_id, "github_username": github_username, "connected_at": now}
+
+
+async def get_github_connection(user_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT user_id, access_token, token_scope, github_username, connected_at FROM github_connections WHERE user_id = ?",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_github_connection(user_id: str) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute("DELETE FROM github_connections WHERE user_id = ?", (user_id,))
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def update_workspace_github(user_id: str, workspace_id: str, fields: dict) -> dict | None:
+    existing = await get_workspace(user_id, workspace_id)
+    if not existing:
+        return None
+    now = datetime.now(timezone.utc).isoformat()
+    owner = fields.get("github_repo_owner", existing.get("github_repo_owner"))
+    name = fields.get("github_repo_name", existing.get("github_repo_name"))
+    url = fields.get("github_repo_url", existing.get("github_repo_url"))
+    branch = fields.get("github_default_branch", existing.get("github_default_branch") or "main")
+    last_synced = fields.get("github_last_synced_at", existing.get("github_last_synced_at"))
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """UPDATE workspaces SET
+                 github_repo_owner = ?, github_repo_name = ?, github_repo_url = ?,
+                 github_default_branch = ?, github_last_synced_at = ?, updated_at = ?
+               WHERE id = ? AND user_id = ?""",
+            (owner, name, url, branch, last_synced, now, workspace_id, user_id),
+        )
+        await db.commit()
+    return await get_workspace(user_id, workspace_id)

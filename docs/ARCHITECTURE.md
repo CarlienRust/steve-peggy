@@ -68,7 +68,8 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /ingest/jobs/{id}` | Poll job status |
 | `POST /ingest/upload` | PDF or text (`source_type` form field) |
 | `POST /ingest/findings` | Own-findings narrative JSON |
-| `POST /discover` | Literature discovery (PubMed + Europe PMC, read-only) |
+| `GET /discover/suggestions` | Discovery topic chips (workspace aim, profile, corpus TF-IDF) |
+| `POST /discover` | Literature discovery (PubMed + Europe PMC + OpenAlex, read-only) |
 
 ### Corpus
 
@@ -84,7 +85,14 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /agent/run` | Reactive agent (sync) — Auto mode in UI |
 | `POST /agent/stream` | Agent SSE (`step_start`, `tool_call`, `tool_result`, `final`) |
 | `POST /chat` | Single-shot Ask Peggy — `mode`: chat \| gap_analysis \| compare (auto uses intent routing if called directly) |
-| `POST /workflows/gap-analysis` | Structured gaps |
+| `POST /workflows/gap-analysis` | Structured gaps (optional `workspace_id` saves history) |
+| `GET /workflows/gap-analysis/history` | Gap runs for a workspace |
+| `GET /workflows/gap-analysis/{id}` | Replay a saved gap run |
+| `GET /auth/github/login` | GitHub OAuth authorize URL (Bearer required) |
+| `GET /auth/github/callback` | OAuth callback (stores token server-side) |
+| `GET /github/repos` | List repos for linked account |
+| `PATCH /workspaces/{id}/github` | Link repo to project |
+| `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/compare` | Finding vs literature (+ own findings in retrieval) |
 | `POST /workflows/future-design` | Study design draft (API only) |
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |

@@ -1,36 +1,65 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Alert, Box, Button, Stack, TextField, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { createClient } from "@/lib/supabase/client";
+import { isAuthOptional } from "@/lib/localMode";
+import { authRequestErrorMessage } from "@/lib/authErrors";
 import { AuthPageLayout, AuthPaper } from "@/components/AuthPageLayout";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 
 export default function ForgotPasswordPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (isAuthOptional()) {
+      router.replace("/");
+    }
+  }, [router]);
+
   const sendResetLink = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`;
-
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo,
-    });
-    setLoading(false);
-    if (resetError) {
-      setError(resetError.message);
+    if (isAuthOptional()) {
+      setError("Supabase is not configured. Solo local mode does not use password reset.");
       return;
     }
-    setSent(true);
+    setLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/update-password")}`;
+
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo,
+      });
+      setLoading(false);
+      if (resetError) {
+        setError(resetError.message);
+        return;
+      }
+      setSent(true);
+    } catch (err) {
+      setLoading(false);
+      setError(authRequestErrorMessage(err));
+    }
   };
+
+  if (isAuthOptional()) {
+    return (
+      <AuthPageLayout>
+        <AuthPaper>
+          <Alert severity="info">Solo local mode — no sign-in or password reset needed.</Alert>
+        </AuthPaper>
+      </AuthPageLayout>
+    );
+  }
 
   return (
     <AuthPageLayout>

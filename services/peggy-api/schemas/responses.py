@@ -35,13 +35,30 @@ class DiscoveryCandidate(BaseModel):
     doi: Optional[str] = None
     pmid: Optional[str] = None
     year: Optional[int] = None
-    source: Literal["pubmed", "europe_pmc"]
+    source: Literal["pubmed", "europe_pmc", "openalex"]
     relevance_score: Optional[float] = None
     already_in_corpus: bool = False
 
 
 class DiscoveryResponse(BaseModel):
     query_used: str
+    queries_tried: List[str] = Field(default_factory=list)
     candidates: List[DiscoveryCandidate]
     total_found: int
     total_after_dedup: int
+
+
+class GapAnalysisRunSummary(BaseModel):
+    id: str
+    workspace_id: str
+    query: str
+    confidence: str
+    created_at: str
+
+
+class GapAnalysisRunDetail(WorkflowResponse):
+    id: str
+    workspace_id: str
+    query: str
+    source_types: list[str] = Field(default_factory=list)
+    created_at: str
