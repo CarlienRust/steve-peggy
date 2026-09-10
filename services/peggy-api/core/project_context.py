@@ -21,6 +21,12 @@ def _plan_snippet(plan: dict | None, label: str) -> list[str]:
         lines.append(f"{label} tools: {plan['preferredTools']}")
     if plan.get("constraints"):
         lines.append(f"{label} constraints: {plan['constraints']}")
+    if plan.get("outcomeTypes"):
+        lines.append(f"{label} outcomes: {plan['outcomeTypes']}")
+    if plan.get("covariates"):
+        lines.append(f"{label} covariates: {plan['covariates']}")
+    if plan.get("analysisMethod"):
+        lines.append(f"{label} analysis method: {plan['analysisMethod']}")
     last = plan.get("lastResult")
     if isinstance(last, dict) and last:
         try:
@@ -63,12 +69,27 @@ def format_project_context(ws: dict, study_design: dict) -> str:
             parts.append(f"Samples summary: {samples['summary']}")
 
     budget = study_design.get("budget") or {}
+    if budget.get("fundingSourceRequired"):
+        parts.append("Funding source: required for this application")
     if budget.get("summary"):
-        parts.append(f"Study budget: {budget['summary'][:512]}")
+        parts.append(f"Study budget funding source: {budget['summary'][:512]}")
     elif samples.get("budget"):
         parts.append(f"Study budget: {samples['budget'][:512]}")
     if budget.get("constraints"):
         parts.append(f"Budget constraints: {budget['constraints'][:512]}")
+    line_items = budget.get("lineItems") or []
+    if isinstance(line_items, list) and line_items:
+        rows = []
+        for item in line_items:
+            if not isinstance(item, dict):
+                continue
+            cat = item.get("category") or ""
+            desc = item.get("description") or ""
+            amt = item.get("amount") or ""
+            if cat or desc or amt:
+                rows.append(f"{cat}: {desc} ({amt})".strip())
+        if rows:
+            parts.append("Budget line items: " + "; ".join(rows)[:1500])
 
     if ethics.get("approvalObtained"):
         parts.append("Ethics approval: obtained")

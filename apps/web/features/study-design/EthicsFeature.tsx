@@ -16,7 +16,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { EthicsApprovalSection } from "@/features/study-design/EthicsApprovalSection";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
@@ -44,7 +43,6 @@ export function EthicsFeature() {
 
   return (
     <>
-      <DataSafetyBanner />
       <Stack spacing={3}>
         <EthicsApprovalSection ethics={ethics} onSave={(patch) => saveSection("ethics", patch)} />
 

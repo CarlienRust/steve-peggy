@@ -2,7 +2,6 @@
 
 import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { IngestForm } from "@/features/ingest/IngestFeature";
 
 export function IngestModal({
@@ -27,7 +26,6 @@ export function IngestModal({
         <CloseIcon />
       </IconButton>
       <DialogContent dividers>
-        <DataSafetyBanner />
         <IngestForm variant={variant} onIngestSuccess={() => onSuccess?.()} />
       </DialogContent>
     </Dialog>

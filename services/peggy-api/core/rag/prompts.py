@@ -266,6 +266,8 @@ def analysis_plan_suggest_prompt(
     workspace_context: str,
     constraints: str,
     outcome_types: str,
+    covariates: str,
+    analysis_method: str,
     sources: list[dict],
 ) -> str:
     return f"""Propose a statistical analysis plan.
@@ -274,6 +276,8 @@ Project context:
 {workspace_context}
 
 Outcome types: {outcome_types or "not specified"}
+Covariates (if specified): {covariates or "not specified"}
+Pre-specified analysis method (if any): {analysis_method or "none — suggest appropriate methods"}
 Constraints (budget, software, sample size):
 {constraints}
 

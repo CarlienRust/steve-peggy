@@ -2,7 +2,6 @@
 
 import { Dialog, DialogContent, DialogTitle, IconButton } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { IngestForm } from "@/features/ingest/IngestFeature";
 
 export function FindingsModal({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -13,7 +12,6 @@ export function FindingsModal({ open, onClose }: { open: boolean; onClose: () =>
         <CloseIcon />
       </IconButton>
       <DialogContent dividers>
-        <DataSafetyBanner />
         <IngestForm variant="findings" onIngestSuccess={onClose} />
       </DialogContent>
     </Dialog>

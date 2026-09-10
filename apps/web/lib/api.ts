@@ -615,6 +615,8 @@ export const peggyApi = {
     budget?: string;
     tools?: string;
     outcomeTypes?: string;
+    covariates?: string;
+    analysisMethod?: string;
   }) =>
     apiFetch<WorkflowResponse>("/workflows/study-design/analysis-plan", {
       method: "POST",
@@ -625,6 +627,8 @@ export const peggyApi = {
         budget: body.budget ?? "",
         tools: body.tools ?? "",
         outcome_types: body.outcomeTypes ?? "",
+        covariates: body.covariates ?? "",
+        analysis_method: body.analysisMethod ?? "",
       }),
     }),
 };

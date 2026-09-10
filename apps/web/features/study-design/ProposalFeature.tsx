@@ -10,7 +10,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
@@ -46,7 +45,6 @@ export function ProposalFeature() {
 
   return (
     <>
-      <DataSafetyBanner />
       <ProjectContextChips />
 
       <Stack spacing={2}>

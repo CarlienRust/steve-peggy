@@ -62,6 +62,8 @@ class StudyPlanRequest(BaseModel):
     budget: str = ""
     tools: str = ""
     outcome_types: str = ""
+    covariates: str = ""
+    analysis_method: str = ""
     source_types: list[str] = Field(default_factory=lambda: ["literature"])
 
 
@@ -207,6 +209,10 @@ async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_cur
         enforce_text_length(body.budget, max_len=512, label="Budget")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
     try:
+        if body.covariates:
+            enforce_text_length(body.covariates, max_len=1024, label="Covariates")
+        if body.analysis_method:
+            enforce_text_length(body.analysis_method, max_len=512, label="Analysis method")
         return _wrap(
             await run_analysis_plan(
                 user.id,
@@ -216,6 +222,8 @@ async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_cur
                 body.budget,
                 body.tools,
                 body.outcome_types,
+                body.covariates,
+                body.analysis_method,
                 body.source_types,
             )
         )

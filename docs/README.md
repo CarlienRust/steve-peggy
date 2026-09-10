@@ -9,6 +9,7 @@
 | [ROADMAP.md](ROADMAP.md) | Done vs backlog |
 | [TESTING.md](TESTING.md) | pytest, CI, smoke script |
 | [CODE_REVIEW.md](CODE_REVIEW.md) | Code health snapshot |
+| [RESEARCH_PAPERS.md](RESEARCH_PAPERS.md) | Evidence base — standards and papers behind Study Design, RAG, and ethics |
 | [DOCKER.md](DOCKER.md) | Optional Compose |
 | [SCALE.md](SCALE.md) | Vercel + Supabase (future) |
 | [AUTH.md](AUTH.md) | Auth plan (future) |
@@ -19,6 +20,7 @@ Repo entry point: [../README.md](../README.md)
 ## When you change the product
 
 - **User-facing** (routes, ingest, corpus, UI, local workflow) → update [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), [LOCAL.md](LOCAL.md)
+- **Study Design claims or methodology copy** → also [RESEARCH_PAPERS.md](RESEARCH_PAPERS.md)
 - **Chat / workflow behavior** → also [AGENT.md](AGENT.md)
 - **Env / LLM** → also [ENV.md](ENV.md) and `.env.example`
 - **Tests** → also [TESTING.md](TESTING.md)

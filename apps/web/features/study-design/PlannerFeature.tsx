@@ -11,7 +11,6 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
@@ -42,7 +41,9 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [userPlan, setUserPlan] = useState(plan.userPlan ?? "");
   const [budget, setBudget] = useState(plan.budget ?? budgetFromTab);
   const [tools, setTools] = useState(plan.preferredTools ?? plan.constraints ?? "");
-  const [outcomes, setOutcomes] = useState("");
+  const [outcomes, setOutcomes] = useState(plan.outcomeTypes ?? "");
+  const [covariates, setCovariates] = useState(plan.covariates ?? "");
+  const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
 
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
 
@@ -55,6 +56,8 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         budget,
         tools,
         outcomeTypes: section === "analysis" ? outcomes : undefined,
+        covariates: section === "analysis" ? covariates : undefined,
+        analysisMethod: section === "analysis" ? analysisMethod : undefined,
       };
       return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
     },
@@ -64,6 +67,9 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         userPlan,
         budget,
         preferredTools: tools,
+        ...(section === "analysis"
+          ? { outcomeTypes: outcomes, covariates, analysisMethod }
+          : {}),
         lastResult: data.body,
       });
     },
@@ -75,7 +81,6 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
 
   return (
     <>
-      <DataSafetyBanner />
       <ProjectContextChips />
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
@@ -113,14 +118,35 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           onChange={(e) => setTools(e.target.value)}
           fullWidth
         />
-        {section === "analysis" && tab === "suggest" && (
-          <TextField
-            label="Outcome types"
-            placeholder="e.g. continuous biomarker, binary diagnosis, survival"
-            value={outcomes}
-            onChange={(e) => setOutcomes(e.target.value)}
-            fullWidth
-          />
+        {section === "analysis" && (
+          <>
+            <TextField
+              label="Outcome types"
+              placeholder="e.g. continuous biomarker, binary diagnosis, survival"
+              value={outcomes}
+              onChange={(e) => setOutcomes(e.target.value)}
+              onBlur={() => saveSection(planKey, { outcomeTypes: outcomes })}
+              fullWidth
+            />
+            <TextField
+              label="Covariates (if applicable)"
+              placeholder="e.g. age, sex, BMI, treatment arm, batch"
+              value={covariates}
+              onChange={(e) => setCovariates(e.target.value)}
+              onBlur={() => saveSection(planKey, { covariates })}
+              fullWidth
+              helperText="Adjustments or stratification variables you plan to include."
+            />
+            <TextField
+              label="Analysis method (if pre-specified)"
+              placeholder="e.g. linear regression, mixed models, Cox proportional hazards"
+              value={analysisMethod}
+              onChange={(e) => setAnalysisMethod(e.target.value)}
+              onBlur={() => saveSection(planKey, { analysisMethod })}
+              fullWidth
+              helperText="Leave blank if you want Peggy to suggest methods."
+            />
+          </>
         )}
 
         <Button variant="contained" disabled={llmBlocked || run.isPending} onClick={() => run.mutate()}>

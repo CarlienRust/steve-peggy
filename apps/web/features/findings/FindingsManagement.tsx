@@ -6,7 +6,6 @@ import { Alert, Button, Stack, Typography } from "@mui/material";
 import { useState } from "react";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { monoSx } from "@/theme/peggyTheme";
-import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { CorpusTable } from "@/features/ingest/CorpusTable";
 import { FindingsModal } from "@/features/findings/FindingsModal";
 
@@ -20,7 +19,6 @@ export function FindingsManagement() {
 
   return (
     <>
-      <DataSafetyBanner />
       <Alert severity="info" sx={{ mb: 3 }}>
         Our findings are kept separate from the literature corpus.
       </Alert>

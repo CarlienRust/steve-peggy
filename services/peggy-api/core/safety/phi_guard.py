@@ -73,5 +73,11 @@ def assert_study_design_safe(samples: dict | None, extra_text: str = "") -> None
 def assert_study_design_budget_safe(budget: dict | None) -> None:
     if not budget:
         return
-    combined = "\n".join(str(budget.get(k) or "") for k in ("summary", "constraints"))
+    combined = "\n".join(str(budget.get(k) or "") for k in ("summary", "constraints", "currency"))
+    for item in budget.get("lineItems") or []:
+        if isinstance(item, dict):
+            combined = "\n".join(
+                [combined]
+                + [str(item.get(k) or "") for k in ("category", "description", "amount", "notes")]
+            )
     assert_no_phi(combined, label="Budget text")

@@ -12,9 +12,20 @@ export type StudyDesignSamples = {
   budget?: string;
 };
 
+export type BudgetLineItem = {
+  id: string;
+  category: string;
+  description: string;
+  amount: string;
+  notes: string;
+};
+
 export type StudyDesignBudget = {
+  fundingSourceRequired?: boolean;
   summary?: string;
   constraints?: string;
+  currency?: string;
+  lineItems?: BudgetLineItem[];
 };
 
 export type StudyDesignEthics = {
@@ -33,6 +44,9 @@ export type StudyDesignPlan = {
   constraints?: string;
   budget?: string;
   preferredTools?: string;
+  outcomeTypes?: string;
+  covariates?: string;
+  analysisMethod?: string;
   lastResult?: Record<string, unknown>;
 };
 
@@ -62,8 +76,58 @@ export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   proposal: {},
 };
 
-export const STUDY_TYPES = ["Observational", "RCT", "Secondary analysis", "Other"] as const;
-export const DATA_TYPES = ["Clinical", "Omics", "Imaging", "Survey", "EHR extracts", "Other"] as const;
+export const STUDY_TYPES = [
+  "Systematic review",
+  "Meta-analysis",
+  "Scoping review",
+  "Cohort study",
+  "Cross-sectional study",
+  "Case-control study",
+  "RCT",
+  "NRT",
+  "Observational",
+  "Secondary analysis",
+  "Other",
+] as const;
+
+export const DATA_TYPES = [
+  "Clinical",
+  "Survey",
+  "EHR extracts",
+  "Interviews",
+  "Genomics",
+  "Metagenomics",
+  "Epigenomics",
+  "Transcriptomics",
+  "Proteomics",
+  "Metabolomics",
+  "Phenomics",
+  "Microscopy",
+  "Radiological imaging",
+  "Neuro-signals",
+  "Imaging",
+  "Omics",
+  "Other",
+] as const;
+
+export const BUDGET_CATEGORIES = [
+  "Personnel",
+  "Equipment",
+  "Software",
+  "Consumables",
+  "Participant costs",
+  "Travel",
+  "Other",
+] as const;
+
+export const DEFAULT_BUDGET_LINE_ITEMS = (): BudgetLineItem[] =>
+  BUDGET_CATEGORIES.map((category, i) => ({
+    id: `row-${i}`,
+    category,
+    description: "",
+    amount: "",
+    notes: "",
+  }));
 export const COLLECTION_STATUSES = ["Planned", "Collecting", "Complete"] as const;
 export const IDENTIFIER_LEVELS = [
   { value: "none", label: "No human subjects data" },

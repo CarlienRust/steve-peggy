@@ -4,7 +4,7 @@
 
 ## Niche
 
-Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations.
+Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [RESEARCH_PAPERS.md](RESEARCH_PAPERS.md).
 
 ## Active codebase
 
@@ -127,7 +127,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/gap-analysis` | 03 · Gap analysis | Gaps table |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | FMHS guidance, approval letter upload (`ethics_documents`), AI checklist |
-| `/study-design/budget` | 03 · Budget | Funding overview and spending constraints |
+| `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | Review my plan / help me design |
 | `/study-design/analysis-plan` | 03 · Analysis plan | Review my plan / help me design |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |
@@ -146,7 +146,7 @@ Legacy redirects: `/gaps` → gap analysis, `/findings` → our findings, `/comp
 - **Dashboard shortcuts** — `getWorkflowShortcuts()` in `apps/web/lib/navigation.ts` drives the hub grid (Corpus, study-design steps, results, Ask Peggy). Disabled nav items (Analysis tool, Results Methods) are omitted.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
-- **Data safety** — `DataSafetyBanner` shows one line by default; expandable Details for cloud LLM and ethics guidance.
+- **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

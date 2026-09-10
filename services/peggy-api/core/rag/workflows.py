@@ -249,13 +249,17 @@ async def run_analysis_plan(
     budget: str = "",
     tools: str = "",
     outcome_types: str = "",
+    covariates: str = "",
+    analysis_method: str = "",
     source_types: list[str] | None = None,
 ) -> dict:
     from core.safety.phi_guard import assert_no_phi, assert_study_design_safe
 
     ws, sd = await _load_workspace_context(user_id, workspace_id)
     samples = sd.get("samples") or {}
-    assert_study_design_safe(samples, user_plan + budget + tools + outcome_types)
+    assert_study_design_safe(
+        samples, user_plan + budget + tools + outcome_types + covariates + analysis_method
+    )
     if user_plan:
         assert_no_phi(user_plan, label="Analysis plan")
     ctx = _workspace_context(ws, sd)
@@ -266,7 +270,9 @@ async def run_analysis_plan(
     if mode == "review":
         prompt = prompts.analysis_plan_review_prompt(user_plan, ctx, sources)
     else:
-        prompt = prompts.analysis_plan_suggest_prompt(ctx, constraints, outcome_types, sources)
+        prompt = prompts.analysis_plan_suggest_prompt(
+            ctx, constraints, outcome_types, covariates, analysis_method, sources
+        )
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)
     await catalog.patch_study_design(
@@ -278,6 +284,9 @@ async def run_analysis_plan(
                 "userPlan": user_plan,
                 "budget": budget,
                 "preferredTools": tools,
+                "outcomeTypes": outcome_types,
+                "covariates": covariates,
+                "analysisMethod": analysis_method,
                 "lastResult": body,
             }
         },

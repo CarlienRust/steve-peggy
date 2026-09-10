@@ -23,6 +23,9 @@ function formatPlanSection(plan: StudyDesignPlan | undefined, heading: string): 
   if (plan.budget?.trim()) lines.push(`Budget: ${plan.budget.trim()}`);
   const tools = plan.preferredTools ?? plan.constraints;
   if (tools?.trim()) lines.push(`Tools: ${tools.trim()}`);
+  if (plan.outcomeTypes?.trim()) lines.push(`Outcomes: ${plan.outcomeTypes.trim()}`);
+  if (plan.covariates?.trim()) lines.push(`Covariates: ${plan.covariates.trim()}`);
+  if (plan.analysisMethod?.trim()) lines.push(`Analysis method: ${plan.analysisMethod.trim()}`);
   if (plan.lastResult && typeof plan.lastResult === "object") {
     lines.push(`Last AI result: ${JSON.stringify(plan.lastResult).slice(0, 1500)}`);
   }
