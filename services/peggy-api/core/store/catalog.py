@@ -140,3 +140,11 @@ async def delete_github_connection(user_id: str) -> bool:
 
 async def update_workspace_github(user_id: str, workspace_id: str, fields: dict) -> dict | None:
     return await _backend().update_workspace_github(user_id, workspace_id, fields)
+
+
+async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
+    return await _backend().get_study_design(user_id, workspace_id)
+
+
+async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    return await _backend().patch_study_design(user_id, workspace_id, patch)

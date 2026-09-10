@@ -26,7 +26,10 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health
 | Unit | `test_agent_loop.py` | ReAct loop, max_steps truncation |
 | Unit | `test_agent_memory.py` | SQLite session roundtrip |
 | Unit | `test_agent_prompts.py` | `build_agent_system_prompt` |
+| Unit | `test_phi_guard.py` | PHI heuristics and identifiable-samples gate |
+| Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue |
+| Integration | `test_study_design.py` | GET/PATCH study-design; ethics/methods workflows |
 | Integration | `test_upload.py` | PDF upload + duplicate response |
 | Integration | `test_qdrant_search.py` | `query_points` contract; optional live Qdrant |
 

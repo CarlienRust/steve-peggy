@@ -88,6 +88,7 @@ async def run_agent(
     source_types: list[str] | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
     user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> AgentResponse:
     events: list[dict] = []
     async for event in _agent_events(
@@ -97,6 +98,7 @@ async def run_agent(
         source_types=source_types,
         max_steps=max_steps,
         user_id=user_id,
+        workspace_id=workspace_id,
     ):
         events.append(event)
         if event.get("type") == "final":
@@ -116,6 +118,7 @@ async def run_agent_stream(
     source_types: list[str] | None = None,
     max_steps: int = DEFAULT_MAX_STEPS,
     user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> AsyncIterator[dict]:
     async for event in _agent_events(
         query=query,
@@ -124,6 +127,7 @@ async def run_agent_stream(
         source_types=source_types,
         max_steps=max_steps,
         user_id=user_id,
+        workspace_id=workspace_id,
     ):
         yield event
 
@@ -135,14 +139,29 @@ async def _agent_events(
     source_types: list[str] | None,
     max_steps: int,
     user_id: str,
+    workspace_id: str | None = None,
 ) -> AsyncIterator[dict]:
+    from core.project_context import load_project_context
+
     await ensure_session(session_id, user_id)
     source_types = source_types or ["literature", "own_findings"]
-    ctx = {"source_types": source_types, "query": query, "user_id": user_id}
+    ctx = {
+        "source_types": source_types,
+        "query": query,
+        "user_id": user_id,
+        "workspace_id": workspace_id,
+    }
 
     history = await memory.load(session_id, user_id)
     tool_defs = tools.tool_schemas_for_mode(mode)
     system = prompts.build_agent_system_prompt(mode, tool_defs)
+    project_context = await load_project_context(user_id, workspace_id)
+    if project_context.strip():
+        system += (
+            "\n\nCurrent project (study design, methods, analysis plans):\n"
+            f"{project_context}\n"
+            "Use this when comparing findings, identifying gaps, or advising on methods."
+        )
 
     messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
     for m in history:

@@ -103,8 +103,13 @@ Open http://localhost:3000 — no login screen in solo mode.
 | What | Where |
 |------|-------|
 | Literature PDFs / PubMed | **Corpus** (`/ingest`) |
-| Your findings | **Our findings** (`/findings`) |
+| Your findings | **Results → Our findings** (`/results/findings`) |
+| Study design drafts | **Study Design** (`/study-design/*`) — saved per workspace |
 | Batch test PDFs | `python3 scripts/ingest-test-pdfs.py` |
+
+### Sensitive study design data
+
+For samples, ethics notes, and methods/analysis plans, prefer the **local Ollama stack** (`LLM_PROVIDER=ollama`). Cloud LLMs may receive de-identified planning text. Do not enter patient names, MRNs, or contact details. See [SECURITY.md](SECURITY.md).
 
 ## When you want sign-in again
 

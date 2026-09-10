@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Any, Optional
 
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_workspace_quota
@@ -68,3 +68,38 @@ async def delete_workspace(workspace_id: str, user: AuthUser = Depends(get_curre
     if not ok:
         raise HTTPException(404, "Workspace not found")
     return {"status": "deleted", "id": workspace_id}
+
+
+class StudyDesignPatch(BaseModel):
+    samples: Optional[dict[str, Any]] = None
+    ethics: Optional[dict[str, Any]] = None
+    methodsPlan: Optional[dict[str, Any]] = None
+    analysisPlan: Optional[dict[str, Any]] = None
+    proposal: Optional[dict[str, Any]] = None
+
+
+@router.get("/{workspace_id}/study-design")
+async def get_study_design(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    data = await catalog.get_study_design(user.id, workspace_id)
+    if data is None:
+        raise HTTPException(404, "Workspace not found")
+    return {"study_design": data}
+
+
+@router.patch("/{workspace_id}/study-design")
+async def patch_study_design(
+    workspace_id: str,
+    body: StudyDesignPatch,
+    user: AuthUser = Depends(get_current_user),
+):
+    from core.safety.phi_guard import assert_no_phi
+
+    patch = body.model_dump(exclude_none=True)
+    if patch.get("samples", {}).get("summary"):
+        assert_no_phi(str(patch["samples"]["summary"]), label="Samples summary")
+    if patch.get("ethics", {}).get("notes"):
+        assert_no_phi(str(patch["ethics"]["notes"]), label="Ethics notes")
+    merged = await catalog.patch_study_design(user.id, workspace_id, patch)
+    if merged is None:
+        raise HTTPException(404, "Workspace not found")
+    return {"study_design": merged}

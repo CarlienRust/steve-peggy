@@ -252,8 +252,11 @@ async def _run_gap_analysis(args: dict, ctx: dict) -> ToolResult:
     query = args.get("query", "")
     source_types = args.get("source_types") or ctx.get("source_types")
     user_id = ctx.get("user_id", "dev-user")
+    workspace_id = ctx.get("workspace_id")
     try:
-        out = await workflows.run_gap_analysis(query, source_types=source_types, user_id=user_id)
+        out = await workflows.run_gap_analysis(
+            query, source_types=source_types, user_id=user_id, workspace_id=workspace_id
+        )
         sources = out.get("sources", [])
         return {
             "result": out.get("body"),
@@ -269,8 +272,11 @@ async def _compare_finding(args: dict, ctx: dict) -> ToolResult:
     finding = args.get("finding", "")
     source_types = args.get("source_types") or ctx.get("source_types")
     user_id = ctx.get("user_id", "dev-user")
+    workspace_id = ctx.get("workspace_id")
     try:
-        out = await workflows.run_compare(finding, source_types=source_types, user_id=user_id)
+        out = await workflows.run_compare(
+            finding, source_types=source_types, user_id=user_id, workspace_id=workspace_id
+        )
         sources = out.get("sources", [])
         return {
             "result": out.get("body"),

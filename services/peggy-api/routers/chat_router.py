@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from typing import Literal
+from typing import Literal, Optional
 
 import config
 from core.auth.deps import AuthUser, get_current_user
@@ -17,6 +17,7 @@ ChatMode = Literal["auto", "chat", "gap_analysis", "compare"]
 class ChatRequest(BaseModel):
     query: str
     mode: ChatMode = "auto"
+    workspace_id: Optional[str] = None
     source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
 
 
@@ -40,14 +41,20 @@ async def chat(body: ChatRequest, user: AuthUser = Depends(get_current_user)):
     intent = detect_intent(body.query, body.mode if body.mode != "auto" else None)
 
     if intent == "gap_analysis":
-        result = await run_gap_analysis(body.query, source_types=body.source_types, user_id=user.id)
+        result = await run_gap_analysis(
+            body.query,
+            source_types=body.source_types,
+            user_id=user.id,
+            workspace_id=body.workspace_id,
+        )
         return _wrap_workflow("gap_analysis", result)
 
     if intent == "compare":
         result = await run_compare(
             body.query,
-            source_types=body.source_types or ["literature", "own_findings"],
+            source_types=body.source_types or ["literature", "own_findings", "sample_datasets"],
             user_id=user.id,
+            workspace_id=body.workspace_id,
         )
         return _wrap_workflow("compare", result)
 

@@ -2,11 +2,10 @@ import { CompareFeature } from "@/features/compare/CompareFeature";
 import { PageHeader } from "@/components/PageHeader";
 import { Paper } from "@mui/material";
 
-export default function ComparePage() {
+export default function ResultsComparisonPage() {
   return (
     <>
       <PageHeader
-        eyebrow="05 · Comparison"
         title="Comparison"
         description="Your finding against ingested literature — agreement, discrepancy, and comparison caveats."
       />

@@ -27,6 +27,7 @@ async def agent_run(body: AgentRequest, user: AuthUser = Depends(get_current_use
         mode=body.mode,
         source_types=body.source_types,
         user_id=user.id,
+        workspace_id=body.workspace_id,
         max_steps=config.MAX_AGENT_STEPS,
     )
 
@@ -55,6 +56,7 @@ async def agent_stream(body: AgentRequest, user: AuthUser = Depends(get_current_
         mode=body.mode,
         source_types=body.source_types,
         user_id=user.id,
+        workspace_id=body.workspace_id,
         max_steps=config.MAX_AGENT_STEPS,
     )
     return StreamingResponse(_sse_generator(events), media_type="text/event-stream")

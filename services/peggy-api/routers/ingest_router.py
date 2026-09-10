@@ -24,6 +24,8 @@ from schemas.responses import DiscoveryResponse
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 discover_router = APIRouter(tags=["discover"])
 
+ALLOWED_UPLOAD_SOURCE_TYPES = frozenset({"literature", "own_findings", "sample_datasets"})
+
 
 class PubMedIngestRequest(BaseModel):
     pmids: list[str] = Field(default_factory=list)
@@ -73,6 +75,8 @@ async def upload_document(
     title: str = Form("Uploaded document"),
     user: AuthUser = Depends(get_current_user),
 ):
+    if source_type not in ALLOWED_UPLOAD_SOURCE_TYPES:
+        raise HTTPException(400, f"Invalid source_type. Allowed: {', '.join(sorted(ALLOWED_UPLOAD_SOURCE_TYPES))}")
     await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
     await enforce_paper_quota(user.id)
     raw = await file.read()

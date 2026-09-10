@@ -26,6 +26,7 @@ import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { AgentResultPanel } from "@/features/chat/AgentResultPanel";
 import { UsageQuotaBanner } from "@/features/chat/UsageQuotaBanner";
+import { ProjectContextImport } from "@/components/ProjectContextImport";
 import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useAuthSession } from "@/lib/authContext";
@@ -113,7 +114,8 @@ export function ChatFeature() {
   const unitLabel = mode === "auto" ? "agent runs" : "messages";
 
   const chat = useMutation({
-    mutationFn: (q: string) => peggyApi.chat(q, { mode, sourceTypes }),
+    mutationFn: (q: string) =>
+      peggyApi.chat(q, { mode, sourceTypes, workspaceId: activeWorkspace?.id }),
     onSuccess: refreshUsage,
   });
 
@@ -125,7 +127,12 @@ export function ChatFeature() {
       setStepLabel("Starting agent…");
       const sid = sessionId || getSessionId();
       try {
-        for await (const event of peggyApi.agentStream(q, { sessionId: sid, sourceTypes, mode: "auto" })) {
+        for await (const event of peggyApi.agentStream(q, {
+          sessionId: sid,
+          sourceTypes,
+          mode: "auto",
+          workspaceId: activeWorkspace?.id,
+        })) {
           applyStreamEvent(event);
         }
         refreshUsage();
@@ -137,7 +144,7 @@ export function ChatFeature() {
         setStepLabel(null);
       }
     },
-    [sessionId, sourceTypes, refreshUsage]
+    [sessionId, sourceTypes, refreshUsage, activeWorkspace?.id]
   );
 
   function applyStreamEvent(event: AgentStreamEvent) {
@@ -208,6 +215,12 @@ export function ChatFeature() {
         }
         label="Include our findings in retrieval"
       />
+
+      {(mode === "compare" || mode === "gap_analysis") && (
+        <ProjectContextImport
+          onImport={(text) => setQuery((prev) => (prev.trim() ? `${prev.trim()}\n\n---\n\n${text}` : text))}
+        />
+      )}
 
       <TextField
         id="peggy-chat-query"

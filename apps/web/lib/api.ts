@@ -359,19 +359,20 @@ export const peggyApi = {
       method: "DELETE",
     }),
 
-  chat: (query: string, options?: { sourceTypes?: string[]; mode?: ChatMode }) =>
+  chat: (query: string, options?: { sourceTypes?: string[]; mode?: ChatMode; workspaceId?: string }) =>
     apiFetch<ChatResponse>("/chat", {
       method: "POST",
       body: JSON.stringify({
         query,
         mode: options?.mode ?? "auto",
         source_types: options?.sourceTypes,
+        workspace_id: options?.workspaceId ?? null,
       }),
     }),
 
   agentRun: (
     query: string,
-    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode }
+    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode; workspaceId?: string }
   ) =>
     apiFetch<AgentResponse>("/agent/run", {
       method: "POST",
@@ -380,12 +381,13 @@ export const peggyApi = {
         session_id: options.sessionId,
         mode: options.mode ?? "auto",
         source_types: options.sourceTypes,
+        workspace_id: options.workspaceId ?? null,
       }),
     }),
 
   agentStream: async function* (
     query: string,
-    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode }
+    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode; workspaceId?: string }
   ): AsyncGenerator<AgentStreamEvent> {
     const headers = await authHeaders();
     const res = await fetch(`${API_URL}/agent/stream`, {
@@ -396,6 +398,7 @@ export const peggyApi = {
         session_id: options.sessionId,
         mode: options.mode ?? "auto",
         source_types: options.sourceTypes,
+        workspace_id: options.workspaceId ?? null,
       }),
     });
     if (!res.ok) {
@@ -481,10 +484,17 @@ export const peggyApi = {
       { method: "POST" }
     ),
 
-  compare: (finding: string, sourceTypes = ["literature", "own_findings"]) =>
+  compare: (
+    finding: string,
+    options?: { sourceTypes?: string[]; workspaceId?: string }
+  ) =>
     apiFetch<WorkflowResponse>("/workflows/compare", {
       method: "POST",
-      body: JSON.stringify({ finding, source_types: sourceTypes }),
+      body: JSON.stringify({
+        finding,
+        source_types: options?.sourceTypes ?? ["literature", "own_findings", "sample_datasets"],
+        workspace_id: options?.workspaceId ?? null,
+      }),
     }),
 
   futureDesign: (gapSummary: string, constraints: string) =>
@@ -501,7 +511,7 @@ export const peggyApi = {
 
   uploadDocument: async (
     file: File,
-    options?: { title?: string; sourceType?: "literature" | "own_findings" }
+    options?: { title?: string; sourceType?: "literature" | "own_findings" | "sample_datasets" }
   ) => {
     const form = new FormData();
     form.append("file", file);
@@ -550,6 +560,70 @@ export const peggyApi = {
 
   deleteWorkspace: (id: string) =>
     apiFetch<{ status: string; id: string }>(`/workspaces/${id}`, { method: "DELETE" }),
+
+  getStudyDesign: (workspaceId: string) =>
+    apiFetch<{ study_design: import("@/lib/studyDesign").StudyDesignData }>(
+      `/workspaces/${workspaceId}/study-design`
+    ),
+
+  patchStudyDesign: (workspaceId: string, patch: Partial<import("@/lib/studyDesign").StudyDesignData>) =>
+    apiFetch<{ study_design: import("@/lib/studyDesign").StudyDesignData }>(
+      `/workspaces/${workspaceId}/study-design`,
+      { method: "PATCH", body: JSON.stringify(patch) }
+    ),
+
+  ethicsGuidance: (workspaceId: string, question?: string) =>
+    apiFetch<WorkflowResponse>("/workflows/study-design/ethics-guidance", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId, question: question ?? "" }),
+    }),
+
+  methodsPlan: (body: {
+    workspaceId: string;
+    mode: "review" | "suggest";
+    userPlan?: string;
+    budget?: string;
+    tools?: string;
+  }) =>
+    apiFetch<WorkflowResponse>("/workflows/study-design/methods-plan", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: body.workspaceId,
+        mode: body.mode,
+        user_plan: body.userPlan ?? "",
+        budget: body.budget ?? "",
+        tools: body.tools ?? "",
+      }),
+    }),
+
+  studyProposal: (workspaceId: string, focusNotes?: string) =>
+    apiFetch<WorkflowResponse>("/workflows/study-design/proposal", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        focus_notes: focusNotes ?? "",
+      }),
+    }),
+
+  analysisPlan: (body: {
+    workspaceId: string;
+    mode: "review" | "suggest";
+    userPlan?: string;
+    budget?: string;
+    tools?: string;
+    outcomeTypes?: string;
+  }) =>
+    apiFetch<WorkflowResponse>("/workflows/study-design/analysis-plan", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: body.workspaceId,
+        mode: body.mode,
+        user_plan: body.userPlan ?? "",
+        budget: body.budget ?? "",
+        tools: body.tools ?? "",
+        outcome_types: body.outcomeTypes ?? "",
+      }),
+    }),
 };
 
 export const queryKeys = {

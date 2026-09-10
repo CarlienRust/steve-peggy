@@ -6,7 +6,7 @@ export default function ChatPage() {
   return (
     <>
       <PageHeader
-        eyebrow="03 · Ask Peggy"
+        eyebrow="06 · Ask Peggy"
         title="Ask Peggy"
         description="Grounded answers with visible citations, confidence scores, and stated limitations."
       />

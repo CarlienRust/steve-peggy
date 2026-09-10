@@ -46,7 +46,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Compare | Done | Literature + own findings retrieval |
 | Researcher profile | Stub | `localStorage` |
 | Corpus delete → Qdrant | Partial | SQLite only |
-| Future study design | API only | No UI |
+| Study design (samples, ethics, methods, analysis) | Done | Workspace JSON + PHI guards; FMHS ethics |
+| Future study design | API only | Superseded by study-design planners for UI |
 | Manuscript framing | API only | No UI |
 | Feedback | API only | No review UI |
 | OCR for scanned PDFs | Not started | |
@@ -57,7 +58,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Item | Status |
 |------|--------|
 | MUI shell + dashboard health chips | Done |
-| Nav: Corpus, Our findings, Ask Peggy, Gaps, Compare | Done |
+| Nav: Dashboard, Corpus, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
+| Study design proposal | Done | `/study-design/proposal` — 1–2 page draft |
 | Dashboard demo placeholders | Partial |
 | Inner pages polish | Basic |
 

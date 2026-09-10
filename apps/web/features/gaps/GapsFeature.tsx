@@ -66,7 +66,12 @@ export function GapsFeature() {
   return (
     <Stack spacing={2}>
       {!activeWorkspace && (
-        <Alert severity="info">Select a project to save gap analysis history.</Alert>
+        <Alert severity="info">Select a project to save gap analysis history and include study design context.</Alert>
+      )}
+      {activeWorkspace && (
+        <Alert severity="info">
+          Samples, methods plan, and analysis plan from this project are included automatically in gap analysis.
+        </Alert>
       )}
       <TextField
         label="Research focus / question"

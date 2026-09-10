@@ -78,5 +78,43 @@ export function WorkflowResults({ mode, body }: { mode: string; body: Record<str
     );
   }
 
-  return null;
+  const listSections = Object.entries(body).filter(([, v]) => Array.isArray(v) && (v as unknown[]).length > 0);
+  const textSections = Object.entries(body).filter(
+    ([, v]) => typeof v === "string" && v.trim().length > 0
+  );
+
+  if (listSections.length === 0 && textSections.length === 0) {
+    return (
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", m: 0 }}>
+          {JSON.stringify(body, null, 2)}
+        </Typography>
+      </Paper>
+    );
+  }
+
+  return (
+    <Stack spacing={2}>
+      {textSections.map(([key, value]) => (
+        <Paper key={key} variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, textTransform: "capitalize" }}>
+            {key.replace(/_/g, " ")}
+          </Typography>
+          <Typography variant="body2">{value as string}</Typography>
+        </Paper>
+      ))}
+      {listSections.map(([key, value]) => (
+        <Paper key={key} variant="outlined" sx={{ p: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, textTransform: "capitalize" }}>
+            {key.replace(/_/g, " ")}
+          </Typography>
+          {(value as string[]).map((item, i) => (
+            <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+              • {typeof item === "string" ? item : JSON.stringify(item)}
+            </Typography>
+          ))}
+        </Paper>
+      ))}
+    </Stack>
+  );
 }

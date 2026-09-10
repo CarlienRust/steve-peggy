@@ -363,6 +363,8 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
 
 
 def _workspace_row(row: asyncpg.Record) -> dict:
+    from core.study_design_merge import normalize_study_design
+
     d = _row_to_dict(row)
     obj = d.get("objectives")
     if isinstance(obj, str):
@@ -372,6 +374,16 @@ def _workspace_row(row: asyncpg.Record) -> dict:
             d["objectives"] = []
     elif obj is None:
         d["objectives"] = []
+    sd = d.get("study_design")
+    if isinstance(sd, str):
+        try:
+            d["study_design"] = normalize_study_design(json.loads(sd or "{}"))
+        except json.JSONDecodeError:
+            d["study_design"] = normalize_study_design({})
+    elif isinstance(sd, dict):
+        d["study_design"] = normalize_study_design(sd)
+    else:
+        d["study_design"] = normalize_study_design({})
     return d
 
 
@@ -454,6 +466,32 @@ async def delete_workspace(user_id: str, workspace_id: str) -> bool:
             user_id,
         )
     return result.endswith("1")
+
+
+async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
+    ws = await get_workspace(user_id, workspace_id)
+    if not ws:
+        return None
+    return ws.get("study_design") or {}
+
+
+async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    from core.study_design_merge import merge_study_design
+
+    existing = await get_study_design(user_id, workspace_id)
+    if existing is None:
+        return None
+    merged = merge_study_design(existing, patch)
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE workspaces SET study_design = $3::jsonb, updated_at = NOW()
+               WHERE id = $1::uuid AND user_id = $2::uuid""",
+            workspace_id,
+            user_id,
+            json.dumps(merged),
+        )
+    return merged
 
 
 async def save_workflow_run(

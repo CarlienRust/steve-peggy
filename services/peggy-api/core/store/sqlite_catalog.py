@@ -120,6 +120,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await db.executescript(SCHEMA)
         await _migrate_user_id_columns(db)
         await _migrate_workspace_github(db)
+        await _migrate_workspace_study_design(db)
         await db.commit()
 
 
@@ -143,6 +144,37 @@ async def _migrate_workspace_github(db: aiosqlite.Connection) -> None:
             await db.execute(f"ALTER TABLE workspaces ADD COLUMN {col} TEXT DEFAULT {default}")
         except Exception:
             pass
+
+
+async def _migrate_workspace_study_design(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE workspaces ADD COLUMN study_design TEXT NOT NULL DEFAULT '{}'")
+    except Exception:
+        pass
+
+
+def _parse_study_design(d: dict) -> dict:
+    from core.study_design_merge import normalize_study_design
+
+    raw = d.get("study_design")
+    if isinstance(raw, str):
+        try:
+            return normalize_study_design(json.loads(raw or "{}"))
+        except (json.JSONDecodeError, TypeError):
+            return normalize_study_design({})
+    if isinstance(raw, dict):
+        return normalize_study_design(raw)
+    return normalize_study_design({})
+
+
+def _workspace_dict(row: aiosqlite.Row | dict) -> dict:
+    d = dict(row)
+    try:
+        d["objectives"] = json.loads(d.get("objectives") or "[]")
+    except (json.JSONDecodeError, TypeError):
+        d["objectives"] = []
+    d["study_design"] = _parse_study_design(d)
+    return d
 
 
 def _norm_title(title: str) -> str:
@@ -437,15 +469,7 @@ async def list_workspaces(user_id: str) -> list[dict]:
             (user_id,),
         )
         rows = await cur.fetchall()
-    result = []
-    for row in rows:
-        d = dict(row)
-        try:
-            d["objectives"] = json.loads(d.get("objectives") or "[]")
-        except (json.JSONDecodeError, TypeError):
-            d["objectives"] = []
-        result.append(d)
-    return result
+    return [_workspace_dict(row) for row in rows]
 
 
 async def count_workspaces(user_id: str) -> int:
@@ -465,12 +489,7 @@ async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
         row = await cur.fetchone()
         if not row:
             return None
-        d = dict(row)
-        try:
-            d["objectives"] = json.loads(d.get("objectives") or "[]")
-        except (json.JSONDecodeError, TypeError):
-            d["objectives"] = []
-        return d
+        return _workspace_dict(row)
 
 
 async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
@@ -504,6 +523,30 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
         )
         await db.commit()
     return await get_workspace(user_id, workspace_id)
+
+
+async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
+    ws = await get_workspace(user_id, workspace_id)
+    if not ws:
+        return None
+    return ws.get("study_design") or {}
+
+
+async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    from core.study_design_merge import merge_study_design
+
+    existing = await get_study_design(user_id, workspace_id)
+    if existing is None:
+        return None
+    merged = merge_study_design(existing, patch)
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            "UPDATE workspaces SET study_design = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+            (json.dumps(merged), now, workspace_id, user_id),
+        )
+        await db.commit()
+    return merged
 
 
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:

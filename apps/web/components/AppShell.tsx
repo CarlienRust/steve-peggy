@@ -6,6 +6,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   AppBar,
   Box,
+  Chip,
+  Collapse,
   Drawer,
   IconButton,
   Toolbar,
@@ -15,56 +17,235 @@ import {
   useTheme,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
+import {
+  MAIN_NAV,
+  groupsToExpand,
+  isNavChildActive,
+  isNavItemActive,
+  type NavGroupItem,
+  type NavItem,
+} from "@/lib/navigation";
 
 const SIDEBAR_W = 256;
 const MOBILE_HEADER_H = 56;
 
-const nav = [
-  { num: "01", label: "Dashboard", href: "/dashboard" },
-  { num: "02", label: "Corpus", href: "/ingest" },
-  { num: "03", label: "Our findings", href: "/findings" },
-  { num: "04", label: "Ask Peggy", href: "/chat" },
-  { num: "05", label: "Gap Analysis", href: "/gaps" },
-  { num: "06", label: "Comparison", href: "/compare" },
-] as const;
+function NavLinkRow({
+  href,
+  label,
+  num,
+  active,
+  onNavigate,
+  indent = false,
+  badge,
+  disabled = false,
+}: {
+  href: string;
+  label: string;
+  num?: string;
+  active: boolean;
+  onNavigate?: () => void;
+  indent?: boolean;
+  badge?: string;
+  disabled?: boolean;
+}) {
+  const sx = {
+    display: "flex",
+    alignItems: "center",
+    gap: 1.5,
+    pl: indent ? 3.5 : 1.5,
+    pr: 1.5,
+    py: indent ? 0.75 : 1,
+    borderRadius: 1,
+    textDecoration: "none",
+    fontSize: indent ? "0.8125rem" : "0.875rem",
+    fontWeight: active ? 500 : 400,
+    color: disabled ? "text.disabled" : active ? "primary.main" : "text.secondary",
+    bgcolor: active ? alpha(peggyColors.primary, 0.05) : "transparent",
+    opacity: disabled ? 0.65 : 1,
+    cursor: disabled ? "not-allowed" : "pointer",
+    pointerEvents: disabled ? ("none" as const) : ("auto" as const),
+    "&:hover": disabled
+      ? {}
+      : {
+          bgcolor: active ? alpha(peggyColors.primary, 0.05) : alpha(peggyColors.muted, 0.4),
+          color: "text.primary",
+        },
+  };
+
+  if (disabled) {
+    return (
+      <Box sx={sx} aria-disabled="true">
+        {num && (
+          <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7, minWidth: 18 }}>
+            {num}
+          </Typography>
+        )}
+        {!num && indent && <Box sx={{ width: 18, flexShrink: 0 }} />}
+        <Typography component="span" sx={{ flex: 1 }}>
+          {label}
+        </Typography>
+        <Chip label={badge ?? "Soon"} size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      component={Link}
+      href={href}
+      onClick={onNavigate}
+      sx={sx}
+    >
+      {num && (
+        <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7, minWidth: 18 }}>
+          {num}
+        </Typography>
+      )}
+      {!num && indent && <Box sx={{ width: 18, flexShrink: 0 }} />}
+      <Typography component="span" sx={{ flex: 1 }}>
+        {label}
+      </Typography>
+      {badge && (
+        <Chip label={badge} size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
+      )}
+    </Box>
+  );
+}
+
+function NavGroupRow({
+  item,
+  pathname,
+  expanded,
+  onToggle,
+  onNavigate,
+}: {
+  item: NavGroupItem;
+  pathname: string;
+  expanded: boolean;
+  onToggle: () => void;
+  onNavigate?: () => void;
+}) {
+  const groupActive = isNavItemActive(pathname, item);
+  const hubExact = pathname === item.href;
+
+  return (
+    <Box>
+      <Box sx={{ display: "flex", alignItems: "stretch" }}>
+        <Box
+          component={Link}
+          href={item.href}
+          onClick={onNavigate}
+          sx={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            gap: 1.5,
+            px: 1.5,
+            py: 1,
+            borderRadius: 1,
+            textDecoration: "none",
+            fontSize: "0.875rem",
+            fontWeight: groupActive ? 500 : 400,
+            color: groupActive ? "primary.main" : "text.secondary",
+            bgcolor: hubExact ? alpha(peggyColors.primary, 0.05) : "transparent",
+            "&:hover": {
+              bgcolor: hubExact ? alpha(peggyColors.primary, 0.05) : alpha(peggyColors.muted, 0.4),
+              color: "text.primary",
+            },
+          }}
+        >
+          <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7 }}>
+            {item.num}
+          </Typography>
+          <Typography component="span">{item.label}</Typography>
+        </Box>
+        <IconButton
+          size="small"
+          aria-label={expanded ? "Collapse section" : "Expand section"}
+          onClick={(e) => {
+            e.preventDefault();
+            onToggle();
+          }}
+          sx={{
+            color: groupActive ? "primary.main" : "text.secondary",
+            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 150ms ease",
+          }}
+        >
+          <ExpandMoreIcon fontSize="small" />
+        </IconButton>
+      </Box>
+      <Collapse in={expanded}>
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, pb: 0.5 }}>
+          {item.children.map((child) => (
+            <NavLinkRow
+              key={child.href}
+              href={child.href}
+              label={child.label}
+              active={isNavChildActive(pathname, child.href)}
+              onNavigate={onNavigate}
+              indent
+              disabled={child.disabled}
+              badge={child.disabled || child.ready === false ? "Soon" : undefined}
+            />
+          ))}
+        </Box>
+      </Collapse>
+    </Box>
+  );
+}
 
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(groupsToExpand(pathname)));
+
+  useEffect(() => {
+    const auto = groupsToExpand(pathname);
+    if (auto.length === 0) return;
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      auto.forEach((href) => next.add(href));
+      return next;
+    });
+  }, [pathname]);
+
+  const toggleGroup = (href: string) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-      {nav.map((item) => {
-        const active = pathname === item.href;
+      {MAIN_NAV.map((item: NavItem) => {
+        if (item.kind === "link") {
+          return (
+            <NavLinkRow
+              key={item.href}
+              href={item.href}
+              label={item.label}
+              num={item.num}
+              active={isNavItemActive(pathname, item)}
+              onNavigate={onNavigate}
+              disabled={item.disabled}
+            />
+          );
+        }
         return (
-          <Box
+          <NavGroupRow
             key={item.href}
-            component={Link}
-            href={item.href}
-            onClick={onNavigate}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              gap: 1.5,
-              px: 1.5,
-              py: 1,
-              borderRadius: 1,
-              textDecoration: "none",
-              fontSize: "0.875rem",
-              fontWeight: active ? 500 : 400,
-              color: active ? "primary.main" : "text.secondary",
-              bgcolor: active ? alpha(peggyColors.primary, 0.05) : "transparent",
-              "&:hover": {
-                bgcolor: active ? alpha(peggyColors.primary, 0.05) : alpha(peggyColors.muted, 0.4),
-                color: "text.primary",
-              },
-            }}
-          >
-            <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7 }}>
-              {item.num}
-            </Typography>
-            <Typography component="span">{item.label}</Typography>
-          </Box>
+            item={item}
+            pathname={pathname}
+            expanded={expandedGroups.has(item.href)}
+            onToggle={() => toggleGroup(item.href)}
+            onNavigate={onNavigate}
+          />
         );
       })}
     </Box>

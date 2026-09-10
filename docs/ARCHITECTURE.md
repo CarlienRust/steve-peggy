@@ -21,7 +21,7 @@ legacy/                   Archived — do not import
 | UI | Route | `source_type` | Qdrant collection |
 |----|-------|---------------|-------------------|
 | Corpus (literature) | `/ingest` | `literature` | `peggy_literature` |
-| Our findings | `/findings` | `own_findings` | `peggy_own_findings` |
+| Our findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
 
 Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
 
@@ -91,9 +91,14 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /auth/github/login` | GitHub OAuth authorize URL (Bearer required) |
 | `GET /auth/github/callback` | OAuth callback (stores token server-side) |
 | `GET /github/repos` | List repos for linked account |
+| `GET/PATCH /workspaces/{id}/study-design` | Workspace-persisted study design JSON (samples, ethics, plans) |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
-| `POST /workflows/compare` | Finding vs literature (+ own findings in retrieval) |
+| `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |
+| `POST /workflows/study-design/methods-plan` | Methods review or suggest (`mode`: review \| suggest) |
+| `POST /workflows/study-design/analysis-plan` | Analysis review or suggest |
+| `POST /workflows/study-design/proposal` | 1–2 page proposal from workspace study design + literature |
+| `POST /workflows/compare` | Finding vs literature; optional `workspace_id` injects study design + plans; retrieval includes `sample_datasets` |
 | `POST /workflows/future-design` | Study design draft (API only) |
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |
 | `POST /feedback` | Correction queue (API only) |
@@ -115,13 +120,25 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 
 | Route | Nav | Purpose |
 |-------|-----|---------|
-| `/` | Dashboard | Health chips, stats, quick actions |
-| `/ingest` | Corpus | Literature only |
-| `/findings` | Our findings | Own research |
-| `/chat` | Ask Peggy | Q&A + gap/compare modes |
-| `/gaps` | Gap Analysis | Gaps table |
-| `/compare` | Comparison | Finding vs field |
+| `/` | — | Project hub (pick workspace) |
+| `/dashboard` | 01 Dashboard | Health chips, stats, quick actions |
+| `/ingest` | 02 Corpus | Literature only |
+| `/study-design` | 03 Study Design | Redirects to first sub-section; tab bar on all sub-pages |
+| `/study-design/gap-analysis` | 03 · Gap analysis | Gaps table |
+| `/study-design/samples` | 03 · Samples | Cohort profile + optional PDF upload (`sample_datasets` corpus; confirm at own risk) |
+| `/study-design/ethics` | 03 · Ethics | FMHS static guidance + AI checklist |
+| `/study-design/methods-plan` | 03 · Methods plan | Review my plan / help me design |
+| `/study-design/analysis-plan` | 03 · Analysis plan | Review my plan / help me design |
+| `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |
+| `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
+| `/results` | 05 Results | Redirects to first sub-section; tab bar on all sub-pages |
+| `/results/methods` | 05 · Methods | Placeholder |
+| `/results/findings` | 05 · Our findings | Own research |
+| `/results/comparison` | 05 · Comparison | Finding vs field |
+| `/chat` | 06 Ask Peggy | Q&A + agent modes |
 | `/login` | — | Supabase email magic link |
+
+Legacy redirects: `/gaps` → gap analysis, `/findings` → our findings, `/compare` → comparison.
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

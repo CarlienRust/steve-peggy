@@ -171,25 +171,32 @@ export function DashboardPage() {
       </Paper>
 
       <Grid container spacing={2} sx={{ mb: 6 }}>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
           <ActionCard
             href="/ingest"
             title="Manage corpus"
             description="View, edit, and add PubMed IDs, PDFs, or datasets."
           />
         </Grid>
-        <Grid item xs={12} md={4}>
+        <Grid item xs={12} md={3}>
+          <ActionCard
+            href="/study-design/gap-analysis"
+            title="Gap analysis"
+            description="Identify understudied areas and contradictions in your corpus."
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
+          <ActionCard
+            href="/results/comparison"
+            title="Compare a finding"
+            description="Your data against the literature consensus."
+          />
+        </Grid>
+        <Grid item xs={12} md={3}>
           <ActionCard
             href="/chat"
             title="Ask Peggy"
             description="Grounded answers with visible citations."
-          />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <ActionCard
-            href="/compare"
-            title="Compare a finding"
-            description="Your data against the literature consensus."
           />
         </Grid>
       </Grid>

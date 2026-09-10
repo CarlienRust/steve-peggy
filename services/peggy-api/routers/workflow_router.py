@@ -6,10 +6,14 @@ import config
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_text_length, enforce_user_rate
 from core.rag.workflows import (
-    run_gap_analysis,
+    run_analysis_plan,
     run_compare,
+    run_ethics_guidance,
     run_future_design,
+    run_gap_analysis,
     run_manuscript_framing,
+    run_methods_plan,
+    run_proposal,
 )
 from core.store import catalog
 from schemas.responses import GapAnalysisRunDetail, GapAnalysisRunSummary, SourceCitation, WorkflowResponse
@@ -25,7 +29,8 @@ class GapRequest(BaseModel):
 
 class CompareRequest(BaseModel):
     finding: str
-    source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
+    workspace_id: Optional[str] = None
+    source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings", "sample_datasets"])
 
 
 class FutureDesignRequest(BaseModel):
@@ -37,6 +42,27 @@ class FutureDesignRequest(BaseModel):
 class ManuscriptRequest(BaseModel):
     results_summary: str
     source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
+
+
+class EthicsGuidanceRequest(BaseModel):
+    workspace_id: str
+    question: str = ""
+
+
+class ProposalRequest(BaseModel):
+    workspace_id: str
+    focus_notes: str = ""
+    source_types: list[str] = Field(default_factory=lambda: ["literature"])
+
+
+class StudyPlanRequest(BaseModel):
+    workspace_id: str
+    mode: str = Field(pattern="^(review|suggest)$")
+    user_plan: str = ""
+    budget: str = ""
+    tools: str = ""
+    outcome_types: str = ""
+    source_types: list[str] = Field(default_factory=lambda: ["literature"])
 
 
 def _wrap(result: dict) -> WorkflowResponse:
@@ -108,8 +134,19 @@ async def gap_analysis_run(run_id: str, user: AuthUser = Depends(get_current_use
 @router.post("/compare", response_model=WorkflowResponse)
 async def compare(body: CompareRequest, user: AuthUser = Depends(get_current_user)):
     enforce_text_length(body.finding, label="Finding")
+    if body.workspace_id:
+        ws = await catalog.get_workspace(user.id, body.workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
-    return _wrap(await run_compare(body.finding, body.source_types, user_id=user.id))
+    return _wrap(
+        await run_compare(
+            body.finding,
+            body.source_types,
+            user_id=user.id,
+            workspace_id=body.workspace_id,
+        )
+    )
 
 
 @router.post("/future-design", response_model=WorkflowResponse)
@@ -126,3 +163,74 @@ async def manuscript_framing(body: ManuscriptRequest, user: AuthUser = Depends(g
     enforce_text_length(body.results_summary, label="Results summary")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
     return _wrap(await run_manuscript_framing(body.results_summary, body.source_types, user_id=user.id))
+
+
+@router.post("/study-design/ethics-guidance", response_model=WorkflowResponse)
+async def ethics_guidance(body: EthicsGuidanceRequest, user: AuthUser = Depends(get_current_user)):
+    if body.question:
+        enforce_text_length(body.question, label="Question")
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    try:
+        return _wrap(await run_ethics_guidance(user.id, body.workspace_id, body.question))
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/study-design/methods-plan", response_model=WorkflowResponse)
+async def methods_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_current_user)):
+    if body.user_plan:
+        enforce_text_length(body.user_plan, label="Methods plan")
+    if body.budget:
+        enforce_text_length(body.budget, max_len=512, label="Budget")
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    try:
+        return _wrap(
+            await run_methods_plan(
+                user.id,
+                body.workspace_id,
+                body.mode,
+                body.user_plan,
+                body.budget,
+                body.tools,
+                body.source_types,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/study-design/analysis-plan", response_model=WorkflowResponse)
+async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_current_user)):
+    if body.user_plan:
+        enforce_text_length(body.user_plan, label="Analysis plan")
+    if body.budget:
+        enforce_text_length(body.budget, max_len=512, label="Budget")
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    try:
+        return _wrap(
+            await run_analysis_plan(
+                user.id,
+                body.workspace_id,
+                body.mode,
+                body.user_plan,
+                body.budget,
+                body.tools,
+                body.outcome_types,
+                body.source_types,
+            )
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/study-design/proposal", response_model=WorkflowResponse)
+async def study_proposal(body: ProposalRequest, user: AuthUser = Depends(get_current_user)):
+    if body.focus_notes:
+        enforce_text_length(body.focus_notes, label="Focus notes")
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    try:
+        return _wrap(
+            await run_proposal(user.id, body.workspace_id, body.focus_notes, body.source_types)
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc

@@ -17,11 +17,11 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 | Capability | How |
 |------------|-----|
 | **Literature corpus** | `/ingest` — PubMed + PDF papers only; view, edit, delete |
-| **Our findings** | `/findings` — narrative or research PDF → separate Qdrant collection |
+| **Our findings** | `/results/findings` — narrative or research PDF → separate Qdrant collection |
 | **Ingest dedup** | Skips duplicate PMID, DOI, or title per `source_type` |
 | **Ask Peggy** | `/chat` — grounded Q&A; **Auto / Ask / Gaps / Compare** modes |
-| **Gap analysis** | `/gaps` — structured gaps; optional include our findings |
-| **Compare** | `/compare` — your finding vs literature (+ our findings in retrieval) |
+| **Gap analysis** | `/study-design/gap-analysis` — structured gaps; optional include our findings |
+| **Compare** | `/results/comparison` — your finding vs literature (+ our findings in retrieval) |
 | **Health dashboard** | Status chips for Qdrant, LLM provider, embeddings |
 | **Profile** | Sidebar edit + Supabase sign-out; display prefs in `user_metadata` |
 | **Embeddings** | `sentence-transformers` locally (no OpenAI embeddings required) |
@@ -40,7 +40,7 @@ Peggy keeps literature and your work separate so comparison and gap analysis kno
 | Space | Route | `source_type` | Qdrant collection |
 |-------|-------|---------------|-------------------|
 | Literature | `/ingest` | `literature` | `peggy_literature` |
-| Our findings | `/findings` | `own_findings` | `peggy_own_findings` |
+| Our findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
 
 Re-uploading the same paper or finding set is blocked at the catalog layer (duplicate response, no second row).
 
@@ -109,12 +109,13 @@ Smoke test (Qdrant + API running):
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/` | Project hub | Choose or create a research project |
-| `/dashboard` | Dashboard | Stats, health chips, quick actions |
-| `/ingest` | Corpus | Literature only — PubMed + PDF |
-| `/findings` | Our findings | Your research — narrative or PDF |
-| `/chat` | Ask Peggy | Q&A, gap analysis, or compare (mode chips) |
-| `/gaps` | Gap Analysis | Research gaps vs corpus |
-| `/compare` | Comparison | Your finding vs literature |
+| `/dashboard` | 01 Dashboard | Stats, health chips, quick actions |
+| `/ingest` | 02 Corpus | Literature only — PubMed + PDF |
+| `/study-design` | 03 Study Design | Hub — gap analysis, samples, ethics, plans |
+| `/study-design/proposal` | 03 · Proposal | Study/grant draft from project context |
+| `/analysis-tool` | 04 Analysis tool | Coming soon (nav disabled) |
+| `/results` | 05 Results | Hub — methods, our findings, comparison |
+| `/chat` | 06 Ask Peggy | Q&A and agent modes |
 
 ## Architecture
 
