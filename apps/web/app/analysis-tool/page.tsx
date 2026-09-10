@@ -1,14 +1,14 @@
-import { SectionPlaceholder } from "@/components/SectionPlaceholder";
-import { Paper } from "@mui/material";
+import { Alert } from "@mui/material";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSection } from "@/components/PageSection";
 
 export default function AnalysisToolPage() {
   return (
-    <Paper sx={{ p: 3 }}>
-      <SectionPlaceholder
-        eyebrow="04 · Analysis tool"
-        title="Analysis tool"
-        description="Interactive analysis workspace for running pre-specified models on your data. Planned for a future release."
-      />
-    </Paper>
+    <>
+      <PageHeader eyebrow="04 · Analysis tool" title="Analysis tool" description="Interactive analysis workspace. Coming soon." />
+      <PageSection>
+        <Alert severity="info">Coming soon.</Alert>
+      </PageSection>
+    </>
   );
 }

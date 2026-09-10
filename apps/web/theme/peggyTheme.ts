@@ -2,6 +2,13 @@
 
 import { createTheme, alpha } from "@mui/material/styles";
 
+export const layoutTokens = {
+  contentMaxWidth: 960,
+  pagePy: 0,
+  sectionGap: 3,
+  panelPadding: 2.5,
+} as const;
+
 export const peggyColors = {
   background: "#f2f4ef",
   foreground: "#1e3330",
@@ -88,14 +95,38 @@ export function createPeggyTheme() {
           },
         },
       },
+      MuiTabs: {
+        styleOverrides: {
+          indicator: { backgroundColor: peggyColors.accent, height: 2 },
+        },
+      },
       MuiTab: {
         styleOverrides: {
-          root: { textTransform: "none", fontWeight: 500 },
+          root: {
+            textTransform: "none",
+            fontWeight: 500,
+            minHeight: 44,
+            "&.Mui-selected": { color: peggyColors.primary },
+          },
+        },
+      },
+      MuiAlert: {
+        styleOverrides: {
+          root: { paddingTop: 8, paddingBottom: 8, alignItems: "flex-start" },
+          standardInfo: {
+            backgroundColor: alpha(peggyColors.accent, 0.08),
+            color: peggyColors.foreground,
+          },
+          standardWarning: {
+            backgroundColor: alpha(peggyColors.warning, 0.1),
+            color: peggyColors.foreground,
+          },
         },
       },
       MuiChip: {
         styleOverrides: {
           root: { fontFamily: "var(--font-jetbrains), monospace", fontSize: "0.65rem", height: 22 },
+          outlined: { borderColor: peggyColors.border },
         },
       },
       MuiAccordion: {
@@ -141,4 +172,25 @@ export const cardHoverSx = {
     borderColor: alpha(peggyColors.primary, 0.3),
     backgroundColor: alpha(peggyColors.primary, 0.05),
   },
+};
+
+export const panelSx = {
+  p: layoutTokens.panelPadding,
+  bgcolor: "background.paper",
+  borderRadius: 1,
+  border: `0.5px solid ${peggyColors.border}`,
+};
+
+export const pageTitleSx = {
+  fontSize: { xs: "1.5rem", md: "1.75rem" },
+  fontWeight: 600,
+  letterSpacing: "-0.02em",
+  lineHeight: 1.25,
+};
+
+export const pageTitleCompactSx = {
+  fontSize: { xs: "1.25rem", md: "1.5rem" },
+  fontWeight: 600,
+  letterSpacing: "-0.01em",
+  lineHeight: 1.3,
 };

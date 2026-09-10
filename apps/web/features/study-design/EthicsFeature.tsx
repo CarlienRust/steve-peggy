@@ -17,7 +17,7 @@ import {
   Typography,
 } from "@mui/material";
 import { DataSafetyBanner } from "@/components/DataSafetyBanner";
-import { PageHeader } from "@/components/PageHeader";
+import { EthicsApprovalSection } from "@/features/study-design/EthicsApprovalSection";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { FMHS_COMMITTEES, FMHS_ETHICS_URL, FMHS_STEPS } from "@/lib/ethics/fmhsStellenbosch";
@@ -44,12 +44,10 @@ export function EthicsFeature() {
 
   return (
     <>
-      <PageHeader
-        title="Ethics"
-        description="FMHS Stellenbosch University health research ethics — verify deadlines on the official site."
-      />
       <DataSafetyBanner />
       <Stack spacing={3}>
+        <EthicsApprovalSection ethics={ethics} onSave={(patch) => saveSection("ethics", patch)} />
+
         <Paper variant="outlined" sx={{ p: 2 }}>
           <Typography variant="subtitle2" gutterBottom>
             FMHS Health Research Ethics Office

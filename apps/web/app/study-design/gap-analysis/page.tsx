@@ -1,17 +1,14 @@
 import { GapsFeature } from "@/features/gaps/GapsFeature";
 import { PageHeader } from "@/components/PageHeader";
-import { Paper } from "@mui/material";
+import { PageSection } from "@/components/PageSection";
 
 export default function GapAnalysisPage() {
   return (
     <>
-      <PageHeader
-        title="Gap analysis"
-        description="Structured view of what is understudied, contradictory, or methodologically weak in your corpus."
-      />
-      <Paper sx={{ p: 3 }}>
+      <PageHeader compact title="Gap analysis" description="Understudied topics and contradictions in your corpus." />
+      <PageSection>
         <GapsFeature />
-      </Paper>
+      </PageSection>
     </>
   );
 }

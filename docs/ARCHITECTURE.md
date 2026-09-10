@@ -121,12 +121,12 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | Route | Nav | Purpose |
 |-------|-----|---------|
 | `/` | — | Project hub (pick workspace) |
-| `/dashboard` | 01 Dashboard | Health chips, stats, quick actions |
+| `/dashboard` | 01 Dashboard | Project strip, workflow shortcut grid (nav-driven), compact system status |
 | `/ingest` | 02 Corpus | Literature only |
 | `/study-design` | 03 Study Design | Redirects to first sub-section; tab bar on all sub-pages |
 | `/study-design/gap-analysis` | 03 · Gap analysis | Gaps table |
 | `/study-design/samples` | 03 · Samples | Cohort profile + optional PDF upload (`sample_datasets` corpus; confirm at own risk) |
-| `/study-design/ethics` | 03 · Ethics | FMHS static guidance + AI checklist |
+| `/study-design/ethics` | 03 · Ethics | FMHS guidance, approval letter upload (`ethics_documents`), AI checklist |
 | `/study-design/methods-plan` | 03 · Methods plan | Review my plan / help me design |
 | `/study-design/analysis-plan` | 03 · Analysis plan | Review my plan / help me design |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |
@@ -139,6 +139,13 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/gaps` → gap analysis, `/findings` → our findings, `/compare` → comparison.
+
+### Web UI layout
+
+- **Dashboard shortcuts** — `getWorkflowShortcuts()` in `apps/web/lib/navigation.ts` drives the hub grid (Corpus, study-design steps, results, Ask Peggy). Disabled nav items (Analysis tool, Results Methods) are omitted.
+- **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
+- **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
+- **Data safety** — `DataSafetyBanner` shows one line by default; expandable Details for cloud LLM and ethics guidance.
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

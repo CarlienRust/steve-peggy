@@ -32,6 +32,11 @@ import {
 
 const SIDEBAR_W = 256;
 const MOBILE_HEADER_H = 56;
+const TABBED_SECTION_HREFS = new Set(["/study-design", "/results"]);
+
+function sidebarAutoExpand(pathname: string): string[] {
+  return groupsToExpand(pathname).filter((href) => !TABBED_SECTION_HREFS.has(href));
+}
 
 function NavLinkRow({
   href,
@@ -200,10 +205,10 @@ function NavGroupRow({
 }
 
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(groupsToExpand(pathname)));
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(sidebarAutoExpand(pathname)));
 
   useEffect(() => {
-    const auto = groupsToExpand(pathname);
+    const auto = sidebarAutoExpand(pathname);
     if (auto.length === 0) return;
     setExpandedGroups((prev) => {
       const next = new Set(prev);

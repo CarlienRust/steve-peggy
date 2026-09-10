@@ -13,11 +13,14 @@ export function SectionGroupLayout({
   children: React.ReactNode;
 }) {
   const group = getNavGroup(groupHref);
-  if (!group) return <>{children}</>;
 
   return (
     <Box>
-      <Typography sx={{ ...eyebrowSx, mb: 1 }}>{group.num} · {group.label}</Typography>
+      {group && (
+        <Typography sx={{ ...eyebrowSx, mb: 1 }}>
+          {group.num} · {group.label}
+        </Typography>
+      )}
       <SectionSubNav groupHref={groupHref} />
       {children}
     </Box>

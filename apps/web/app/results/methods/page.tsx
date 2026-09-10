@@ -1,10 +1,14 @@
-import { SectionPlaceholder } from "@/components/SectionPlaceholder";
+import { Alert } from "@mui/material";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSection } from "@/components/PageSection";
 
 export default function ResultsMethodsPage() {
   return (
-    <SectionPlaceholder
-      title="Methods"
-      description="Retrospective methods write-up for manuscripts or reports."
-    />
+    <>
+      <PageHeader compact title="Methods" description="Retrospective methods write-up for manuscripts." />
+      <PageSection>
+        <Alert severity="info">Coming soon.</Alert>
+      </PageSection>
+    </>
   );
 }

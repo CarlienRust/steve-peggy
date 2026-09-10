@@ -12,7 +12,6 @@ import {
   Typography,
 } from "@mui/material";
 import { DataSafetyBanner } from "@/components/DataSafetyBanner";
-import { PageHeader } from "@/components/PageHeader";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import {
@@ -41,10 +40,6 @@ export function SamplesFeature() {
 
   return (
     <>
-      <PageHeader
-        title="Samples & datasets"
-        description="Describe cohort and data in general terms. Optional file upload — confirm ethics approval at your own risk."
-      />
       <DataSafetyBanner />
       <Stack spacing={2}>
         <TextField

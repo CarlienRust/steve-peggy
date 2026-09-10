@@ -1,10 +1,14 @@
 import { EthicsFeature } from "@/features/study-design/EthicsFeature";
-import { Paper } from "@mui/material";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSection } from "@/components/PageSection";
 
 export default function EthicsPage() {
   return (
-    <Paper sx={{ p: 3 }}>
-      <EthicsFeature />
-    </Paper>
+    <>
+      <PageHeader compact title="Ethics" description="Approval letters, FMHS guidance, and IRB checklist." />
+      <PageSection>
+        <EthicsFeature />
+      </PageSection>
+    </>
   );
 }

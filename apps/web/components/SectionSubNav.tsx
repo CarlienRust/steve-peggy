@@ -15,7 +15,7 @@ export function SectionSubNav({ groupHref }: { groupHref: string }) {
     group.children.find((c) => isNavChildActive(pathname, c.href))?.href ?? false;
 
   return (
-    <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
+    <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }} aria-label={`${group.label} sections`}>
       <Tabs
         value={activeHref}
         variant="scrollable"

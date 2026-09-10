@@ -60,6 +60,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | MUI shell + dashboard health chips | Done |
 | Nav: Dashboard, Corpus, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
 | Study design proposal | Done | `/study-design/proposal` — 1–2 page draft |
+| Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
+| Ethics renewal reminders | Planned | Notify before `expiryDate` on study design |
 | Dashboard demo placeholders | Partial |
 | Inner pages polish | Basic |
 

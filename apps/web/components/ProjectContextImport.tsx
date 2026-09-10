@@ -29,7 +29,6 @@ import { eyebrowSx } from "@/theme/peggyTheme";
 type ProjectContextImportProps = {
   onImport: (text: string) => void;
   sections?: ProjectContextSection[];
-  /** Show note that backend auto-includes project context when workspace selected */
   showAutoContextNote?: boolean;
 };
 
@@ -44,7 +43,7 @@ const SECTION_LABELS: Record<ProjectContextSection, string> = {
 export function ProjectContextImport({
   onImport,
   sections = ["samples", "methods", "analysis", "findings", "datasets"],
-  showAutoContextNote = true,
+  showAutoContextNote = false,
 }: ProjectContextImportProps) {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign } = useStudyDesign(activeWorkspace?.id);
@@ -159,17 +158,11 @@ export function ProjectContextImport({
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography sx={eyebrowSx}>Import from this project</Typography>
+      <Typography sx={eyebrowSx}>Import from project</Typography>
       {showAutoContextNote && activeWorkspace && (
-        <Alert severity="info" sx={{ mb: 2 }}>
-          With a project selected, study design, methods, and analysis plans are sent automatically to gap analysis and
-          comparison. Use import below to add extra text to the field.
-        </Alert>
-      )}
-      {!activeWorkspace && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          Select a project to include study design and plans automatically.
-        </Alert>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          Study design context is included automatically when a project is selected.
+        </Typography>
       )}
 
       <Stack spacing={0.5}>

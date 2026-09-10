@@ -511,7 +511,10 @@ export const peggyApi = {
 
   uploadDocument: async (
     file: File,
-    options?: { title?: string; sourceType?: "literature" | "own_findings" | "sample_datasets" }
+    options?: {
+      title?: string;
+      sourceType?: "literature" | "own_findings" | "sample_datasets" | "ethics_documents";
+    }
   ) => {
     const form = new FormData();
     form.append("file", file);

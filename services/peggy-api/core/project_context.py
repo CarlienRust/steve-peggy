@@ -56,6 +56,12 @@ def format_project_context(ws: dict, study_design: dict) -> str:
         elif samples.get("summary"):
             parts.append(f"Samples summary: {samples['summary']}")
 
+    if ethics.get("approvalObtained"):
+        parts.append("Ethics approval: obtained")
+        if ethics.get("approvalDate"):
+            parts.append(f"Ethics approval date: {ethics['approvalDate']}")
+        if ethics.get("expiryDate"):
+            parts.append(f"Ethics approval expiry: {ethics['expiryDate']}")
     if ethics.get("notes"):
         parts.append(f"Ethics notes: {ethics['notes'][:1500]}")
 

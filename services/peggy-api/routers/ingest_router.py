@@ -24,7 +24,9 @@ from schemas.responses import DiscoveryResponse
 router = APIRouter(prefix="/ingest", tags=["ingest"])
 discover_router = APIRouter(tags=["discover"])
 
-ALLOWED_UPLOAD_SOURCE_TYPES = frozenset({"literature", "own_findings", "sample_datasets"})
+ALLOWED_UPLOAD_SOURCE_TYPES = frozenset(
+    {"literature", "own_findings", "sample_datasets", "ethics_documents"}
+)
 
 
 class PubMedIngestRequest(BaseModel):

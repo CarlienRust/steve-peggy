@@ -130,6 +130,40 @@ export function getNavGroup(href: string): NavGroupItem | undefined {
   return item?.kind === "group" ? item : undefined;
 }
 
+export type WorkflowShortcut = {
+  label: string;
+  href: string;
+  ready: boolean;
+};
+
+/** Dashboard and hub shortcuts — ready routes only, fixed order. */
+export function getWorkflowShortcuts(): WorkflowShortcut[] {
+  const fixed: { label: string; href: string }[] = [
+    { label: "Corpus", href: "/ingest" },
+    { label: "Gap analysis", href: "/study-design/gap-analysis" },
+    { label: "Samples", href: "/study-design/samples" },
+    { label: "Methods plan", href: "/study-design/methods-plan" },
+    { label: "Proposal", href: "/study-design/proposal" },
+    { label: "Our findings", href: "/results/findings" },
+    { label: "Comparison", href: "/results/comparison" },
+    { label: "Ask Peggy", href: "/chat" },
+  ];
+  return fixed.map((item) => {
+    const child = getNavChild(item.href);
+    if (child) {
+      return {
+        ...item,
+        ready: child.child.ready !== false && !child.child.disabled,
+      };
+    }
+    const top = MAIN_NAV.find((n) => n.kind === "link" && n.href === item.href);
+    if (top?.kind === "link") {
+      return { ...item, ready: !top.disabled };
+    }
+    return { ...item, ready: true };
+  });
+}
+
 export function getNavChild(href: string): { child: NavChild; group: NavGroupItem } | undefined {
   for (const item of MAIN_NAV) {
     if (item.kind !== "group") continue;

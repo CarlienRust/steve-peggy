@@ -9,6 +9,9 @@ export type StudyDesignSamples = {
 
 export type StudyDesignEthics = {
   acknowledgedSafety?: boolean;
+  approvalObtained?: boolean;
+  approvalDate?: string;
+  expiryDate?: string;
   fmhsTrack?: string;
   notes?: string;
   lastGuidanceAt?: string;

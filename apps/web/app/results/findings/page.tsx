@@ -1,20 +1,21 @@
 import { FindingsManagement } from "@/features/findings/FindingsManagement";
 import { PageHeader } from "@/components/PageHeader";
+import { PageSection } from "@/components/PageSection";
 import { ProjectAimSection } from "@/components/ProjectAimSection";
-import { Paper } from "@mui/material";
 
 export default function ResultsFindingsPage() {
   return (
     <>
       <PageHeader
-        title="Our research & findings"
-        description="Upload your cohort results, internal analyses, and narrative summaries."
-        descriptionTooltip="Peggy compares these against the literature corpus and can factor them into gap analysis."
+        compact
+        title="Our findings"
+        description="Cohort results and narrative summaries."
+        descriptionTooltip="Compared against literature in gap analysis and comparison."
       />
       <ProjectAimSection />
-      <Paper sx={{ p: 3 }}>
+      <PageSection>
         <FindingsManagement />
-      </Paper>
+      </PageSection>
     </>
   );
 }

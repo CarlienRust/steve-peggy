@@ -11,7 +11,6 @@ import {
   Typography,
 } from "@mui/material";
 import { DataSafetyBanner } from "@/components/DataSafetyBanner";
-import { PageHeader } from "@/components/PageHeader";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
@@ -47,10 +46,6 @@ export function ProposalFeature() {
 
   return (
     <>
-      <PageHeader
-        title="Proposal"
-        description="Generate a one–two page study or grant proposal from your aim, samples, methods, analysis plans, and literature."
-      />
       <DataSafetyBanner />
       <ProjectContextChips />
 

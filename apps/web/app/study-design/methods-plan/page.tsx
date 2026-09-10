@@ -1,14 +1,14 @@
 import { PlannerFeature } from "@/features/study-design/PlannerFeature";
-import { Paper } from "@mui/material";
+import { PageHeader } from "@/components/PageHeader";
+import { PageSection } from "@/components/PageSection";
 
 export default function MethodsPlanPage() {
   return (
-    <Paper sx={{ p: 3 }}>
-      <PlannerFeature
-        section="methods"
-        title="Methods plan"
-        description="Prospective study design, endpoints, and procedures — review your draft or get suggestions from literature."
-      />
-    </Paper>
+    <>
+      <PageHeader compact title="Methods plan" description="Review or draft prospective study methods." />
+      <PageSection>
+        <PlannerFeature section="methods" />
+      </PageSection>
+    </>
   );
 }

@@ -11,7 +11,6 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
-import { PageHeader } from "@/components/PageHeader";
 import { DataSafetyBanner } from "@/components/DataSafetyBanner";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
@@ -25,11 +24,9 @@ type PlannerSection = "methods" | "analysis";
 
 type PlannerFeatureProps = {
   section: PlannerSection;
-  title: string;
-  description: string;
 };
 
-export function PlannerFeature({ section, title, description }: PlannerFeatureProps) {
+export function PlannerFeature({ section }: PlannerFeatureProps) {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, saveSection } = useStudyDesign(activeWorkspace?.id);
   const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
@@ -73,7 +70,6 @@ export function PlannerFeature({ section, title, description }: PlannerFeaturePr
 
   return (
     <>
-      <PageHeader title={title} description={description} />
       <DataSafetyBanner />
       <ProjectContextChips />
 
