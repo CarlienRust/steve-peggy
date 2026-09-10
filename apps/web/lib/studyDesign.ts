@@ -4,7 +4,17 @@ export type StudyDesignSamples = {
   dataTypes?: string[];
   identifierLevel?: "none" | "de_identified" | "identifiable";
   collectionStatus?: string;
+  recruitment?: string;
+  inclusionCriteria?: string;
+  exclusionCriteria?: string;
   summary?: string;
+  /** @deprecated Legacy — use `budget` section */
+  budget?: string;
+};
+
+export type StudyDesignBudget = {
+  summary?: string;
+  constraints?: string;
 };
 
 export type StudyDesignEthics = {
@@ -35,6 +45,7 @@ export type StudyDesignProposal = {
 export type StudyDesignData = {
   v?: number;
   samples?: StudyDesignSamples;
+  budget?: StudyDesignBudget;
   ethics?: StudyDesignEthics;
   methodsPlan?: StudyDesignPlan;
   analysisPlan?: StudyDesignPlan;
@@ -44,6 +55,7 @@ export type StudyDesignData = {
 export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   v: 1,
   samples: {},
+  budget: {},
   ethics: {},
   methodsPlan: {},
   analysisPlan: {},

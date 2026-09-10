@@ -27,15 +27,14 @@ export function SamplesFeature() {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, saveSection, isSaving } = useStudyDesign(activeWorkspace?.id);
   const samples = studyDesign.samples ?? {};
-  const [summaryWarning, setSummaryWarning] = useState("");
+  const [fieldWarnings, setFieldWarnings] = useState<Record<string, string>>({});
 
   if (!activeWorkspace) {
     return <Alert severity="info">Select a project to describe samples and datasets.</Alert>;
   }
 
-  const onSummaryBlur = (text: string) => {
-    const flags = detectPhiFlags(text);
-    setSummaryWarning(phiWarningMessage(flags));
+  const onPhiBlur = (field: string, text: string) => {
+    setFieldWarnings((prev) => ({ ...prev, [field]: phiWarningMessage(detectPhiFlags(text)) }));
   };
 
   return (
@@ -64,6 +63,47 @@ export function SamplesFeature() {
           onChange={(e) => saveSection("samples", { expectedN: e.target.value })}
           fullWidth
         />
+
+        <Typography variant="subtitle2" sx={{ pt: 1 }}>
+          Cohort & recruitment
+        </Typography>
+        <TextField
+          label="Recruitment"
+          multiline
+          minRows={2}
+          placeholder="e.g. Consecutive adults at outpatient clinic; flyers in waiting area; referral from clinicians"
+          value={samples.recruitment ?? ""}
+          onChange={(e) => saveSection("samples", { recruitment: e.target.value })}
+          onBlur={(e) => onPhiBlur("recruitment", e.target.value)}
+          fullWidth
+          error={!!fieldWarnings.recruitment}
+          helperText={fieldWarnings.recruitment || "Sites, channels, and approach — no patient names."}
+        />
+        <TextField
+          label="Inclusion criteria"
+          multiline
+          minRows={2}
+          placeholder="e.g. Age 18–65; diagnosed T2D; HbA1c ≥ 7%; able to provide informed consent"
+          value={samples.inclusionCriteria ?? ""}
+          onChange={(e) => saveSection("samples", { inclusionCriteria: e.target.value })}
+          onBlur={(e) => onPhiBlur("inclusionCriteria", e.target.value)}
+          fullWidth
+          error={!!fieldWarnings.inclusionCriteria}
+          helperText={fieldWarnings.inclusionCriteria || "Who may participate — general terms only."}
+        />
+        <TextField
+          label="Exclusion criteria"
+          multiline
+          minRows={2}
+          placeholder="e.g. Pregnancy; active cancer treatment; unable to read English"
+          value={samples.exclusionCriteria ?? ""}
+          onChange={(e) => saveSection("samples", { exclusionCriteria: e.target.value })}
+          onBlur={(e) => onPhiBlur("exclusionCriteria", e.target.value)}
+          fullWidth
+          error={!!fieldWarnings.exclusionCriteria}
+          helperText={fieldWarnings.exclusionCriteria || "Who should not participate."}
+        />
+
         <Autocomplete
           multiple
           options={[...DATA_TYPES]}
@@ -108,10 +148,10 @@ export function SamplesFeature() {
           placeholder="Describe data sources and variables in general terms — no names, MRNs, or dates of birth."
           value={samples.summary ?? ""}
           onChange={(e) => saveSection("samples", { summary: e.target.value })}
-          onBlur={(e) => onSummaryBlur(e.target.value)}
+          onBlur={(e) => onPhiBlur("summary", e.target.value)}
           fullWidth
-          error={!!summaryWarning}
-          helperText={summaryWarning || "Use aggregate descriptions only."}
+          error={!!fieldWarnings.summary}
+          helperText={fieldWarnings.summary || "Use aggregate descriptions only."}
         />
         {samples.identifierLevel === "identifiable" && (
           <Alert severity="error">

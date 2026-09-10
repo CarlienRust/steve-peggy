@@ -8,6 +8,7 @@ export function ProjectContextChips() {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign } = useStudyDesign(activeWorkspace?.id);
   const samples = studyDesign.samples ?? {};
+  const budget = studyDesign.budget;
   const methods = studyDesign.methodsPlan;
   const analysis = studyDesign.analysisPlan;
 
@@ -26,6 +27,18 @@ export function ProjectContextChips() {
       )}
       {samples?.studyType && <Chip size="small" label={`Type: ${samples.studyType}`} />}
       {samples?.expectedN && <Chip size="small" label={`N: ${samples.expectedN}`} />}
+      {samples?.inclusionCriteria && (
+        <Chip size="small" label="Inclusion criteria set" variant="outlined" />
+      )}
+      {(budget?.summary || samples?.budget) && (
+        <Chip
+          size="small"
+          label={`Budget: ${(budget?.summary ?? samples?.budget ?? "").slice(0, 40)}${
+            (budget?.summary ?? samples?.budget ?? "").length > 40 ? "…" : ""
+          }`}
+          variant="outlined"
+        />
+      )}
       {hasMethods && <Chip size="small" label="Methods plan saved" variant="outlined" />}
       {hasAnalysis && <Chip size="small" label="Analysis plan saved" variant="outlined" />}
     </Stack>

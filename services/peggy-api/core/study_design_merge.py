@@ -8,13 +8,14 @@ from typing import Any
 DEFAULT_STUDY_DESIGN: dict[str, Any] = {
     "v": 1,
     "samples": {},
+    "budget": {},
     "ethics": {},
     "methodsPlan": {},
     "analysisPlan": {},
     "proposal": {},
 }
 
-_MERGE_KEYS = ("samples", "ethics", "methodsPlan", "analysisPlan", "proposal")
+_MERGE_KEYS = ("samples", "budget", "ethics", "methodsPlan", "analysisPlan", "proposal")
 
 
 def normalize_study_design(raw: dict | None) -> dict:

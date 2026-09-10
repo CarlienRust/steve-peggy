@@ -42,7 +42,7 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Samples & datasets",
         href: "/study-design/samples",
-        description: "Cohort definition, sample size, inclusion criteria, and data dictionary.",
+        description: "Cohort, recruitment, inclusion/exclusion, and data dictionary.",
         ready: true,
       },
       {
@@ -61,6 +61,12 @@ export const MAIN_NAV: NavItem[] = [
         label: "Analysis plan",
         href: "/study-design/analysis-plan",
         description: "Pre-specified statistics, power, and analysis pipeline.",
+        ready: true,
+      },
+      {
+        label: "Budget",
+        href: "/study-design/budget",
+        description: "Funding overview and spending constraints.",
         ready: true,
       },
       {

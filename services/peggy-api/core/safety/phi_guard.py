@@ -65,5 +65,13 @@ def assert_study_design_safe(samples: dict | None, extra_text: str = "") -> None
         )
     combined = extra_text
     if samples:
-        combined = f"{combined}\n{samples.get('summary') or ''}"
+        for key in ("summary", "recruitment", "inclusionCriteria", "exclusionCriteria", "budget"):
+            combined = f"{combined}\n{samples.get(key) or ''}"
     assert_no_phi(combined, label="Study design text")
+
+
+def assert_study_design_budget_safe(budget: dict | None) -> None:
+    if not budget:
+        return
+    combined = "\n".join(str(budget.get(k) or "") for k in ("summary", "constraints"))
+    assert_no_phi(combined, label="Budget text")

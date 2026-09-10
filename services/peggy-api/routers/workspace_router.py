@@ -72,6 +72,7 @@ async def delete_workspace(workspace_id: str, user: AuthUser = Depends(get_curre
 
 class StudyDesignPatch(BaseModel):
     samples: Optional[dict[str, Any]] = None
+    budget: Optional[dict[str, Any]] = None
     ethics: Optional[dict[str, Any]] = None
     methodsPlan: Optional[dict[str, Any]] = None
     analysisPlan: Optional[dict[str, Any]] = None
@@ -92,11 +93,21 @@ async def patch_study_design(
     body: StudyDesignPatch,
     user: AuthUser = Depends(get_current_user),
 ):
-    from core.safety.phi_guard import assert_no_phi
+    from core.safety.phi_guard import assert_no_phi, assert_study_design_budget_safe
 
     patch = body.model_dump(exclude_none=True)
-    if patch.get("samples", {}).get("summary"):
-        assert_no_phi(str(patch["samples"]["summary"]), label="Samples summary")
+    samples_patch = patch.get("samples") or {}
+    for field, label in (
+        ("summary", "Samples summary"),
+        ("recruitment", "Recruitment"),
+        ("inclusionCriteria", "Inclusion criteria"),
+        ("exclusionCriteria", "Exclusion criteria"),
+        ("budget", "Study budget"),
+    ):
+        if samples_patch.get(field):
+            assert_no_phi(str(samples_patch[field]), label=label)
+    if patch.get("budget"):
+        assert_study_design_budget_safe(patch["budget"])
     if patch.get("ethics", {}).get("notes"):
         assert_no_phi(str(patch["ethics"]["notes"]), label="Ethics notes")
     merged = await catalog.patch_study_design(user.id, workspace_id, patch)

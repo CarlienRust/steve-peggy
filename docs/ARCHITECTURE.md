@@ -125,8 +125,9 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/ingest` | 02 Corpus | Literature only |
 | `/study-design` | 03 Study Design | Redirects to first sub-section; tab bar on all sub-pages |
 | `/study-design/gap-analysis` | 03 · Gap analysis | Gaps table |
-| `/study-design/samples` | 03 · Samples | Cohort profile + optional PDF upload (`sample_datasets` corpus; confirm at own risk) |
+| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | FMHS guidance, approval letter upload (`ethics_documents`), AI checklist |
+| `/study-design/budget` | 03 · Budget | Funding overview and spending constraints |
 | `/study-design/methods-plan` | 03 · Methods plan | Review my plan / help me design |
 | `/study-design/analysis-plan` | 03 · Analysis plan | Review my plan / help me design |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |

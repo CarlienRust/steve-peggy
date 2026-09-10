@@ -51,10 +51,24 @@ def format_project_context(ws: dict, study_design: dict) -> str:
             parts.append(f"Data types: {', '.join(data_types)}")
         parts.append(f"Collection status: {samples.get('collectionStatus', 'unknown')}")
         parts.append(f"Identifier level: {samples.get('identifierLevel', 'unknown')}")
+        if samples.get("recruitment"):
+            parts.append(f"Recruitment: {samples['recruitment'][:1500]}")
+        if samples.get("inclusionCriteria"):
+            parts.append(f"Inclusion criteria: {samples['inclusionCriteria'][:1500]}")
+        if samples.get("exclusionCriteria"):
+            parts.append(f"Exclusion criteria: {samples['exclusionCriteria'][:1500]}")
         if samples.get("identifierLevel") == "identifiable":
             parts.append("Samples summary: (withheld — marked potentially identifiable)")
         elif samples.get("summary"):
             parts.append(f"Samples summary: {samples['summary']}")
+
+    budget = study_design.get("budget") or {}
+    if budget.get("summary"):
+        parts.append(f"Study budget: {budget['summary'][:512]}")
+    elif samples.get("budget"):
+        parts.append(f"Study budget: {samples['budget'][:512]}")
+    if budget.get("constraints"):
+        parts.append(f"Budget constraints: {budget['constraints'][:512]}")
 
     if ethics.get("approvalObtained"):
         parts.append("Ethics approval: obtained")

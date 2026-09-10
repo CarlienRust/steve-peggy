@@ -5,7 +5,11 @@ import { PageSection } from "@/components/PageSection";
 export default function SamplesPage() {
   return (
     <>
-      <PageHeader compact title="Samples & datasets" description="Cohort profile and optional dataset uploads." />
+      <PageHeader
+        compact
+        title="Samples & datasets"
+        description="Cohort, recruitment, inclusion/exclusion, and optional uploads."
+      />
       <PageSection>
         <SamplesFeature />
       </PageSection>

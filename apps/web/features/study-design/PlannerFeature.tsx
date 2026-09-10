@@ -32,10 +32,15 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
   const plan = studyDesign[planKey] ?? {};
   const samples = studyDesign.samples ?? {};
+  const studyBudget = studyDesign.budget;
+  const budgetFromTab =
+    [studyBudget?.summary, studyBudget?.constraints].filter(Boolean).join("; ") ||
+    samples.budget ||
+    "";
 
   const [tab, setTab] = useState<"review" | "suggest">(plan.mode ?? "suggest");
   const [userPlan, setUserPlan] = useState(plan.userPlan ?? "");
-  const [budget, setBudget] = useState(plan.budget ?? "");
+  const [budget, setBudget] = useState(plan.budget ?? budgetFromTab);
   const [tools, setTools] = useState(plan.preferredTools ?? plan.constraints ?? "");
   const [outcomes, setOutcomes] = useState("");
 
@@ -95,6 +100,11 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           value={budget}
           onChange={(e) => setBudget(e.target.value)}
           fullWidth
+          helperText={
+            budgetFromTab && !plan.budget
+              ? "Prefilled from Budget tab — edit for plan-specific constraints."
+              : undefined
+          }
         />
         <TextField
           label="Preferred tools / software"
