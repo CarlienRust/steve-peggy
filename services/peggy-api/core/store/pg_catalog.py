@@ -468,11 +468,56 @@ async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     return result.endswith("1")
 
 
+async def _upsert_study_design_row(conn, user_id: str, workspace_id: str, design: dict) -> None:
+    from core.study_design_row import design_to_column_json
+
+    cols = design_to_column_json(design)
+    await conn.execute(
+        """INSERT INTO study_design (
+               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, updated_at
+           ) VALUES (
+               $1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, NOW()
+           )
+           ON CONFLICT (workspace_id) DO UPDATE SET
+               samples = EXCLUDED.samples,
+               ethics = EXCLUDED.ethics,
+               budget = EXCLUDED.budget,
+               methods_plan = EXCLUDED.methods_plan,
+               analysis_plan = EXCLUDED.analysis_plan,
+               proposal = EXCLUDED.proposal,
+               updated_at = NOW()
+           WHERE study_design.user_id = EXCLUDED.user_id""",
+        workspace_id,
+        user_id,
+        cols["samples"],
+        cols["ethics"],
+        cols["budget"],
+        cols["methods_plan"],
+        cols["analysis_plan"],
+        cols["proposal"],
+    )
+
+
 async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
+    from core.study_design_merge import normalize_study_design
+    from core.study_design_row import design_has_content, row_to_design
+
     ws = await get_workspace(user_id, workspace_id)
     if not ws:
         return None
-    return ws.get("study_design") or {}
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM study_design WHERE workspace_id = $1::uuid AND user_id = $2::uuid",
+            workspace_id,
+            user_id,
+        )
+        if row:
+            return row_to_design(dict(row))
+        legacy = normalize_study_design(ws.get("study_design") or {})
+        if design_has_content(legacy):
+            await _upsert_study_design_row(conn, user_id, workspace_id, legacy)
+        return legacy
 
 
 async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
@@ -484,13 +529,7 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     merged = merge_study_design(existing, patch)
     pool = await _pool_conn()
     async with pool.acquire() as conn:
-        await conn.execute(
-            """UPDATE workspaces SET study_design = $3::jsonb, updated_at = NOW()
-               WHERE id = $1::uuid AND user_id = $2::uuid""",
-            workspace_id,
-            user_id,
-            json.dumps(merged),
-        )
+        await _upsert_study_design_row(conn, user_id, workspace_id, merged)
     return merged
 
 
@@ -637,3 +676,54 @@ async def update_workspace_github(user_id: str, workspace_id: str, fields: dict)
             last_synced,
         )
     return _workspace_row(row) if row else None
+
+
+async def get_findings_summary(user_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT summary, points, source_count, updated_at
+               FROM findings_summaries WHERE user_id = $1::uuid""",
+            user_id,
+        )
+    if not row:
+        return None
+    points = row["points"]
+    if isinstance(points, str):
+        points = json.loads(points or "[]")
+    updated = row["updated_at"]
+    return {
+        "summary": row["summary"] or "",
+        "points": points if isinstance(points, list) else [],
+        "source_count": int(row["source_count"] or 0),
+        "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
+    }
+
+
+async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO findings_summaries (user_id, summary, points, source_count, updated_at)
+               VALUES ($1::uuid, $2, $3::jsonb, $4, NOW())
+               ON CONFLICT (user_id) DO UPDATE SET
+                   summary = EXCLUDED.summary,
+                   points = EXCLUDED.points,
+                   source_count = EXCLUDED.source_count,
+                   updated_at = NOW()
+               RETURNING summary, points, source_count, updated_at""",
+            user_id,
+            summary,
+            json.dumps(points),
+            source_count,
+        )
+    updated = row["updated_at"]
+    stored_points = row["points"]
+    if isinstance(stored_points, str):
+        stored_points = json.loads(stored_points or "[]")
+    return {
+        "summary": row["summary"] or "",
+        "points": stored_points if isinstance(stored_points, list) else [],
+        "source_count": int(row["source_count"] or 0),
+        "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
+    }

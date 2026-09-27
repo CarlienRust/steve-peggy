@@ -41,6 +41,20 @@ const findingsSchema = z.object({
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
 
+function isPdfFile(file: File) {
+  return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+}
+
+function isHtmlFile(file: File) {
+  const name = file.name.toLowerCase();
+  return file.type === "text/html" || name.endsWith(".html") || name.endsWith(".htm");
+}
+
+function isAcceptedUpload(file: File, variant: "literature" | "findings") {
+  if (isPdfFile(file)) return true;
+  return variant === "findings" && isHtmlFile(file);
+}
+
 export function IngestForm({
   onIngestSuccess,
   variant = "literature",
@@ -105,6 +119,11 @@ export function IngestForm({
   const invalidateCorpus = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.corpus("literature") });
     queryClient.invalidateQueries({ queryKey: queryKeys.corpus("own_findings") });
+    if (variant === "findings") {
+      void peggyApi.refreshFindingsSummary().finally(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.findingsSummary });
+      });
+    }
     onIngestSuccess?.();
   };
 
@@ -156,16 +175,14 @@ export function IngestForm({
   });
 
   const addPdfFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfs = Array.from(incoming).filter(
-      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
-    );
-    if (pdfs.length === 0) return;
+    const accepted = Array.from(incoming).filter((f) => isAcceptedUpload(f, variant));
+    if (accepted.length === 0) return;
     setPdfFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
-      return [...prev, ...pdfs.filter((f) => !names.has(f.name))];
+      return [...prev, ...accepted.filter((f) => !names.has(f.name))];
     });
     setUploadResults([]);
-  }, []);
+  }, [variant]);
 
   const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.length) addPdfFiles(e.target.files);
@@ -188,7 +205,7 @@ export function IngestForm({
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: 1, borderColor: "divider" }}>
         {variant === "literature" && <Tab label="PubMed / DOI" />}
         <Tab label={variant === "findings" ? "Findings narrative" : "PDF upload"} />
-        {variant === "findings" && <Tab label="Research PDF" />}
+        {variant === "findings" && <Tab label="PDF or HTML" />}
       </Tabs>
 
       {variant === "literature" && tab === 0 && (
@@ -255,10 +272,10 @@ export function IngestForm({
 
       {((variant === "literature" && tab === 1) || (variant === "findings" && tab === 1)) && (
         <Stack spacing={2}>
-          <Typography sx={eyebrowSx}>PDF upload</Typography>
+          <Typography sx={eyebrowSx}>{variant === "findings" ? "PDF or HTML upload" : "PDF upload"}</Typography>
           <Typography variant="body2" color="text.secondary">
             {variant === "findings"
-              ? "Upload your research report or internal paper. Stored as our findings, not literature."
+              ? "Upload a research report as PDF or HTML. Stored as our findings, not literature. HTML is saved as text only."
               : "Upload peer-reviewed PDFs for the literature corpus."}
           </Typography>
 
@@ -279,17 +296,17 @@ export function IngestForm({
           >
             <UploadFileIcon sx={{ fontSize: 40, color: "text.secondary", mb: 1 }} />
             <Typography variant="body2" fontWeight={500}>
-              Drop PDFs here or click to browse
+              {variant === "findings" ? "Drop PDF or HTML files here or click to browse" : "Drop PDFs here or click to browse"}
             </Typography>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-              .pdf only — multiple files supported
+              {variant === "findings" ? ".pdf, .html, .htm — multiple files supported" : ".pdf only — multiple files supported"}
             </Typography>
           </Paper>
 
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/pdf,.pdf"
+            accept={variant === "findings" ? "application/pdf,.pdf,text/html,.html,.htm" : "application/pdf,.pdf"}
             multiple
             hidden
             onChange={onFileInputChange}
@@ -328,7 +345,7 @@ export function IngestForm({
             {pdfMut.isPending ? (
               <CircularProgress size={22} color="inherit" />
             ) : (
-              `Upload ${pdfFiles.length || ""} PDF${pdfFiles.length === 1 ? "" : "s"}`.trim()
+              `Upload ${pdfFiles.length || ""} file${pdfFiles.length === 1 ? "" : "s"}`.trim()
             )}
           </Button>
 

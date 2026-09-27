@@ -103,7 +103,7 @@ Open http://localhost:3000 — no login screen in solo mode.
 | What | Where |
 |------|-------|
 | Literature PDFs / PubMed | **Corpus** (`/ingest`) |
-| Your findings | **Results → Our findings** (`/results/findings`) |
+| Your findings | **Results → Upload/Report findings** (`/results/report`) — narrative, PDF, or HTML. Summary appears on **Our findings** (`/results/findings`) |
 | Study design drafts | **Study Design** (`/study-design/*`) — saved per workspace |
 | Batch test PDFs | `python3 scripts/ingest-test-pdfs.py` |
 

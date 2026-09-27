@@ -9,6 +9,7 @@ from core.rag.workflows import (
     run_analysis_plan,
     run_compare,
     run_ethics_guidance,
+    run_findings_summary,
     run_future_design,
     run_gap_analysis,
     run_manuscript_framing,
@@ -242,3 +243,17 @@ async def study_proposal(body: ProposalRequest, user: AuthUser = Depends(get_cur
         )
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.get("/findings-summary")
+async def findings_summary(user: AuthUser = Depends(get_current_user)):
+    row = await catalog.get_findings_summary(user.id)
+    if not row:
+        return {"summary": "", "points": [], "source_count": 0, "updated_at": None}
+    return row
+
+
+@router.post("/findings-summary")
+async def refresh_findings_summary(user: AuthUser = Depends(get_current_user)):
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    return await run_findings_summary(user.id)

@@ -86,6 +86,28 @@ CREATE TABLE IF NOT EXISTS workspaces (
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces (user_id);
 
+CREATE TABLE IF NOT EXISTS study_design (
+    workspace_id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    samples TEXT NOT NULL DEFAULT '{}',
+    ethics TEXT NOT NULL DEFAULT '{}',
+    budget TEXT NOT NULL DEFAULT '{}',
+    methods_plan TEXT NOT NULL DEFAULT '{}',
+    analysis_plan TEXT NOT NULL DEFAULT '{}',
+    proposal TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_study_design_user ON study_design (user_id);
+
+CREATE TABLE IF NOT EXISTS findings_summaries (
+    user_id TEXT PRIMARY KEY,
+    summary TEXT NOT NULL DEFAULT '',
+    points TEXT NOT NULL DEFAULT '[]',
+    source_count INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS workflow_runs (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -121,6 +143,8 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_user_id_columns(db)
         await _migrate_workspace_github(db)
         await _migrate_workspace_study_design(db)
+        await _migrate_study_design_table(db)
+        await _migrate_findings_summaries(db)
         await db.commit()
 
 
@@ -151,6 +175,34 @@ async def _migrate_workspace_study_design(db: aiosqlite.Connection) -> None:
         await db.execute("ALTER TABLE workspaces ADD COLUMN study_design TEXT NOT NULL DEFAULT '{}'")
     except Exception:
         pass
+
+
+async def _migrate_study_design_table(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS study_design (
+            workspace_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            samples TEXT NOT NULL DEFAULT '{}',
+            ethics TEXT NOT NULL DEFAULT '{}',
+            budget TEXT NOT NULL DEFAULT '{}',
+            methods_plan TEXT NOT NULL DEFAULT '{}',
+            analysis_plan TEXT NOT NULL DEFAULT '{}',
+            proposal TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT
+        )"""
+    )
+
+
+async def _migrate_findings_summaries(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS findings_summaries (
+            user_id TEXT PRIMARY KEY,
+            summary TEXT NOT NULL DEFAULT '',
+            points TEXT NOT NULL DEFAULT '[]',
+            source_count INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+        )"""
+    )
 
 
 def _parse_study_design(d: dict) -> dict:
@@ -525,11 +577,59 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     return await get_workspace(user_id, workspace_id)
 
 
+async def _upsert_study_design_row(db: aiosqlite.Connection, user_id: str, workspace_id: str, design: dict) -> None:
+    from core.study_design_row import design_to_column_json
+
+    cols = design_to_column_json(design)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.execute(
+        """INSERT INTO study_design (
+               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(workspace_id) DO UPDATE SET
+               samples = excluded.samples,
+               ethics = excluded.ethics,
+               budget = excluded.budget,
+               methods_plan = excluded.methods_plan,
+               analysis_plan = excluded.analysis_plan,
+               proposal = excluded.proposal,
+               updated_at = excluded.updated_at
+           WHERE study_design.user_id = excluded.user_id""",
+        (
+            workspace_id,
+            user_id,
+            cols["samples"],
+            cols["ethics"],
+            cols["budget"],
+            cols["methods_plan"],
+            cols["analysis_plan"],
+            cols["proposal"],
+            now,
+        ),
+    )
+
+
 async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
+    from core.study_design_merge import normalize_study_design
+    from core.study_design_row import design_has_content, row_to_design
+
     ws = await get_workspace(user_id, workspace_id)
     if not ws:
         return None
-    return ws.get("study_design") or {}
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM study_design WHERE workspace_id = ? AND user_id = ?",
+            (workspace_id, user_id),
+        )
+        row = await cur.fetchone()
+        if row:
+            return row_to_design(dict(row))
+        legacy = normalize_study_design(ws.get("study_design") or {})
+        if design_has_content(legacy):
+            await _upsert_study_design_row(db, user_id, workspace_id, legacy)
+            await db.commit()
+        return legacy
 
 
 async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
@@ -539,12 +639,8 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     if existing is None:
         return None
     merged = merge_study_design(existing, patch)
-    now = datetime.now(timezone.utc).isoformat()
     async with aiosqlite.connect(config.SQLITE_DB) as db:
-        await db.execute(
-            "UPDATE workspaces SET study_design = ?, updated_at = ? WHERE id = ? AND user_id = ?",
-            (json.dumps(merged), now, workspace_id, user_id),
-        )
+        await _upsert_study_design_row(db, user_id, workspace_id, merged)
         await db.commit()
     return merged
 
@@ -703,3 +799,54 @@ async def update_workspace_github(user_id: str, workspace_id: str, fields: dict)
         )
         await db.commit()
     return await get_workspace(user_id, workspace_id)
+
+
+def _findings_summary_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    points = row.get("points") or "[]"
+    if isinstance(points, str):
+        try:
+            points = json.loads(points)
+        except (json.JSONDecodeError, TypeError):
+            points = []
+    return {
+        "summary": row.get("summary") or "",
+        "points": points if isinstance(points, list) else [],
+        "source_count": int(row.get("source_count") or 0),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+async def get_findings_summary(user_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT user_id, summary, points, source_count, updated_at FROM findings_summaries WHERE user_id = ?",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+    return _findings_summary_row(dict(row) if row else None)
+
+
+async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    payload = json.dumps(points)
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO findings_summaries (user_id, summary, points, source_count, updated_at)
+               VALUES (?, ?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                   summary = excluded.summary,
+                   points = excluded.points,
+                   source_count = excluded.source_count,
+                   updated_at = excluded.updated_at""",
+            (user_id, summary, payload, source_count, now),
+        )
+        await db.commit()
+    return {
+        "summary": summary,
+        "points": points,
+        "source_count": source_count,
+        "updated_at": now,
+    }

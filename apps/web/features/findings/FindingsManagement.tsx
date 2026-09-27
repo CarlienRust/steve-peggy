@@ -20,7 +20,7 @@ export function FindingsManagement() {
   return (
     <>
       <Alert severity="info" sx={{ mb: 3 }}>
-        Our findings are kept separate from the literature corpus.
+        Our findings stay separate from the literature corpus. New uploads update the summary on Our findings.
       </Alert>
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
@@ -34,7 +34,7 @@ export function FindingsManagement() {
 
       <CorpusTable
         papers={papers}
-        emptyMessage='No findings yet. Add a narrative summary or upload your research PDF under "Add our findings".'
+        emptyMessage='No findings yet. Add a narrative, or upload a PDF or HTML file.'
         typeLabel={() => "Our findings"}
       />
 

@@ -148,3 +148,11 @@ async def get_study_design(user_id: str, workspace_id: str) -> dict | None:
 
 async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> dict | None:
     return await _backend().patch_study_design(user_id, workspace_id, patch)
+
+
+async def get_findings_summary(user_id: str) -> dict | None:
+    return await _backend().get_findings_summary(user_id)
+
+
+async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
+    return await _backend().save_findings_summary(user_id, summary, points, source_count)

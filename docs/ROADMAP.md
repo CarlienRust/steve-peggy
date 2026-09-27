@@ -34,9 +34,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 |------|--------|-------|
 | PubMed ingest | Done | Corpus modal |
 | PDF ingest (literature) | Done | Corpus modal + CLI script |
-| Our findings ingest | Done | `/findings` — narrative + PDF |
+| Our findings ingest | Done | `/results/report` — narrative, PDF, or HTML; summary on `/results/findings` |
 | Corpus management | Done | `/ingest` literature table |
-| Findings management | Done | `/findings` table |
+| Findings management | Done | `/results/report` table; summary on `/results/findings` |
 | Ingest dedup | Done | `duplicate` status, job `skipped` |
 | Ask Peggy (chat) | Done | Mode chips + intent routing |
 | Gap analysis | Done | Optional include our findings; per-workspace history |

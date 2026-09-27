@@ -10,7 +10,35 @@ export type StudyDesignSamples = {
   summary?: string;
   /** @deprecated Legacy — use `budget` section */
   budget?: string;
+  linkedDocuments?: LinkedDocument[];
 };
+
+export type LinkedDocument = {
+  id: number;
+  title: string;
+  ingestedAt?: string;
+};
+
+export function linkedDocumentsFromPapers(
+  papers: { id?: number; title?: string; ingested_at?: string | null }[]
+): LinkedDocument[] {
+  return papers
+    .filter((paper): paper is { id: number; title?: string; ingested_at?: string | null } => paper.id != null)
+    .map((paper) => ({
+      id: paper.id,
+      title: paper.title ?? "Untitled",
+      ingestedAt: paper.ingested_at?.slice(0, 10),
+    }));
+}
+
+export function linkedDocumentsChanged(
+  saved: LinkedDocument[] | undefined,
+  papers: { id?: number }[]
+): boolean {
+  const savedIds = (saved ?? []).map((doc) => doc.id).sort((a, b) => a - b);
+  const paperIds = papers.flatMap((paper) => (paper.id == null ? [] : [paper.id])).sort((a, b) => a - b);
+  return savedIds.join(",") !== paperIds.join(",");
+}
 
 export type BudgetLineItem = {
   id: string;
@@ -36,6 +64,7 @@ export type StudyDesignEthics = {
   fmhsTrack?: string;
   notes?: string;
   lastGuidanceAt?: string;
+  linkedDocuments?: LinkedDocument[];
 };
 
 export type StudyDesignPlan = {

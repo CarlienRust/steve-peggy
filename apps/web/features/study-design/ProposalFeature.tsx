@@ -13,6 +13,7 @@ import {
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
+import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
@@ -20,7 +21,9 @@ import { blocksLlmGuidance } from "@/lib/sensitiveData";
 
 export function ProposalFeature() {
   const { activeWorkspace } = useWorkspace();
-  const { studyDesign, saveSection } = useStudyDesign(activeWorkspace?.id);
+  const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
+    activeWorkspace?.id
+  );
   const proposal = studyDesign.proposal ?? {};
   const samples = studyDesign.samples ?? {};
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
@@ -28,7 +31,7 @@ export function ProposalFeature() {
   const generate = useMutation({
     mutationFn: () => peggyApi.studyProposal(activeWorkspace!.id, proposal.focusNotes ?? ""),
     onSuccess: (data) => {
-      saveSection("proposal", {
+      void commitSection("proposal", {
         focusNotes: proposal.focusNotes,
         lastResult: data.body,
         generatedAt: new Date().toISOString(),
@@ -93,6 +96,11 @@ export function ProposalFeature() {
             )}
           </>
         )}
+        <StudyDesignSaveBar
+          dirty={isSectionDirty("proposal")}
+          saving={savingSection === "proposal"}
+          onSave={() => commitSection("proposal")}
+        />
       </Stack>
     </>
   );

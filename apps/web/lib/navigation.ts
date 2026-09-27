@@ -99,7 +99,13 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Our findings",
         href: "/results/findings",
-        description: "Upload cohort results, internal analyses, and narrative summaries.",
+        description: "Summary of what has been found so far.",
+        ready: true,
+      },
+      {
+        label: "Upload/Report findings",
+        href: "/results/report",
+        description: "Add a narrative, or upload a PDF or HTML report.",
         ready: true,
       },
       {

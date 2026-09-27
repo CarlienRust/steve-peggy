@@ -1,5 +1,6 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -12,6 +13,8 @@ import {
   Typography,
 } from "@mui/material";
 import { DataSafetyBanner } from "@/components/DataSafetyBanner";
+import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
+import { peggyApi, queryKeys } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import {
@@ -19,15 +22,26 @@ import {
   DATA_TYPES,
   IDENTIFIER_LEVELS,
   STUDY_TYPES,
+  linkedDocumentsChanged,
+  linkedDocumentsFromPapers,
 } from "@/lib/studyDesign";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
 import { SamplesUploadSection } from "@/features/study-design/SamplesUploadSection";
 
 export function SamplesFeature() {
   const { activeWorkspace } = useWorkspace();
-  const { studyDesign, saveSection, isSaving } = useStudyDesign(activeWorkspace?.id);
+  const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
+    activeWorkspace?.id
+  );
   const samples = studyDesign.samples ?? {};
   const [fieldWarnings, setFieldWarnings] = useState<Record<string, string>>({});
+  const datasets = useQuery({
+    queryKey: queryKeys.corpus("sample_datasets"),
+    queryFn: () => peggyApi.listCorpus("sample_datasets"),
+    enabled: !!activeWorkspace,
+  });
+  const datasetPapers = datasets.data?.papers ?? [];
+  const uploadsChanged = linkedDocumentsChanged(samples.linkedDocuments, datasetPapers);
 
   if (!activeWorkspace) {
     return <Alert severity="info">Select a project to describe samples and datasets.</Alert>;
@@ -160,13 +174,15 @@ export function SamplesFeature() {
             <Link href="/study-design/ethics">Ethics</Link>.
           </Alert>
         )}
-        {isSaving && (
-          <Typography variant="caption" color="text.secondary">
-            Saving…
-          </Typography>
-        )}
-
         <SamplesUploadSection />
+        <StudyDesignSaveBar
+          dirty={isSectionDirty("samples") || uploadsChanged}
+          saving={savingSection === "samples"}
+          note="Uploaded PDFs stay in your corpus. Save links them to this project and does not replace the fields you type."
+          onSave={() =>
+            commitSection("samples", { linkedDocuments: linkedDocumentsFromPapers(datasetPapers) })
+          }
+        />
       </Stack>
     </>
   );

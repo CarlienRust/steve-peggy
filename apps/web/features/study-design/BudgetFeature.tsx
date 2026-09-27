@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
+import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import type { BudgetLineItem } from "@/lib/studyDesign";
 import { DEFAULT_BUDGET_LINE_ITEMS } from "@/lib/studyDesign";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
@@ -79,7 +80,9 @@ function buildBudgetTableTsv(
 
 export function BudgetFeature() {
   const { activeWorkspace } = useWorkspace();
-  const { studyDesign, saveSection, isSaving } = useStudyDesign(activeWorkspace?.id);
+  const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
+    activeWorkspace?.id
+  );
   const budget = studyDesign.budget ?? {};
   const legacySummary = studyDesign.samples?.budget;
   const [fieldWarnings, setFieldWarnings] = useState<Record<string, string>>({});
@@ -318,11 +321,11 @@ export function BudgetFeature() {
           }
         />
 
-        {isSaving && (
-          <Typography variant="caption" color="text.secondary">
-            Saving…
-          </Typography>
-        )}
+        <StudyDesignSaveBar
+          dirty={isSectionDirty("budget")}
+          saving={savingSection === "budget"}
+          onSave={() => commitSection("budget", { lineItems })}
+        />
       </Stack>
 
       <Snackbar

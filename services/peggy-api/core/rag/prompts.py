@@ -330,3 +330,18 @@ Return JSON only:
   "key_citations": ["chunk_id list used"],
   "limitations": ["string"]
 }}"""
+
+
+def findings_summary_prompt(documents: str) -> str:
+    return f"""Summarise what this research team has found so far, using only their own uploaded findings.
+
+Documents:
+{documents}
+
+Return JSON only:
+{{
+  "summary": "2 to 4 short paragraphs of what has been found so far",
+  "points": ["one concrete finding per item"]
+}}
+
+Do not invent results that are not in the documents. If a document is thin, say what it reports and what it does not."""

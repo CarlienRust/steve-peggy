@@ -1,4 +1,5 @@
 from core.study_design_merge import merge_study_design, normalize_study_design
+from core.study_design_row import design_has_content, design_to_column_json, row_to_design
 
 
 def test_normalize_empty():
@@ -20,3 +21,15 @@ def test_merge_deep_merges_section_keys():
     assert merged["methodsPlan"]["mode"] == "suggest"
     assert merged["methodsPlan"]["userPlan"] == "old"
     assert merged["methodsPlan"]["budget"] == "low"
+
+
+def test_row_round_trip_keeps_sections():
+    design = normalize_study_design(
+        {"samples": {"studyType": "RCT"}, "methodsPlan": {"userPlan": "Crossover"}}
+    )
+    row = design_to_column_json(design)
+    restored = row_to_design(row)
+    assert restored["samples"]["studyType"] == "RCT"
+    assert restored["methodsPlan"]["userPlan"] == "Crossover"
+    assert design_has_content(design)
+    assert not design_has_content({})

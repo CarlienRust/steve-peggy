@@ -518,7 +518,7 @@ export const peggyApi = {
   ) => {
     const form = new FormData();
     form.append("file", file);
-    form.append("title", options?.title ?? file.name.replace(/\.pdf$/i, ""));
+    form.append("title", options?.title ?? file.name.replace(/\.(pdf|html|htm)$/i, ""));
     form.append("source_type", options?.sourceType ?? "literature");
     const headers = await authHeaders("");
     delete (headers as Record<string, string>)["Content-Type"];
@@ -631,6 +631,22 @@ export const peggyApi = {
         analysis_method: body.analysisMethod ?? "",
       }),
     }),
+
+  getFindingsSummary: () =>
+    apiFetch<{
+      summary: string;
+      points: string[];
+      source_count: number;
+      updated_at: string | null;
+    }>("/workflows/findings-summary"),
+
+  refreshFindingsSummary: () =>
+    apiFetch<{
+      summary: string;
+      points: string[];
+      source_count: number;
+      updated_at: string | null;
+    }>("/workflows/findings-summary", { method: "POST" }),
 };
 
 export const queryKeys = {
@@ -638,6 +654,7 @@ export const queryKeys = {
   limits: ["limits"] as const,
   usage: ["usage"] as const,
   corpus: (sourceType?: string) => ["corpus", sourceType] as const,
+  findingsSummary: ["findings-summary"] as const,
   job: (id: string) => ["job", id] as const,
   profile: (userId?: string) => (userId ? (["profile", userId] as const) : (["profile"] as const)),
   workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),

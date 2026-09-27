@@ -351,3 +351,60 @@ def _default_limitations(sources: list[dict]) -> list[str]:
     if "own_findings" in types and "literature" not in types:
         lim.append("Comparison limited to own findings without matched literature.")
     return lim
+
+
+def _excerpt_points(docs: list[tuple[str, str]]) -> list[str]:
+    points: list[str] = []
+    for title, text in docs[:8]:
+        snippet = " ".join(text.split())[:240]
+        points.append(f"{title}: {snippet}" if snippet else title)
+    return points
+
+
+async def run_findings_summary(user_id: str) -> dict:
+    """Rebuild the stored briefing from every own_findings document."""
+    papers = await catalog.list_papers(user_id, source_type="own_findings")
+    docs: list[tuple[str, str]] = []
+    for paper in papers:
+        title = paper.get("title") or "Untitled"
+        try:
+            text = qdrant_store.get_document_text(title, source_type="own_findings", user_id=user_id)
+        except Exception:
+            text = ""
+        if text and text.strip():
+            docs.append((title, text.strip()[:4000]))
+        else:
+            docs.append((title, ""))
+
+    if not docs:
+        return await catalog.save_findings_summary(user_id, "", [], 0)
+
+    blocks = []
+    for title, text in docs:
+        body = text[:4000] if text else "(no extracted text)"
+        blocks.append(f"## {title}\n{body}")
+    document_blob = "\n\n".join(blocks)[:14000]
+
+    summary = ""
+    points: list[str] = []
+    try:
+        llm = get_llm()
+        raw = await llm.complete(
+            prompts.build_system_prompt(),
+            prompts.findings_summary_prompt(document_blob),
+            json_mode=True,
+        )
+        body = _parse_json(raw)
+        summary = str(body.get("summary") or "").strip()
+        raw_points = body.get("points") or []
+        if isinstance(raw_points, list):
+            points = [str(item).strip() for item in raw_points if str(item).strip()]
+    except Exception:
+        summary = ""
+        points = []
+
+    if not summary:
+        summary = "Uploaded findings are listed below. A generated briefing was not available."
+        points = _excerpt_points(docs)
+
+    return await catalog.save_findings_summary(user_id, summary, points, len(docs))

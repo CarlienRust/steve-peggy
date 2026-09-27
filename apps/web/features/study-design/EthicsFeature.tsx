@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
@@ -17,20 +17,31 @@ import {
   Typography,
 } from "@mui/material";
 import { EthicsApprovalSection } from "@/features/study-design/EthicsApprovalSection";
+import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { FMHS_COMMITTEES, FMHS_ETHICS_URL, FMHS_STEPS } from "@/lib/ethics/fmhsStellenbosch";
-import { peggyApi, formatApiError } from "@/lib/api";
+import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
+import { linkedDocumentsChanged, linkedDocumentsFromPapers } from "@/lib/studyDesign";
 
 export function EthicsFeature() {
   const { activeWorkspace } = useWorkspace();
-  const { studyDesign, saveSection } = useStudyDesign(activeWorkspace?.id);
+  const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
+    activeWorkspace?.id
+  );
   const ethics = studyDesign.ethics ?? {};
   const samples = studyDesign.samples ?? {};
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
+  const letters = useQuery({
+    queryKey: queryKeys.corpus("ethics_documents"),
+    queryFn: () => peggyApi.listCorpus("ethics_documents"),
+    enabled: !!activeWorkspace,
+  });
+  const letterPapers = letters.data?.papers ?? [];
+  const uploadsChanged = linkedDocumentsChanged(ethics.linkedDocuments, letterPapers);
 
   const guidance = useMutation({
     mutationFn: () => peggyApi.ethicsGuidance(activeWorkspace!.id, ethics.notes ?? ""),
@@ -124,6 +135,14 @@ export function EthicsFeature() {
             />
           </>
         )}
+        <StudyDesignSaveBar
+          dirty={isSectionDirty("ethics") || uploadsChanged}
+          saving={savingSection === "ethics"}
+          note="Approval-letter PDFs stay in your corpus. Save links them here and does not replace the fields you type."
+          onSave={() =>
+            commitSection("ethics", { linkedDocuments: linkedDocumentsFromPapers(letterPapers) })
+          }
+        />
       </Stack>
     </>
   );

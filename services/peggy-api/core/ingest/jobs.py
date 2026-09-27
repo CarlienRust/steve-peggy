@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 import config
 from core.ingest.chunker import chunk_text, paper_to_chunks
+from core.ingest.html_text import extract_text_from_html, is_html
 from core.ingest.pdf import extract_text_from_pdf, is_pdf
 from core.ingest.pubmed import fetch_by_pmid, resolve_doi, search_pubmed
 from core.store import catalog, qdrant_store
@@ -86,7 +87,7 @@ async def ingest_upload_bytes(
     source_type: str = "literature",
     user_id: str = "dev-user",
 ) -> dict:
-    """Ingest uploaded file bytes (PDF or UTF-8 text/markdown)."""
+    """Ingest uploaded file bytes (PDF, HTML, or UTF-8 text/markdown)."""
     doc_id = filename or title
     if is_pdf(filename, content_type):
         try:
@@ -96,6 +97,11 @@ async def ingest_upload_bytes(
         if not text.strip():
             raise ValueError("No extractable text in PDF (scanned pages may need OCR later)")
         meta = {"doc_id": doc_id, "title": title, "filename": doc_id, "pages": pages}
+    elif is_html(filename, content_type):
+        text = extract_text_from_html(raw)
+        if not text.strip():
+            raise ValueError("No visible text in HTML file")
+        meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
     else:
         text = raw.decode("utf-8", errors="replace")
         if not text.strip():

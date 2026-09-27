@@ -21,7 +21,8 @@ legacy/                   Archived — do not import
 | UI | Route | `source_type` | Qdrant collection |
 |----|-------|---------------|-------------------|
 | Corpus (literature) | `/ingest` | `literature` | `peggy_literature` |
-| Our findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
+| Our findings (summary) | `/results/findings` | `own_findings` | `peggy_own_findings` |
+| Upload/Report findings | `/results/report` | `own_findings` | `peggy_own_findings` |
 
 Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
 
@@ -44,7 +45,7 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 | Collection | Purpose |
 |------------|---------|
 | `peggy_literature` | PubMed + literature PDFs |
-| `peggy_own_findings` | Narrative findings + research PDFs |
+| `peggy_own_findings` | Narrative findings, research PDFs, and HTML reports (text extracted) |
 | `chat_history_logs` | Reserved for cross-session semantic memory (unused) |
 
 Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id` in payload.
@@ -66,7 +67,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 |----------|---------|
 | `POST /ingest/pubmed` | PMID / DOI / search → background job (`ingested` + `skipped` duplicates) |
 | `GET /ingest/jobs/{id}` | Poll job status |
-| `POST /ingest/upload` | PDF or text (`source_type` form field) |
+| `POST /ingest/upload` | PDF, HTML (text only), or plain text (`source_type` form field) |
 | `POST /ingest/findings` | Own-findings narrative JSON |
 | `GET /discover/suggestions` | Discovery topic chips (workspace aim, profile, corpus TF-IDF) |
 | `POST /discover` | Literature discovery (PubMed + Europe PMC + OpenAlex, read-only) |
@@ -91,7 +92,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /auth/github/login` | GitHub OAuth authorize URL (Bearer required) |
 | `GET /auth/github/callback` | OAuth callback (stores token server-side) |
 | `GET /github/repos` | List repos for linked account |
-| `GET/PATCH /workspaces/{id}/study-design` | Workspace-persisted study design JSON (samples, ethics, plans) |
+| `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |
@@ -134,7 +135,8 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
 | `/results` | 05 Results | Redirects to first sub-section; tab bar on all sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
-| `/results/findings` | 05 · Our findings | Own research |
+| `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
+| `/results/report` | 05 · Upload/Report findings | Narrative, PDF, or HTML; each upload rebuilds the summary |
 | `/results/comparison` | 05 · Comparison | Finding vs field |
 | `/chat` | 06 Ask Peggy | Q&A + agent modes |
 | `/login` | — | Supabase email magic link |
@@ -147,6 +149,7 @@ Legacy redirects: `/gaps` → gap analysis, `/findings` → our findings, `/comp
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).
+- **Study design save** — each section has a Save button. It stays disabled when that section matches the stored row. Edits stay in the form until Save. Uploaded PDFs are linked on Save and do not replace typed fields.
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

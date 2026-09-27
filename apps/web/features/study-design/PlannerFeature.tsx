@@ -14,6 +14,7 @@ import {
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
+import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
@@ -27,7 +28,9 @@ type PlannerFeatureProps = {
 
 export function PlannerFeature({ section }: PlannerFeatureProps) {
   const { activeWorkspace } = useWorkspace();
-  const { studyDesign, saveSection } = useStudyDesign(activeWorkspace?.id);
+  const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
+    activeWorkspace?.id
+  );
   const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
   const plan = studyDesign[planKey] ?? {};
   const samples = studyDesign.samples ?? {};
@@ -62,14 +65,12 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
     },
     onSuccess: (data) => {
-      saveSection(planKey, {
+      void commitSection(planKey, {
         mode: tab,
         userPlan,
         budget,
         preferredTools: tools,
-        ...(section === "analysis"
-          ? { outcomeTypes: outcomes, covariates, analysisMethod }
-          : {}),
+        ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
         lastResult: data.body,
       });
     },
@@ -83,7 +84,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
     <>
       <ProjectContextChips />
 
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
+      <Tabs value={tab} onChange={(_, v) => { setTab(v); saveSection(planKey, { mode: v }); }} sx={{ mb: 2 }}>
         <Tab value="suggest" label="Help me design" />
         <Tab value="review" label="Review my plan" />
       </Tabs>
@@ -95,7 +96,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
             multiline
             minRows={5}
             value={userPlan}
-            onChange={(e) => setUserPlan(e.target.value)}
+            onChange={(e) => {
+              setUserPlan(e.target.value);
+              saveSection(planKey, { userPlan: e.target.value });
+            }}
             fullWidth
           />
         )}
@@ -103,7 +107,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           label="Budget constraints"
           placeholder="e.g. No paid software; student budget"
           value={budget}
-          onChange={(e) => setBudget(e.target.value)}
+          onChange={(e) => {
+            setBudget(e.target.value);
+            saveSection(planKey, { budget: e.target.value });
+          }}
           fullWidth
           helperText={
             budgetFromTab && !plan.budget
@@ -115,7 +122,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           label="Preferred tools / software"
           placeholder="e.g. R, Python, SPSS, free/open tools only"
           value={tools}
-          onChange={(e) => setTools(e.target.value)}
+          onChange={(e) => {
+            setTools(e.target.value);
+            saveSection(planKey, { preferredTools: e.target.value });
+          }}
           fullWidth
         />
         {section === "analysis" && (
@@ -124,16 +134,20 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
               label="Outcome types"
               placeholder="e.g. continuous biomarker, binary diagnosis, survival"
               value={outcomes}
-              onChange={(e) => setOutcomes(e.target.value)}
-              onBlur={() => saveSection(planKey, { outcomeTypes: outcomes })}
+              onChange={(e) => {
+                setOutcomes(e.target.value);
+                saveSection(planKey, { outcomeTypes: e.target.value });
+              }}
               fullWidth
             />
             <TextField
               label="Covariates (if applicable)"
               placeholder="e.g. age, sex, BMI, treatment arm, batch"
               value={covariates}
-              onChange={(e) => setCovariates(e.target.value)}
-              onBlur={() => saveSection(planKey, { covariates })}
+              onChange={(e) => {
+                setCovariates(e.target.value);
+                saveSection(planKey, { covariates: e.target.value });
+              }}
               fullWidth
               helperText="Adjustments or stratification variables you plan to include."
             />
@@ -141,8 +155,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
               label="Analysis method (if pre-specified)"
               placeholder="e.g. linear regression, mixed models, Cox proportional hazards"
               value={analysisMethod}
-              onChange={(e) => setAnalysisMethod(e.target.value)}
-              onBlur={() => saveSection(planKey, { analysisMethod })}
+              onChange={(e) => {
+                setAnalysisMethod(e.target.value);
+                saveSection(planKey, { analysisMethod: e.target.value });
+              }}
               fullWidth
               helperText="Leave blank if you want Peggy to suggest methods."
             />
@@ -174,6 +190,19 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         {plan.lastResult && !run.data && (
           <Alert severity="info">Previous result loaded from saved draft. Run again to refresh.</Alert>
         )}
+        <StudyDesignSaveBar
+          dirty={isSectionDirty(planKey)}
+          saving={savingSection === planKey}
+          onSave={() =>
+            commitSection(planKey, {
+              mode: tab,
+              userPlan,
+              budget,
+              preferredTools: tools,
+              ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
+            })
+          }
+        />
       </Stack>
     </>
   );
