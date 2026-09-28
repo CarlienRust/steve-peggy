@@ -35,7 +35,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | PubMed ingest | Done | Corpus modal |
 | PDF ingest (literature) | Done | Corpus modal + CLI script |
 | Our findings ingest | Done | `/results/report` — narrative, PDF, or HTML; summary on `/results/findings` |
-| Corpus management | Done | `/ingest` literature table |
+| Corpus management | Done | `/validate/literature` literature table |
 | Findings management | Done | `/results/report` table; summary on `/results/findings` |
 | Ingest dedup | Done | `duplicate` status, job `skipped` |
 | Ask Peggy (chat) | Done | Mode chips + intent routing |
@@ -58,7 +58,11 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Item | Status |
 |------|--------|
 | MUI shell + dashboard health chips | Done |
-| Nav: Dashboard, Corpus, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
+| Nav: Dashboard, Validate, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
+| Welcome Setup CTA | Done | Hosted vs localhost clone/run instructions |
+| Dashboard project progress | Done | Per-objective roadmap + project setup stages |
+| Objective-linked roadmap | Done | Stable objective IDs, plan steps + finding tags, manual done on dashboard |
+| Validate aim and objectives | Done | `/validate/aim` — checklist + literature check |
 | Study design proposal | Done | `/study-design/proposal` — 1–2 page draft |
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
 | Ethics renewal reminders | Planned | Notify before `expiryDate` on study design |

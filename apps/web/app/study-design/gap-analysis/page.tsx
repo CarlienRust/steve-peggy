@@ -1,14 +1,5 @@
-import { GapsFeature } from "@/features/gaps/GapsFeature";
-import { PageHeader } from "@/components/PageHeader";
-import { PageSection } from "@/components/PageSection";
+import { redirect } from "next/navigation";
 
-export default function GapAnalysisPage() {
-  return (
-    <>
-      <PageHeader compact title="Gap analysis" description="Understudied topics and contradictions in your corpus." />
-      <PageSection>
-        <GapsFeature />
-      </PageSection>
-    </>
-  );
+export default function StudyDesignGapAnalysisRedirectPage() {
+  redirect("/validate/gap-analysis");
 }

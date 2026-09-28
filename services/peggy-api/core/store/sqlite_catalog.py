@@ -95,6 +95,7 @@ CREATE TABLE IF NOT EXISTS study_design (
     methods_plan TEXT NOT NULL DEFAULT '{}',
     analysis_plan TEXT NOT NULL DEFAULT '{}',
     proposal TEXT NOT NULL DEFAULT '{}',
+    objective_links TEXT NOT NULL DEFAULT '{"findingLinks":[]}',
     updated_at TEXT
 );
 
@@ -188,9 +189,16 @@ async def _migrate_study_design_table(db: aiosqlite.Connection) -> None:
             methods_plan TEXT NOT NULL DEFAULT '{}',
             analysis_plan TEXT NOT NULL DEFAULT '{}',
             proposal TEXT NOT NULL DEFAULT '{}',
+            objective_links TEXT NOT NULL DEFAULT '{"findingLinks":[]}',
             updated_at TEXT
         )"""
     )
+    try:
+        await db.execute(
+            "ALTER TABLE study_design ADD COLUMN objective_links TEXT NOT NULL DEFAULT '{\"findingLinks\":[]}'"
+        )
+    except Exception:
+        pass
 
 
 async def _migrate_findings_summaries(db: aiosqlite.Connection) -> None:
@@ -220,11 +228,14 @@ def _parse_study_design(d: dict) -> dict:
 
 
 def _workspace_dict(row: aiosqlite.Row | dict) -> dict:
+    from core.objectives import normalize_objectives
+
     d = dict(row)
     try:
-        d["objectives"] = json.loads(d.get("objectives") or "[]")
+        raw_objectives = json.loads(d.get("objectives") or "[]")
     except (json.JSONDecodeError, TypeError):
-        d["objectives"] = []
+        raw_objectives = []
+    d["objectives"] = normalize_objectives(raw_objectives)
     d["study_design"] = _parse_study_design(d)
     return d
 
@@ -584,8 +595,8 @@ async def _upsert_study_design_row(db: aiosqlite.Connection, user_id: str, works
     now = datetime.now(timezone.utc).isoformat()
     await db.execute(
         """INSERT INTO study_design (
-               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, updated_at
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, objective_links, updated_at
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(workspace_id) DO UPDATE SET
                samples = excluded.samples,
                ethics = excluded.ethics,
@@ -593,6 +604,7 @@ async def _upsert_study_design_row(db: aiosqlite.Connection, user_id: str, works
                methods_plan = excluded.methods_plan,
                analysis_plan = excluded.analysis_plan,
                proposal = excluded.proposal,
+               objective_links = excluded.objective_links,
                updated_at = excluded.updated_at
            WHERE study_design.user_id = excluded.user_id""",
         (
@@ -604,6 +616,7 @@ async def _upsert_study_design_row(db: aiosqlite.Connection, user_id: str, works
             cols["methods_plan"],
             cols["analysis_plan"],
             cols["proposal"],
+            cols["objective_links"],
             now,
         ),
     )

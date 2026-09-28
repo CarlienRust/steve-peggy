@@ -87,6 +87,50 @@ async def run_gap_analysis(
     return result
 
 
+async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if not ws:
+        raise ValueError("Workspace not found")
+    aim = (ws.get("aim") or "").strip()
+    from core.objectives import objective_texts
+
+    objectives = objective_texts(ws.get("objectives"))
+    if not aim and not objectives:
+        raise ValueError("Set an aim or at least one objective first")
+
+    search_query = aim if aim else objectives[0]
+    if objectives:
+        search_query = f"{search_query}\n" + "\n".join(objectives)
+
+    sources = qdrant_store.search(search_query, source_types=["literature"], user_id=user_id)
+    llm = get_llm()
+    raw = await llm.complete(
+        prompts.build_system_prompt(),
+        prompts.validate_aim_prompt(aim, objectives, sources),
+        json_mode=True,
+    )
+    body = _parse_json(raw)
+    result = {
+        "body": body,
+        "sources": sources,
+        "confidence": _confidence(sources),
+        "limitations": body.get("limitations") or _default_limitations(sources),
+    }
+    saved = await catalog.save_workflow_run(
+        user_id=user_id,
+        workspace_id=workspace_id,
+        workflow_type="validate_aim",
+        query=aim or objectives[0],
+        source_types=["literature"],
+        body=body,
+        sources=sources,
+        confidence=result["confidence"],
+        limitations=result["limitations"],
+    )
+    result["run_id"] = saved["id"]
+    return result
+
+
 async def run_compare(
     finding: str,
     source_types: list[str] | None = None,

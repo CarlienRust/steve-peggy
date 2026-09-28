@@ -6,7 +6,7 @@ import { peggyApi } from "@/lib/api";
 import type { StudyDesignData } from "@/lib/studyDesign";
 import { EMPTY_STUDY_DESIGN } from "@/lib/studyDesign";
 
-const SECTIONS = ["samples", "ethics", "budget", "methodsPlan", "analysisPlan", "proposal"] as const;
+const SECTIONS = ["samples", "ethics", "budget", "methodsPlan", "analysisPlan", "proposal", "objectiveLinks"] as const;
 type SectionKey = (typeof SECTIONS)[number];
 
 function sortValue(value: unknown): unknown {

@@ -24,7 +24,12 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { Controller, useForm } from "react-hook-form";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
+import { ObjectiveLinkSelect } from "@/components/ObjectiveLinkSelect";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
+import { useStudyDesign } from "@/lib/useStudyDesign";
+import { upsertFindingLink } from "@/lib/studyDesign";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const pubmedSchema = z.object({
@@ -39,7 +44,7 @@ const findingsSchema = z.object({
   cohort: z.string().optional(),
 });
 
-type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
+type UploadResult = { name: string; ok: boolean; chunks?: number; paperId?: number; error?: string };
 
 function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -67,8 +72,17 @@ export function IngestForm({
   const [jobId, setJobId] = useState<string | null>(null);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
+  const [tagPaperId, setTagPaperId] = useState<number | null>(null);
+  const [tagObjectiveIds, setTagObjectiveIds] = useState<string[]>([]);
+  const [savingTags, setSavingTags] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+  const { activeWorkspace } = useWorkspace();
+  const { studyDesign, commitSection } = useStudyDesign(activeWorkspace?.id);
+  const linkOptions =
+    variant === "findings"
+      ? linkTargetOptions(activeWorkspace?.aim, normalizeObjectives(activeWorkspace?.objectives))
+      : [];
 
   const limitsQuery = useQuery({
     queryKey: queryKeys.limits,
@@ -116,7 +130,7 @@ export function IngestForm({
       q.state.data?.status === "completed" || q.state.data?.status === "failed" ? false : 2000,
   });
 
-  const invalidateCorpus = () => {
+  const invalidateCorpus = (finish = true) => {
     queryClient.invalidateQueries({ queryKey: queryKeys.corpus("literature") });
     queryClient.invalidateQueries({ queryKey: queryKeys.corpus("own_findings") });
     if (variant === "findings") {
@@ -124,7 +138,32 @@ export function IngestForm({
         queryClient.invalidateQueries({ queryKey: queryKeys.findingsSummary });
       });
     }
-    onIngestSuccess?.();
+    if (finish) onIngestSuccess?.();
+  };
+
+  const promptTagging = (paperId?: number) => {
+    if (variant !== "findings" || !paperId || linkOptions.length === 0) {
+      invalidateCorpus(true);
+      return;
+    }
+    setTagPaperId(paperId);
+    setTagObjectiveIds([]);
+  };
+
+  const finishTagging = async (save: boolean) => {
+    if (save && tagPaperId != null) {
+      setSavingTags(true);
+      try {
+        const findingLinks = studyDesign.objectiveLinks?.findingLinks ?? [];
+        const nextLinks = upsertFindingLink(findingLinks, tagPaperId, tagObjectiveIds);
+        await commitSection("objectiveLinks", { findingLinks: nextLinks });
+      } finally {
+        setSavingTags(false);
+      }
+    }
+    setTagPaperId(null);
+    setTagObjectiveIds([]);
+    invalidateCorpus(true);
   };
 
   useEffect(() => {
@@ -137,9 +176,16 @@ export function IngestForm({
   const findingsMut = useMutation({
     mutationFn: (v: z.infer<typeof findingsSchema>) => peggyApi.uploadFindings(v),
     onSuccess: (data) => {
-      invalidateCorpus();
+      invalidateCorpus(false);
       if (data.status === "duplicate") {
         findingsForm.setError("title", { message: data.message ?? "Already ingested" });
+        onIngestSuccess?.();
+        return;
+      }
+      if (data.paper_id) {
+        promptTagging(data.paper_id);
+      } else {
+        onIngestSuccess?.();
       }
     },
   });
@@ -159,7 +205,7 @@ export function IngestForm({
           if (res.status === "duplicate") {
             results.push({ name: file.name, ok: false, error: res.message ?? "Already ingested" });
           } else {
-            results.push({ name: file.name, ok: true, chunks: res.chunks });
+            results.push({ name: file.name, ok: true, chunks: res.chunks, paperId: res.paper_id });
           }
         } catch (e) {
           results.push({ name: file.name, ok: false, error: (e as Error).message });
@@ -170,7 +216,13 @@ export function IngestForm({
     onSuccess: (results) => {
       setUploadResults(results);
       setPdfFiles([]);
-      invalidateCorpus();
+      invalidateCorpus(false);
+      const tagged = results.find((r) => r.ok && r.paperId);
+      if (tagged?.paperId) {
+        promptTagging(tagged.paperId);
+      } else {
+        onIngestSuccess?.();
+      }
     },
   });
 
@@ -361,6 +413,25 @@ export function IngestForm({
         </Stack>
       )}
 
+      {tagPaperId != null && variant === "findings" && (
+        <Paper variant="outlined" sx={{ p: 2 }}>
+          <Stack spacing={2}>
+            <Typography variant="subtitle2">Link to objectives (optional)</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Tag this finding set to the aim or specific objectives.
+            </Typography>
+            <ObjectiveLinkSelect options={linkOptions} value={tagObjectiveIds} onChange={setTagObjectiveIds} />
+            <Stack direction="row" spacing={1}>
+              <Button variant="contained" disabled={savingTags} onClick={() => void finishTagging(true)}>
+                Save tags
+              </Button>
+              <Button disabled={savingTags} onClick={() => void finishTagging(false)}>
+                Skip
+              </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+      )}
     </Stack>
   );
 }

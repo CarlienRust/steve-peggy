@@ -2,6 +2,7 @@
 
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import LabelOutlinedIcon from "@mui/icons-material/LabelOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import {
   Box,
@@ -24,7 +25,9 @@ import {
 } from "@mui/material";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ObjectiveLinkSelect, type LinkTargetOption } from "@/components/ObjectiveLinkSelect";
 import { peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
+import { findingLinkForPaper, type FindingLink } from "@/lib/studyDesign";
 import { monoSx } from "@/theme/peggyTheme";
 
 function formatDate(iso?: string) {
@@ -36,20 +39,34 @@ function formatDate(iso?: string) {
   }
 }
 
+type CorpusTableProps = {
+  papers: PaperRecord[];
+  emptyMessage: string;
+  typeLabel: (p: PaperRecord) => string;
+  findingLinks?: FindingLink[];
+  linkOptions?: LinkTargetOption[];
+  onSaveFindingLinks?: (paperId: number, objectiveIds: string[]) => void | Promise<void>;
+  onDeletePaper?: (paperId: number) => void | Promise<void>;
+};
+
 export function CorpusTable({
   papers,
   emptyMessage,
   typeLabel,
-}: {
-  papers: PaperRecord[];
-  emptyMessage: string;
-  typeLabel: (p: PaperRecord) => string;
-}) {
+  findingLinks,
+  linkOptions,
+  onSaveFindingLinks,
+  onDeletePaper,
+}: CorpusTableProps) {
   const [viewPaper, setViewPaper] = useState<PaperRecord | null>(null);
   const [editPaper, setEditPaper] = useState<PaperRecord | null>(null);
+  const [tagPaper, setTagPaper] = useState<PaperRecord | null>(null);
   const [deletePaper, setDeletePaper] = useState<PaperRecord | null>(null);
   const [editDraft, setEditDraft] = useState<Partial<PaperRecord>>({});
+  const [tagDraft, setTagDraft] = useState<string[]>([]);
+  const [savingTags, setSavingTags] = useState(false);
   const queryClient = useQueryClient();
+  const showLinks = !!onSaveFindingLinks && !!linkOptions;
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<PaperRecord> }) => peggyApi.updatePaper(id, data),
@@ -61,8 +78,9 @@ export function CorpusTable({
 
   const deleteMut = useMutation({
     mutationFn: (id: number) => peggyApi.deletePaper(id),
-    onSuccess: () => {
+    onSuccess: async (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ["corpus"] });
+      await onDeletePaper?.(id);
       setDeletePaper(null);
     },
   });
@@ -78,6 +96,36 @@ export function CorpusTable({
     });
   };
 
+  const openTags = (p: PaperRecord) => {
+    if (!p.id) return;
+    setTagPaper(p);
+    setTagDraft(findingLinkForPaper(findingLinks, p.id));
+  };
+
+  const saveTags = async () => {
+    if (!tagPaper?.id || !onSaveFindingLinks) return;
+    setSavingTags(true);
+    try {
+      await onSaveFindingLinks(tagPaper.id, tagDraft);
+      setTagPaper(null);
+    } finally {
+      setSavingTags(false);
+    }
+  };
+
+  const renderLinkChips = (paperId?: number) => {
+    if (!showLinks || paperId == null || !linkOptions?.length) return null;
+    const ids = findingLinkForPaper(findingLinks, paperId);
+    if (ids.length === 0) return null;
+    return (
+      <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+        {ids.map((id) => (
+          <Chip key={id} label={linkOptions.find((o) => o.id === id)?.label ?? id} size="small" variant="outlined" />
+        ))}
+      </Stack>
+    );
+  };
+
   return (
     <>
       <Paper variant="outlined" sx={{ overflow: "auto" }}>
@@ -86,6 +134,7 @@ export function CorpusTable({
             <TableRow>
               <TableCell>Title</TableCell>
               <TableCell>Type</TableCell>
+              {showLinks && <TableCell>Objectives</TableCell>}
               <TableCell>Year</TableCell>
               <TableCell>Ingested</TableCell>
               <TableCell align="right">Actions</TableCell>
@@ -94,7 +143,7 @@ export function CorpusTable({
           <TableBody>
             {papers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={showLinks ? 6 : 5}>
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                     {emptyMessage}
                   </Typography>
@@ -116,12 +165,26 @@ export function CorpusTable({
                   <TableCell>
                     <Chip label={typeLabel(p)} size="small" variant="outlined" />
                   </TableCell>
+                  {showLinks && (
+                    <TableCell sx={{ maxWidth: 220 }}>
+                      {renderLinkChips(p.id) ?? (
+                        <Typography variant="caption" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
+                    </TableCell>
+                  )}
                   <TableCell>{p.year || "—"}</TableCell>
                   <TableCell>{formatDate(p.ingested_at)}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" aria-label="View" onClick={() => setViewPaper(p)}>
                       <VisibilityOutlinedIcon fontSize="small" />
                     </IconButton>
+                    {showLinks && (
+                      <IconButton size="small" aria-label="Edit objective tags" onClick={() => openTags(p)}>
+                        <LabelOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    )}
                     <IconButton size="small" aria-label="Edit" onClick={() => openEdit(p)}>
                       <EditOutlinedIcon fontSize="small" />
                     </IconButton>
@@ -170,6 +233,26 @@ export function CorpusTable({
           <Button onClick={() => setEditPaper(null)}>Cancel</Button>
           <Button variant="contained" disabled={!editPaper?.id || updateMut.isPending} onClick={() => editPaper?.id && updateMut.mutate({ id: editPaper.id, data: editDraft })}>
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!tagPaper} onClose={() => setTagPaper(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Link to objectives</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Tag <strong>{tagPaper?.title ?? "this finding set"}</strong> to the aim or specific objectives.
+            </Typography>
+            {linkOptions && (
+              <ObjectiveLinkSelect options={linkOptions} value={tagDraft} onChange={setTagDraft} />
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTagPaper(null)}>Cancel</Button>
+          <Button variant="contained" disabled={savingTags} onClick={() => void saveTags()}>
+            Save tags
           </Button>
         </DialogActions>
       </Dialog>

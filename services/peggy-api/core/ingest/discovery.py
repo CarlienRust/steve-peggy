@@ -223,8 +223,10 @@ async def discover_suggestions(user_id: str, workspace_id: str | None = None) ->
         ws = await catalog.get_workspace(user_id, workspace_id)
         if ws:
             add(ws.get("aim") or "")
-            for obj in ws.get("objectives") or []:
-                add(str(obj))
+            from core.objectives import objective_texts
+
+            for obj in objective_texts(ws.get("objectives")):
+                add(obj)
 
     profile = await catalog.get_profile(user_id)
     if profile:

@@ -16,11 +16,13 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 
 | Capability | How |
 |------------|-----|
-| **Literature corpus** | `/ingest` — PubMed + PDF papers only; view, edit, delete |
-| **Our findings** | `/results/findings` — narrative or research PDF → separate Qdrant collection |
+| **Literature search** | `/validate/literature` — PubMed + PDF papers only; view, edit, delete |
+| **Our findings** | `/results/findings` — summary; upload at `/results/report` |
 | **Ingest dedup** | Skips duplicate PMID, DOI, or title per `source_type` |
 | **Ask Peggy** | `/chat` — grounded Q&A; **Auto / Ask / Gaps / Compare** modes |
-| **Gap analysis** | `/study-design/gap-analysis` — structured gaps; optional include our findings |
+| **Gap analysis** | `/validate/gap-analysis` — structured gaps; optional include our findings |
+| **Validate aim** | `/validate/aim` — check aim/objectives against literature |
+| **Project progress** | `/dashboard` — roadmap of completed stages and next steps |
 | **Compare** | `/results/comparison` — your finding vs literature (+ our findings in retrieval) |
 | **Health dashboard** | Status chips for Qdrant, LLM provider, embeddings |
 | **Profile** | Sidebar edit + Supabase sign-out; display prefs in `user_metadata` |
@@ -39,7 +41,7 @@ Peggy keeps literature and your work separate so comparison and gap analysis kno
 
 | Space | Route | `source_type` | Qdrant collection |
 |-------|-------|---------------|-------------------|
-| Literature | `/ingest` | `literature` | `peggy_literature` |
+| Literature | `/validate/literature` | `literature` | `peggy_literature` |
 | Our findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
 
 Re-uploading the same paper or finding set is blocked at the catalog layer (duplicate response, no second row).
@@ -109,9 +111,9 @@ Smoke test (Qdrant + API running):
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
 | `/` | Project hub | Choose or create a research project |
-| `/dashboard` | 01 Dashboard | Stats, health chips, quick actions |
-| `/ingest` | 02 Corpus | Literature only — PubMed + PDF |
-| `/study-design` | 03 Study Design | Hub — gap analysis, samples, ethics, plans |
+| `/dashboard` | 01 Dashboard | Progress roadmap, health chips |
+| `/validate` | 02 Validate | Hub — gap analysis, literature search, validate aim |
+| `/study-design` | 03 Study Design | Hub — samples, ethics, plans, budget, proposal |
 | `/study-design/proposal` | 03 · Proposal | Study/grant draft from project context |
 | `/analysis-tool` | 04 Analysis tool | Coming soon (nav disabled) |
 | `/results` | 05 Results | Hub — methods, our findings, comparison |

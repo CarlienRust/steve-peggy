@@ -1,3 +1,18 @@
+import type { WorkspaceObjective } from "@/lib/objectives";
+
+export type Workspace = {
+  id: string;
+  user_id?: string;
+  title: string;
+  aim: string;
+  objectives: WorkspaceObjective[];
+  github_repo_owner?: string | null;
+  github_repo_name?: string | null;
+  github_repo_url?: string | null;
+  github_default_branch?: string | null;
+  github_last_synced_at?: string | null;
+};
+
 export const TITLE_OPTIONS = ["Mr", "Mrs", "Ms", "Dr", "Prof"] as const;
 export type TitleOption = (typeof TITLE_OPTIONS)[number];
 
@@ -26,19 +41,6 @@ export type ResearcherProfile = {
   research_focus: string;
   research_type: ResearchRole;
   display_name: string;
-};
-
-export type Workspace = {
-  id: string;
-  user_id?: string;
-  title: string;
-  aim: string;
-  objectives: string[];
-  github_repo_owner?: string | null;
-  github_repo_name?: string | null;
-  github_repo_url?: string | null;
-  github_default_branch?: string | null;
-  github_last_synced_at?: string | null;
 };
 
 export type PendingRegistration = {
@@ -83,21 +85,9 @@ export function profileFromMetadata(meta: Record<string, unknown>, email: string
   };
 }
 
-export const ACTIVE_WORKSPACE_KEY = "peggy_active_workspace_id";
-export const ACTIVE_WORKSPACE_COOKIE = "peggy_active_workspace_id";
-
-export function loadActiveWorkspaceId(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACTIVE_WORKSPACE_KEY);
-}
-
-export function saveActiveWorkspaceId(id: string | null): void {
-  if (typeof window === "undefined") return;
-  if (id) {
-    localStorage.setItem(ACTIVE_WORKSPACE_KEY, id);
-    document.cookie = `${ACTIVE_WORKSPACE_COOKIE}=${encodeURIComponent(id)}; path=/; max-age=31536000; SameSite=Lax`;
-  } else {
-    localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
-    document.cookie = `${ACTIVE_WORKSPACE_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
-  }
-}
+export {
+  ACTIVE_WORKSPACE_COOKIE,
+  ACTIVE_WORKSPACE_KEY,
+  loadActiveWorkspaceId,
+  saveActiveWorkspaceId,
+} from "@/lib/workspaceStorage";

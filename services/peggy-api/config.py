@@ -44,7 +44,7 @@ COLLECTION_CHAT = "chat_history_logs"
 _CORS_DEFAULT = (
     "https://peggy-ra.vercel.app,http://localhost:3000"
     if os.getenv("RENDER")
-    else "http://localhost:3000"
+    else "http://localhost:3000,http://localhost:3001"
 )
 CORS_ORIGINS = [
     o.strip()

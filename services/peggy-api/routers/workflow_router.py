@@ -15,6 +15,7 @@ from core.rag.workflows import (
     run_manuscript_framing,
     run_methods_plan,
     run_proposal,
+    run_validate_aim,
 )
 from core.store import catalog
 from schemas.responses import GapAnalysisRunDetail, GapAnalysisRunSummary, SourceCitation, WorkflowResponse
@@ -54,6 +55,10 @@ class ProposalRequest(BaseModel):
     workspace_id: str
     focus_notes: str = ""
     source_types: list[str] = Field(default_factory=lambda: ["literature"])
+
+
+class ValidateAimRequest(BaseModel):
+    workspace_id: str
 
 
 class StudyPlanRequest(BaseModel):
@@ -243,6 +248,57 @@ async def study_proposal(body: ProposalRequest, user: AuthUser = Depends(get_cur
         )
     except ValueError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/validate-aim", response_model=WorkflowResponse)
+async def validate_aim(body: ValidateAimRequest, user: AuthUser = Depends(get_current_user)):
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    try:
+        return _wrap(await run_validate_aim(user.id, body.workspace_id))
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.get("/validate-aim/history", response_model=list[GapAnalysisRunSummary])
+async def validate_aim_history(
+    workspace_id: str = Query(...),
+    user: AuthUser = Depends(get_current_user),
+):
+    ws = await catalog.get_workspace(user.id, workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    rows = await catalog.list_workflow_runs(user.id, workspace_id, "validate_aim")
+    return [
+        GapAnalysisRunSummary(
+            id=r["id"],
+            workspace_id=r["workspace_id"],
+            query=r["query"],
+            confidence=r["confidence"],
+            created_at=r["created_at"],
+        )
+        for r in rows
+    ]
+
+
+@router.get("/validate-aim/{run_id}", response_model=GapAnalysisRunDetail)
+async def validate_aim_run(run_id: str, user: AuthUser = Depends(get_current_user)):
+    row = await catalog.get_workflow_run(user.id, run_id)
+    if not row or row.get("workflow_type") != "validate_aim":
+        raise HTTPException(404, "Validate aim run not found")
+    return GapAnalysisRunDetail(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        query=row["query"],
+        source_types=row.get("source_types") or [],
+        created_at=row["created_at"],
+        body=row.get("body") or {},
+        sources=[SourceCitation(**s) for s in row.get("sources") or []],
+        confidence=row.get("confidence") or "low",
+        limitations=row.get("limitations") or [],
+    )
 
 
 @router.get("/findings-summary")

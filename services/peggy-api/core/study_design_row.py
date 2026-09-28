@@ -15,6 +15,7 @@ API_SECTIONS: tuple[tuple[str, str], ...] = (
     ("methodsPlan", "methods_plan"),
     ("analysisPlan", "analysis_plan"),
     ("proposal", "proposal"),
+    ("objectiveLinks", "objective_links"),
 )
 
 

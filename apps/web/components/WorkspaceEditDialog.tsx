@@ -15,9 +15,11 @@ import {
   TextField,
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { objectivesFromText, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
+import { normalizeObjectives } from "@/lib/objectives";
+import { objectivesForForm, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
 
 type WorkspaceEditDialogProps = {
@@ -37,7 +39,7 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
     formState: { errors },
   } = useForm<WorkspaceFormValues>({
     resolver: zodResolver(workspaceFormSchema),
-    defaultValues: { title: "", aim: "", objectives: "" },
+    defaultValues: { title: "", aim: "", objectives: [] },
   });
 
   useEffect(() => {
@@ -45,17 +47,18 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
     reset({
       title: workspace.title,
       aim: workspace.aim ?? "",
-      objectives: (workspace.objectives ?? []).join("\n"),
+      objectives: objectivesForForm(workspace.objectives),
     });
   }, [workspace, open, reset]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: WorkspaceFormValues) => {
       if (!workspace) throw new Error("No project selected");
+      const objectives = normalizeObjectives(values.objectives).filter((o) => o.text.trim());
       return peggyApi.updateWorkspace(workspace.id, {
         title: values.title.trim(),
         aim: (values.aim ?? "").trim(),
-        objectives: objectivesFromText(values.objectives),
+        objectives,
       });
     },
     onSuccess: () => {
@@ -109,14 +112,7 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
               name="objectives"
               control={control}
               render={({ field }) => (
-                <TextField
-                  {...field}
-                  label="Objectives"
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  helperText="One objective per line"
-                />
+                <ObjectiveListEditor value={field.value} onChange={field.onChange} />
               )}
             />
             {workspace && <WorkspaceGithubSection workspace={workspace} onUpdated={onSaved} />}

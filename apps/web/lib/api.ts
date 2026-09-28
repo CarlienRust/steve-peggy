@@ -1,3 +1,5 @@
+import type { WorkspaceObjective } from "@/lib/objectives";
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 let accessTokenProvider: (() => Promise<string | null>) | null = null;
@@ -105,7 +107,7 @@ export type Workspace = {
   user_id?: string;
   title: string;
   aim: string;
-  objectives: string[];
+  objectives: WorkspaceObjective[];
   github_repo_owner?: string | null;
   github_repo_name?: string | null;
   github_repo_url?: string | null;
@@ -456,6 +458,20 @@ export const peggyApi = {
   gapAnalysisRun: (runId: string) =>
     apiFetch<GapAnalysisRunDetail>(`/workflows/gap-analysis/${encodeURIComponent(runId)}`),
 
+  validateAim: (workspaceId: string) =>
+    apiFetch<WorkflowResponse>("/workflows/validate-aim", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId }),
+    }),
+
+  validateAimHistory: (workspaceId: string) =>
+    apiFetch<GapAnalysisRunSummary[]>(
+      `/workflows/validate-aim/history?workspace_id=${encodeURIComponent(workspaceId)}`
+    ),
+
+  validateAimRun: (runId: string) =>
+    apiFetch<GapAnalysisRunDetail>(`/workflows/validate-aim/${encodeURIComponent(runId)}`),
+
   githubConnection: () =>
     apiFetch<{ connected: boolean; github_username?: string; connected_at?: string }>("/github/connection"),
 
@@ -555,10 +571,10 @@ export const peggyApi = {
   listWorkspaces: () =>
     apiFetch<{ workspaces: Workspace[]; count: number }>("/workspaces"),
 
-  createWorkspace: (body: { title: string; aim?: string; objectives?: string[] }) =>
+  createWorkspace: (body: { title: string; aim?: string; objectives?: WorkspaceObjective[] }) =>
     apiFetch<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(body) }),
 
-  updateWorkspace: (id: string, body: Partial<{ title: string; aim: string; objectives: string[] }>) =>
+  updateWorkspace: (id: string, body: Partial<{ title: string; aim: string; objectives: WorkspaceObjective[] }>) =>
     apiFetch<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
 
   deleteWorkspace: (id: string) =>

@@ -67,6 +67,12 @@ export type StudyDesignEthics = {
   linkedDocuments?: LinkedDocument[];
 };
 
+export type PlanStep = {
+  id: string;
+  title: string;
+  objectiveIds: string[];
+};
+
 export type StudyDesignPlan = {
   mode?: "review" | "suggest";
   userPlan?: string;
@@ -77,6 +83,16 @@ export type StudyDesignPlan = {
   covariates?: string;
   analysisMethod?: string;
   lastResult?: Record<string, unknown>;
+  steps?: PlanStep[];
+};
+
+export type FindingLink = {
+  paperId: number;
+  objectiveIds: string[];
+};
+
+export type StudyDesignObjectiveLinks = {
+  findingLinks?: FindingLink[];
 };
 
 export type StudyDesignProposal = {
@@ -93,6 +109,7 @@ export type StudyDesignData = {
   methodsPlan?: StudyDesignPlan;
   analysisPlan?: StudyDesignPlan;
   proposal?: StudyDesignProposal;
+  objectiveLinks?: StudyDesignObjectiveLinks;
 };
 
 export const EMPTY_STUDY_DESIGN: StudyDesignData = {
@@ -103,7 +120,27 @@ export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   methodsPlan: {},
   analysisPlan: {},
   proposal: {},
+  objectiveLinks: { findingLinks: [] },
 };
+
+export function pruneFindingLinks(links: FindingLink[] | undefined, validPaperIds: number[]): FindingLink[] {
+  const ids = new Set(validPaperIds);
+  return (links ?? []).filter((link) => ids.has(link.paperId));
+}
+
+export function upsertFindingLink(
+  links: FindingLink[] | undefined,
+  paperId: number,
+  objectiveIds: string[]
+): FindingLink[] {
+  const rest = (links ?? []).filter((link) => link.paperId !== paperId);
+  if (objectiveIds.length === 0) return rest;
+  return [...rest, { paperId, objectiveIds }];
+}
+
+export function findingLinkForPaper(links: FindingLink[] | undefined, paperId: number): string[] {
+  return (links ?? []).find((link) => link.paperId === paperId)?.objectiveIds ?? [];
+}
 
 export const STUDY_TYPES = [
   "Systematic review",

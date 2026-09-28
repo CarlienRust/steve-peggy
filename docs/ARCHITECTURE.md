@@ -20,7 +20,7 @@ legacy/                   Archived — do not import
 
 | UI | Route | `source_type` | Qdrant collection |
 |----|-------|---------------|-------------------|
-| Corpus (literature) | `/ingest` | `literature` | `peggy_literature` |
+| Literature search | `/validate/literature` | `literature` | `peggy_literature` |
 | Our findings (summary) | `/results/findings` | `own_findings` | `peggy_own_findings` |
 | Upload/Report findings | `/results/report` | `own_findings` | `peggy_own_findings` |
 
@@ -89,10 +89,13 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/gap-analysis` | Structured gaps (optional `workspace_id` saves history) |
 | `GET /workflows/gap-analysis/history` | Gap runs for a workspace |
 | `GET /workflows/gap-analysis/{id}` | Replay a saved gap run |
+| `POST /workflows/validate-aim` | Check project aim/objectives against literature |
+| `GET /workflows/validate-aim/history` | Validate-aim runs for a workspace |
+| `GET /workflows/validate-aim/{id}` | Replay a saved validate-aim run |
 | `GET /auth/github/login` | GitHub OAuth authorize URL (Bearer required) |
 | `GET /auth/github/callback` | OAuth callback (stores token server-side) |
 | `GET /github/repos` | List repos for linked account |
-| `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |
@@ -122,10 +125,12 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | Route | Nav | Purpose |
 |-------|-----|---------|
 | `/` | — | Project hub (pick workspace) |
-| `/dashboard` | 01 Dashboard | Project strip, workflow shortcut grid (nav-driven), compact system status |
-| `/ingest` | 02 Corpus | Literature only |
+| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap |
+| `/validate` | 02 Validate | Redirects to first sub-section; tab bar on all sub-pages |
+| `/validate/gap-analysis` | 02 · Gap analysis | Gaps table |
+| `/validate/literature` | 02 · Literature search | PubMed + PDF literature |
+| `/validate/aim` | 02 · Validate aim | Check aim/objectives against literature |
 | `/study-design` | 03 Study Design | Redirects to first sub-section; tab bar on all sub-pages |
-| `/study-design/gap-analysis` | 03 · Gap analysis | Gaps table |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | FMHS guidance, approval letter upload (`ethics_documents`), AI checklist |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
@@ -141,11 +146,12 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/chat` | 06 Ask Peggy | Q&A + agent modes |
 | `/login` | — | Supabase email magic link |
 
-Legacy redirects: `/gaps` → gap analysis, `/findings` → our findings, `/compare` → comparison.
+Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.
 
 ### Web UI layout
 
-- **Dashboard shortcuts** — `getWorkflowShortcuts()` in `apps/web/lib/navigation.ts` drives the hub grid (Corpus, study-design steps, results, Ask Peggy). Disabled nav items (Analysis tool, Results Methods) are omitted.
+- **Dashboard** — `buildObjectiveProgress()` shows each objective with manual done status, counts of linked methods/analysis steps and findings, and links to the relevant screens. `buildProjectProgress()` drives the project setup roadmap (next step, possible next steps, full timeline). Sidebar nav remains the primary way to open Validate, Study Design, Results, and Ask Peggy.
+- **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).

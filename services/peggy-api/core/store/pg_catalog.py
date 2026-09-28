@@ -25,6 +25,8 @@ async def init_catalog(db_path: str | None = None) -> None:
             max_size=5,
             timeout=10,
             command_timeout=30,
+            # Supabase pooler (PgBouncer transaction mode) rejects asyncpg prepared statements.
+            statement_cache_size=0,
         )
 
 
@@ -363,17 +365,19 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
 
 
 def _workspace_row(row: asyncpg.Record) -> dict:
+    from core.objectives import normalize_objectives
     from core.study_design_merge import normalize_study_design
 
     d = _row_to_dict(row)
     obj = d.get("objectives")
     if isinstance(obj, str):
         try:
-            d["objectives"] = json.loads(obj)
+            obj = json.loads(obj)
         except json.JSONDecodeError:
-            d["objectives"] = []
+            obj = []
     elif obj is None:
-        d["objectives"] = []
+        obj = []
+    d["objectives"] = normalize_objectives(obj)
     sd = d.get("study_design")
     if isinstance(sd, str):
         try:
@@ -474,9 +478,9 @@ async def _upsert_study_design_row(conn, user_id: str, workspace_id: str, design
     cols = design_to_column_json(design)
     await conn.execute(
         """INSERT INTO study_design (
-               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, updated_at
+               workspace_id, user_id, samples, ethics, budget, methods_plan, analysis_plan, proposal, objective_links, updated_at
            ) VALUES (
-               $1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, NOW()
+               $1::uuid, $2::uuid, $3::jsonb, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, NOW()
            )
            ON CONFLICT (workspace_id) DO UPDATE SET
                samples = EXCLUDED.samples,
@@ -485,6 +489,7 @@ async def _upsert_study_design_row(conn, user_id: str, workspace_id: str, design
                methods_plan = EXCLUDED.methods_plan,
                analysis_plan = EXCLUDED.analysis_plan,
                proposal = EXCLUDED.proposal,
+               objective_links = EXCLUDED.objective_links,
                updated_at = NOW()
            WHERE study_design.user_id = EXCLUDED.user_id""",
         workspace_id,
@@ -495,6 +500,7 @@ async def _upsert_study_design_row(conn, user_id: str, workspace_id: str, design
         cols["methods_plan"],
         cols["analysis_plan"],
         cols["proposal"],
+        cols["objective_links"],
     )
 
 

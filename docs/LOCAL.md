@@ -102,7 +102,7 @@ Open http://localhost:3000 — no login screen in solo mode.
 
 | What | Where |
 |------|-------|
-| Literature PDFs / PubMed | **Corpus** (`/ingest`) |
+| Literature PDFs / PubMed | **Validate → Literature search** (`/validate/literature`) |
 | Your findings | **Results → Upload/Report findings** (`/results/report`) — narrative, PDF, or HTML. Summary appears on **Our findings** (`/results/findings`) |
 | Study design drafts | **Study Design** (`/study-design/*`) — saved per workspace |
 | Batch test PDFs | `python3 scripts/ingest-test-pdfs.py` |
@@ -134,6 +134,10 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 | Symptom | Fix |
 |---------|-----|
 | UI hits Render / prod API | `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env.local` |
+| Empty profile/workspaces after sign-in | Web uses Supabase (`NEXT_PUBLIC_SOLO_LOCAL=false`) but API has `AUTH_REQUIRED=false` or no `DATABASE_URL` — align both sides per [LOCAL.md](LOCAL.md) signed-in local block |
+| Postgres `prepared statement "__asyncpg_stmt_*" does not exist` | Supabase **transaction pooler** + asyncpg — use pooler URI (port 6543) and restart API (uses `statement_cache_size=0`) |
+| Dev on port **3001**, data never loads | Stale process on 3000; Next picks 3001 but API CORS may only allow 3000. Kill port 3000 (`lsof -ti:3000 | xargs kill`) and restart `npm run dev`, or add `http://localhost:3001` to API `CORS_ORIGINS` and restart API |
+| `__webpack_modules__[moduleId] is not a function` | Stop all `next dev` processes, `rm -rf apps/web/.next`, restart dev once |
 | Redirect to `/login` | `NEXT_PUBLIC_SOLO_LOCAL=true` in `.env.local` |
 | Login `Failed to fetch` | Supabase project paused or unreachable — restore/unpause in Supabase dashboard, or use solo local (`NEXT_PUBLIC_SOLO_LOCAL=true`) |
 | `Qdrant not found` | `./scripts/install-qdrant.sh` |

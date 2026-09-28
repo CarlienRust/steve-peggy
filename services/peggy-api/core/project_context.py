@@ -45,7 +45,9 @@ def format_project_context(ws: dict, study_design: dict) -> str:
         f"Project title: {ws.get('title', '')}",
         f"Aim: {ws.get('aim', '')}",
     ]
-    objectives = ws.get("objectives") or []
+    from core.objectives import objective_texts
+
+    objectives = objective_texts(ws.get("objectives"))
     if objectives:
         parts.append(f"Objectives: {', '.join(objectives)}")
 

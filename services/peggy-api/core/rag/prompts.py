@@ -345,3 +345,26 @@ Return JSON only:
 }}
 
 Do not invent results that are not in the documents. If a document is thin, say what it reports and what it does not."""
+
+
+def validate_aim_prompt(aim: str, objectives: list[str], sources: list[dict]) -> str:
+    obj_block = "\n".join(f"- {o}" for o in objectives) if objectives else "(none listed)"
+    return f"""Project aim:
+{aim or "(not set)"}
+
+Objectives:
+{obj_block}
+
+Retrieved literature:
+{format_context(sources)}
+
+Review whether the aim and objectives are clear, feasible, and supported by the literature above. Do not invent citations.
+
+Return JSON only:
+{{
+  "wording_issues": ["clarity or feasibility problems in aim/objectives wording"],
+  "supported": ["what the literature supports, with chunk_id refs"],
+  "not_supported": ["claims or objectives not well supported by retrieved literature"],
+  "summary": "short overall assessment",
+  "limitations": ["string"]
+}}"""

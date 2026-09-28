@@ -24,9 +24,11 @@ import { useAuthSession } from "@/lib/authContext";
 import { createClient } from "@/lib/supabase/client";
 import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
 import { isAuthOptional } from "@/lib/localMode";
+import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
+import { normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
 export function ProjectsPage() {
@@ -48,7 +50,7 @@ export function ProjectsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [aim, setAim] = useState("");
-  const [objectives, setObjectives] = useState("");
+  const [objectives, setObjectives] = useState<WorkspaceObjective[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [canBackToDashboard, setCanBackToDashboard] = useState(false);
 
@@ -58,10 +60,7 @@ export function ProjectsPage() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const objs = objectives
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
+      const objs = normalizeObjectives(objectives).filter((o) => o.text.trim());
       return peggyApi.createWorkspace({ title: title.trim(), aim: aim.trim(), objectives: objs });
     },
     onSuccess: (ws) => {
@@ -238,14 +237,9 @@ export function ProjectsPage() {
               <Stack spacing={2} sx={{ pt: 1 }}>
                 <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
                 <TextField label="Aim" value={aim} onChange={(e) => setAim(e.target.value)} fullWidth multiline minRows={2} />
-                <TextField
-                  label="Objectives"
+                <ObjectiveListEditor
                   value={objectives}
-                  onChange={(e) => setObjectives(e.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={3}
-                  helperText="One objective per line"
+                  onChange={setObjectives}
                 />
                 {error && <Alert severity="error">{error}</Alert>}
               </Stack>

@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_workspace_quota
+from core.objectives import normalize_objectives
 from core.store import catalog
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -12,13 +13,13 @@ router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 class WorkspaceCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
     aim: str = Field(default="", max_length=2000)
-    objectives: list[str] = Field(default_factory=list)
+    objectives: list[Any] = Field(default_factory=list)
 
 
 class WorkspaceUpdate(BaseModel):
     title: Optional[str] = Field(default=None, min_length=1, max_length=256)
     aim: Optional[str] = Field(default=None, max_length=2000)
-    objectives: Optional[list[str]] = None
+    objectives: Optional[list[Any]] = None
 
 
 @router.get("")
@@ -30,7 +31,7 @@ async def list_workspaces(user: AuthUser = Depends(get_current_user)):
 @router.post("")
 async def create_workspace(body: WorkspaceCreate, user: AuthUser = Depends(get_current_user)):
     await enforce_workspace_quota(user.id)
-    objectives = [o.strip() for o in body.objectives if o.strip()]
+    objectives = normalize_objectives(body.objectives)
     ws = await catalog.create_workspace(user.id, body.title.strip(), body.aim.strip(), objectives)
     return ws
 
@@ -55,7 +56,7 @@ async def update_workspace(
     if body.aim is not None:
         fields["aim"] = body.aim.strip()
     if body.objectives is not None:
-        fields["objectives"] = [o.strip() for o in body.objectives if o.strip()]
+        fields["objectives"] = normalize_objectives(body.objectives)
     ws = await catalog.update_workspace(user.id, workspace_id, fields)
     if not ws:
         raise HTTPException(404, "Workspace not found")
@@ -77,6 +78,7 @@ class StudyDesignPatch(BaseModel):
     methodsPlan: Optional[dict[str, Any]] = None
     analysisPlan: Optional[dict[str, Any]] = None
     proposal: Optional[dict[str, Any]] = None
+    objectiveLinks: Optional[dict[str, Any]] = None
 
 
 @router.get("/{workspace_id}/study-design")

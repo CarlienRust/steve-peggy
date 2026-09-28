@@ -20,6 +20,7 @@ build/
 !**/.env.render.example
 
 # Data & logs
+.local-run/
 *.sqlite
 *.db
 services/peggy-api/data/

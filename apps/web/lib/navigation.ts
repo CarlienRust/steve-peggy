@@ -26,19 +26,38 @@ export type NavItem = NavLinkItem | NavGroupItem;
 
 export const MAIN_NAV: NavItem[] = [
   { kind: "link", num: "01", label: "Dashboard", href: "/dashboard" },
-  { kind: "link", num: "02", label: "Corpus", href: "/ingest" },
+  {
+    kind: "group",
+    num: "02",
+    label: "Validate",
+    href: "/validate",
+    children: [
+      {
+        label: "Gap analysis",
+        href: "/validate/gap-analysis",
+        description: "Structured view of literature gaps, contradictions, and methodological weaknesses.",
+        ready: true,
+      },
+      {
+        label: "Literature search",
+        href: "/validate/literature",
+        description: "PubMed and PDF literature for your project.",
+        ready: true,
+      },
+      {
+        label: "Validate aim and objectives",
+        href: "/validate/aim",
+        description: "Check project aim and objectives against ingested literature.",
+        ready: true,
+      },
+    ],
+  },
   {
     kind: "group",
     num: "03",
     label: "Study Design",
     href: "/study-design",
     children: [
-      {
-        label: "Gap analysis",
-        href: "/study-design/gap-analysis",
-        description: "Structured view of literature gaps, contradictions, and methodological weaknesses.",
-        ready: true,
-      },
       {
         label: "Samples & datasets",
         href: "/study-design/samples",
@@ -151,8 +170,8 @@ export type WorkflowShortcut = {
 /** Dashboard and hub shortcuts — ready routes only, fixed order. */
 export function getWorkflowShortcuts(): WorkflowShortcut[] {
   const fixed: { label: string; href: string }[] = [
-    { label: "Corpus", href: "/ingest" },
-    { label: "Gap analysis", href: "/study-design/gap-analysis" },
+    { label: "Literature search", href: "/validate/literature" },
+    { label: "Gap analysis", href: "/validate/gap-analysis" },
     { label: "Samples", href: "/study-design/samples" },
     { label: "Methods plan", href: "/study-design/methods-plan" },
     { label: "Proposal", href: "/study-design/proposal" },

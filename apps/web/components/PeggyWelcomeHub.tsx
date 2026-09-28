@@ -1,9 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
+import { PeggySetupDialog } from "@/components/PeggySetupDialog";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
 type PeggyWelcomeHubProps = {
@@ -14,6 +17,7 @@ type PeggyWelcomeHubProps = {
 
 export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabel }: PeggyWelcomeHubProps) {
   const profileHref = hasProfile ? "/onboarding?update=1" : "/onboarding";
+  const [setupOpen, setSetupOpen] = useState(false);
 
   return (
     <Box sx={{ mb: 0 }}>
@@ -28,7 +32,15 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
         Peggy is your evidence-grounded research assistant. Ingest literature and your own findings, then ask
         questions, compare results, and run gap analysis — every answer cites sources from your corpus.
       </Typography>
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap>
+        <Button
+          variant="outlined"
+          startIcon={<SettingsOutlinedIcon />}
+          onClick={() => setSetupOpen(true)}
+          sx={{ textTransform: "none" }}
+        >
+          Setup
+        </Button>
         <Button variant="contained" startIcon={<AddIcon />} onClick={onCreateProject} sx={{ textTransform: "none" }}>
           {createProjectLabel}
         </Button>
@@ -42,6 +54,7 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
           {hasProfile ? "Update profile" : "Complete profile"}
         </Button>
       </Stack>
+      <PeggySetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} />
     </Box>
   );
 }

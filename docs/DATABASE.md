@@ -27,9 +27,11 @@ Facade: `core/store/catalog.py` delegates to SQLite or Postgres based on **`DATA
 
 Set on `services/peggy-api/.env` (local) and Render Environment. Details: [ENV.md](ENV.md).
 
+Use the **transaction pooler** URI (port **6543**), not the direct session connection. The API sets `statement_cache_size=0` on asyncpg so prepared statements work through PgBouncer.
+
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `008_findings_summary.sql`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `009_objective_links.sql`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -39,6 +41,8 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 `007_study_design.sql` creates **one row per project** in `study_design` (`workspace_id` primary key) with JSON columns for samples, ethics, budget, methods plan, analysis plan, and proposal. Save updates the column for that section. Existing `workspaces.study_design` JSON is copied in once.
 
 `008_findings_summary.sql` creates **one row per account** in `findings_summaries`. Uploading findings rebuilds `summary`, `points`, and `source_count`.
+
+`009_objective_links.sql` adds `objective_links JSONB` on `study_design` (default `{"findingLinks":[]}`). Workspace `objectives` JSON changes from `string[]` to `{ id, text, status }[]` at read time (no SQL migration on `workspaces`; backward-compatible normalize on catalog read/write).
 
 ## Qdrant user scoping
 

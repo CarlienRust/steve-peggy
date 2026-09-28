@@ -1,11 +1,12 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/userProfile";
+import { ACTIVE_WORKSPACE_COOKIE } from "@/lib/workspaceStorage";
 import { isAuthOptional } from "@/lib/localMode";
 
 const WORKSPACE_ROUTES = [
   "/dashboard",
   "/ingest",
+  "/validate",
   "/chat",
   "/study-design",
   "/analysis-tool",

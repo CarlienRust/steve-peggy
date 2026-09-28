@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
@@ -14,7 +14,10 @@ import {
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
+import { PlanStepsEditor } from "@/features/study-design/PlanStepsEditor";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
+import { normalizeObjectives } from "@/lib/objectives";
+import type { PlanStep } from "@/lib/studyDesign";
 import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
@@ -47,8 +50,19 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [outcomes, setOutcomes] = useState(plan.outcomeTypes ?? "");
   const [covariates, setCovariates] = useState(plan.covariates ?? "");
   const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
+  const [steps, setSteps] = useState<PlanStep[]>(plan.steps ?? []);
+  const objectives = normalizeObjectives(activeWorkspace?.objectives);
 
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
+
+  useEffect(() => {
+    setSteps(plan.steps ?? []);
+  }, [activeWorkspace?.id, planKey, plan.steps]);
+
+  const updateSteps = (next: PlanStep[]) => {
+    setSteps(next);
+    saveSection(planKey, { steps: next });
+  };
 
   const run = useMutation({
     mutationFn: () => {
@@ -190,6 +204,14 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         {plan.lastResult && !run.data && (
           <Alert severity="info">Previous result loaded from saved draft. Run again to refresh.</Alert>
         )}
+
+        <PlanStepsEditor
+          steps={steps}
+          aim={activeWorkspace.aim}
+          objectives={objectives}
+          onChange={updateSteps}
+        />
+
         <StudyDesignSaveBar
           dirty={isSectionDirty(planKey)}
           saving={savingSection === planKey}
@@ -199,6 +221,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
               userPlan,
               budget,
               preferredTools: tools,
+              steps,
               ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
             })
           }
