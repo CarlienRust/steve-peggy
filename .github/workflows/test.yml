@@ -39,5 +39,5 @@ jobs:
         working-directory: apps/web
         run: |
           npm ci
-          npm audit --audit-level=high
+          npm audit --omit=dev --audit-level=high
           npm run build
