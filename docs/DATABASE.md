@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `009_objective_links.sql`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `011_findings_summary_workspace.sql`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -44,9 +44,21 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 
 `009_objective_links.sql` adds `objective_links JSONB` on `study_design` (default `{"findingLinks":[]}`). Workspace `objectives` JSON changes from `string[]` to `{ id, text, status }[]` at read time (no SQL migration on `workspaces`; backward-compatible normalize on catalog read/write).
 
+`010_papers_workspace.sql` adds `workspace_id` FK on `papers`. Ingest and `/corpus` list filter by `workspace_id` when the active project is set.
+
+`011_findings_summary_workspace.sql` adds `findings_summaries_by_workspace` (one summary row per project). API uses this table; legacy `findings_summaries` (per user) is unused by the app.
+
+**Backfill:** papers ingested before `010` have `workspace_id` NULL and will not appear in project-scoped lists until re-ingested or updated:
+
+```sql
+UPDATE papers p SET workspace_id = (
+  SELECT w.id FROM workspaces w WHERE w.user_id = p.user_id ORDER BY w.created_at LIMIT 1
+) WHERE p.workspace_id IS NULL;
+```
+
 ## Qdrant user scoping
 
-All upserts add `user_id` to chunk payloads. Search, scroll, and document text retrieval filter by `user_id`. Existing local vectors without `user_id` are invisible after auth — re-ingest if needed.
+All upserts add `user_id` to chunk payloads. New ingests also store `paper_id` and optional `workspace_id`. Search accepts optional `workspace_id` (filters when present on payload). Delete paper purges matching Qdrant points. Existing vectors without `workspace_id` still match user-only queries — re-ingest per project for full isolation.
 
 ## Local vs production
 

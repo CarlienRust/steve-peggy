@@ -34,6 +34,7 @@ class PubMedIngestRequest(BaseModel):
     dois: list[str] = Field(default_factory=list)
     search_query: Optional[str] = None
     source_type: str = "literature"
+    workspace_id: Optional[str] = None
 
 
 class FindingsIngestRequest(BaseModel):
@@ -41,6 +42,7 @@ class FindingsIngestRequest(BaseModel):
     cohort: Optional[str] = None
     findings: list[dict] = Field(default_factory=list)
     narrative: Optional[str] = None
+    workspace_id: Optional[str] = None
 
 
 @router.post("/pubmed")
@@ -56,6 +58,10 @@ async def ingest_pubmed(
         enforce_text_length(body.search_query, label="Search query")
     await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
     await enforce_paper_quota(user.id)
+    if body.workspace_id:
+        ws = await catalog.get_workspace(user.id, body.workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
     payload = {**body.model_dump(), "user_id": user.id}
     job_id = await catalog.create_job(user.id, payload)
     background_tasks.add_task(run_ingest_job, job_id, payload)
@@ -75,6 +81,7 @@ async def upload_document(
     file: UploadFile = File(...),
     source_type: str = Form("literature"),
     title: str = Form("Uploaded document"),
+    workspace_id: Optional[str] = Form(None),
     user: AuthUser = Depends(get_current_user),
 ):
     if source_type not in ALLOWED_UPLOAD_SOURCE_TYPES:
@@ -84,6 +91,10 @@ async def upload_document(
     raw = await file.read()
     enforce_upload_size(len(raw))
     doc_title = title if title != "Uploaded document" else (file.filename or title)
+    if workspace_id:
+        ws = await catalog.get_workspace(user.id, workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
     try:
         result = await ingest_upload_bytes(
             raw,
@@ -92,6 +103,7 @@ async def upload_document(
             doc_title,
             source_type=source_type,
             user_id=user.id,
+            workspace_id=workspace_id,
         )
     except DuplicateDocumentError as e:
         return {
@@ -119,8 +131,14 @@ async def ingest_findings(body: FindingsIngestRequest, user: AuthUser = Depends(
         enforce_text_length(body.narrative, label="Narrative")
     await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
     await enforce_paper_quota(user.id)
+    if body.workspace_id:
+        ws = await catalog.get_workspace(user.id, body.workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
     try:
-        result = await ingest_findings_json(body.model_dump(), user_id=user.id)
+        result = await ingest_findings_json(
+            body.model_dump(), user_id=user.id, workspace_id=body.workspace_id
+        )
     except DuplicateDocumentError as e:
         return {
             "status": "duplicate",

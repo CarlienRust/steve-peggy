@@ -1,0 +1,41 @@
+---
+description: Workspace aim/objectives lifecycle and link reconciliation
+globs: apps/web/**/*,services/peggy-api/**/*
+alwaysApply: true
+---
+
+# Workspace objectives and linked work
+
+When workspace **aim** or **objectives** change, always run `reconcile_objective_links` on `study_design` **before persisting**. Never leave orphan `objectiveIds` in plan steps or `findingLinks`.
+
+## Where links live
+
+- `methodsPlan.steps[].objectiveIds`, `analysisPlan.steps[].objectiveIds`
+- `objectiveLinks.findingLinks[].objectiveIds`
+- Optional future: `projectTasks[].linkId`, per-objective `tasks[]`
+
+Valid link targets: `"aim"` ([AIM_LINK_ID](apps/web/lib/objectives.ts)) and current objective UUIDs from `workspaces.objectives`.
+
+## Reconciliation (required)
+
+Shared helpers (keep Python and TS in sync):
+
+- Server: [objectives.py](services/peggy-api/core/objectives.py) or [study_design_merge.py](services/peggy-api/core/study_design_merge.py) — `reconcile_objective_links(study_design, valid_ids, reassign_map?)`
+- Client preview: [studyDesign.ts](apps/web/lib/studyDesign.ts) — same behaviour before Save
+
+On workspace PATCH when objective IDs are removed:
+
+1. Compare before/after objective IDs.
+2. If user chose reassign in the confirm dialog, apply `reassign_map` first.
+3. Strip any remaining unknown IDs from all link arrays above.
+4. Persist reconciled `study_design` in the same request (server-side authority).
+
+Do **not** rely on client-only pruning. [pruneFindingLinks](apps/web/lib/studyDesign.ts) handles deleted **papers** only; objective deletion needs `reconcile_objective_links`.
+
+## UX when removing an objective with links
+
+Confirm dialog: show affected plan steps, findings, and tasks. User picks **reassign** or **unlink**. Empty objectives delete without prompt.
+
+## Docs
+
+When adding or changing objective lifecycle, tasks, or link shapes, update [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/DATABASE.md](docs/DATABASE.md) per [docs.mdc](.cursor/rules/docs.mdc).

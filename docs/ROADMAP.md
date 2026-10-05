@@ -20,6 +20,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 | Item | Notes |
 |------|-------|
+| Phase 1 (Jan launch prep) | Section hubs, explicit Save on planners/proposal, findings merge, workspace isolation, quick scan labels, objective delete confirm + orphan warning, per-objective/project tasks on dashboard |
 | Validate section | `/validate/*` — gap analysis, literature, validate aim (replaces old ingest/gaps routes) |
 | Objective-linked roadmap | Stable objective IDs, plan steps, finding tags, dashboard per-objective progress |
 | Dashboard progress | Project setup stages + objective done toggle |
@@ -38,9 +39,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 |------|--------|-------|
 | PubMed ingest | Done | Corpus modal |
 | PDF ingest (literature) | Done | Corpus modal + CLI script |
-| Our findings ingest | Done | `/results/report` — narrative, PDF, or HTML; summary on `/results/findings` |
+| Findings (merged page) | Done | `/results/findings` — summary, upload, and objective tags |
 | Corpus management | Done | `/validate/literature` literature table |
-| Findings management | Done | `/results/report` table; summary on `/results/findings` |
+| Findings management | Done | Single `/results/findings` page (legacy `/results/report` redirects) |
 | Ingest dedup | Done | `duplicate` status, job `skipped` |
 | Ask Peggy (chat) | Done | Mode chips + intent routing |
 | Gap analysis | Done | Optional include our findings; per-workspace history |
@@ -49,7 +50,10 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Supabase keep-alive | Done | Weekly GitHub Actions cron |
 | Compare | Done | Literature + own findings retrieval |
 | Researcher profile | Stub | `localStorage` |
-| Corpus delete → Qdrant | Partial | SQLite only |
+| Corpus delete → Qdrant | Done | Deletes catalog row + matching Qdrant points by `paper_id` or title |
+| Papers `workspace_id` | Done | Migration `010`; ingest + corpus list scoped to active project |
+| Findings summary per workspace | Done | Migration `011`; API + UI scoped per workspace |
+| Gap quick scan (abstracts only) | Done | Toggle on gap analysis; `evidence_basis` + `paper_count` on gaps |
 | Study design (samples, ethics, methods, analysis) | Done | Workspace JSON + PHI guards; FMHS ethics |
 | Future study design | API only | Superseded by study-design planners for UI |
 | Manuscript framing | API only | No UI |
@@ -64,8 +68,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | MUI shell + dashboard health chips | Done |
 | Nav: Dashboard, Validate, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
 | Welcome Setup CTA | Done | Hosted vs localhost clone/run instructions |
-| Dashboard project progress | Done | Per-objective roadmap + project setup stages |
-| Objective-linked roadmap | Done | Stable objective IDs, plan steps + finding tags, manual done on dashboard |
+| Dashboard project progress | Done | Per-objective roadmap + project setup stages + task checklists |
+| Section hubs | Done | `/validate`, `/study-design`, `/results` overview pages (no blind redirect) |
+| Objective-linked roadmap | Done | Stable objective IDs, plan steps + finding tags, manual done, delete confirm, orphan warning |
 | Validate aim and objectives | Done | `/validate/aim` — checklist + literature check |
 | Study design proposal | Done | `/study-design/proposal` — 1–2 page draft |
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |

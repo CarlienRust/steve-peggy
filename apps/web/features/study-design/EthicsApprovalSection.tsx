@@ -22,6 +22,7 @@ import {
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
 import type { StudyDesignEthics } from "@/lib/studyDesign";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
@@ -37,9 +38,11 @@ export function EthicsApprovalSection({ ethics, onSave }: EthicsApprovalSectionP
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
 
+  const { activeWorkspace } = useWorkspace();
   const letters = useQuery({
-    queryKey: queryKeys.corpus("ethics_documents"),
-    queryFn: () => peggyApi.listCorpus("ethics_documents"),
+    queryKey: queryKeys.corpus("ethics_documents", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("ethics_documents", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
   });
 
   const uploadMut = useMutation({
@@ -50,6 +53,7 @@ export function EthicsApprovalSection({ ethics, onSave }: EthicsApprovalSectionP
           const res = await peggyApi.uploadDocument(file, {
             sourceType: "ethics_documents",
             title: file.name.replace(/\.pdf$/i, ""),
+            workspaceId: activeWorkspace?.id,
           });
           if (res.status === "duplicate") {
             results.push({ name: file.name, ok: false, error: res.message ?? "Already uploaded" });
@@ -65,7 +69,7 @@ export function EthicsApprovalSection({ ethics, onSave }: EthicsApprovalSectionP
     onSuccess: (results) => {
       setUploadResults(results);
       setPdfFiles([]);
-      queryClient.invalidateQueries({ queryKey: queryKeys.corpus("ethics_documents") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.corpus("ethics_documents", activeWorkspace?.id) });
     },
   });
 

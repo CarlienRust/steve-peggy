@@ -8,6 +8,7 @@ export type ProgressStage = {
   done: boolean;
   href?: string;
   action?: "edit-project";
+  reason?: string;
 };
 
 export type ProjectProgressSnapshot = {
@@ -62,42 +63,49 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
       label: "Aim and objectives",
       done: !!aim && objectives.length > 0,
       action: "edit-project",
+      reason: "Define what this project is trying to answer.",
     },
     {
       id: "literature",
       label: "Literature search",
       done: literatureCount > 0,
       href: "/validate/literature",
+      reason: "Add papers so gap analysis and comparison have sources.",
     },
     {
       id: "gap",
       label: "Gap analysis",
       done: hasGapAnalysis,
       href: "/validate/gap-analysis",
+      reason: "Check whether your idea looks open before deep reading.",
     },
     {
       id: "aim-check",
       label: "Aim checked",
       done: hasValidateAim,
       href: "/validate/aim",
+      reason: "Validate the aim against what is already published.",
     },
     {
       id: "samples",
       label: "Samples",
       done: !!(samples.studyType || samples.expectedN || samples.summary),
       href: "/study-design/samples",
+      reason: "Describe who and what you will study.",
     },
     {
       id: "ethics",
       label: "Ethics",
       done: !!(ethics.approvalObtained || ethics.notes?.trim() || (ethics.linkedDocuments?.length ?? 0) > 0),
       href: "/study-design/ethics",
+      reason: "Record ethics approval or notes before collecting data.",
     },
     {
       id: "methods",
       label: "Methods plan",
       done: !!(methodsPlan.userPlan?.trim() || methodsPlan.lastResult || (methodsPlan.steps?.length ?? 0) > 0),
       href: "/study-design/methods-plan",
+      reason: "Draft how you will run the study.",
     },
     {
       id: "analysis",
@@ -110,24 +118,28 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
         (analysisPlan.steps?.length ?? 0) > 0
       ),
       href: "/study-design/analysis-plan",
+      reason: "Plan outcomes, covariates, and analysis approach.",
     },
     {
       id: "budget",
       label: "Budget",
       done: !!(budget.summary?.trim() || (budget.lineItems?.length ?? 0) > 0),
       href: "/study-design/budget",
+      reason: "Capture funding constraints and line items.",
     },
     {
       id: "proposal",
       label: "Proposal",
       done: !!(proposal.lastResult || proposal.generatedAt),
       href: "/study-design/proposal",
+      reason: "Assemble a draft from your design sections.",
     },
     {
       id: "findings",
       label: "Findings",
       done: ownFindingsCount > 0,
       href: "/results/findings",
+      reason: "Upload your results to compare against literature.",
     },
   ];
 

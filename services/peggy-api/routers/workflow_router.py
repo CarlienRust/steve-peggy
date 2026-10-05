@@ -27,6 +27,7 @@ class GapRequest(BaseModel):
     query: str
     workspace_id: Optional[str] = None
     source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
+    abstracts_only: bool = False
 
 
 class CompareRequest(BaseModel):
@@ -96,6 +97,7 @@ async def gap_analysis(body: GapRequest, user: AuthUser = Depends(get_current_us
             body.source_types,
             user_id=user.id,
             workspace_id=body.workspace_id,
+            abstracts_only=body.abstracts_only,
         )
     )
 
@@ -302,14 +304,26 @@ async def validate_aim_run(run_id: str, user: AuthUser = Depends(get_current_use
 
 
 @router.get("/findings-summary")
-async def findings_summary(user: AuthUser = Depends(get_current_user)):
-    row = await catalog.get_findings_summary(user.id)
+async def findings_summary(
+    workspace_id: str = Query(...),
+    user: AuthUser = Depends(get_current_user),
+):
+    ws = await catalog.get_workspace(user.id, workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    row = await catalog.get_findings_summary(user.id, workspace_id)
     if not row:
         return {"summary": "", "points": [], "source_count": 0, "updated_at": None}
     return row
 
 
 @router.post("/findings-summary")
-async def refresh_findings_summary(user: AuthUser = Depends(get_current_user)):
+async def refresh_findings_summary(
+    workspace_id: str = Query(...),
+    user: AuthUser = Depends(get_current_user),
+):
+    ws = await catalog.get_workspace(user.id, workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
-    return await run_findings_summary(user.id)
+    return await run_findings_summary(user.id, workspace_id)

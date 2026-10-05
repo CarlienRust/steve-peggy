@@ -1,3 +1,5 @@
+import { AIM_LINK_ID, normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
+
 export type StudyDesignSamples = {
   studyType?: string;
   expectedN?: string;
@@ -83,6 +85,8 @@ export type StudyDesignPlan = {
   covariates?: string;
   analysisMethod?: string;
   lastResult?: Record<string, unknown>;
+  /** Researcher notes; saved with section Save bar, not auto-saved on LLM run */
+  userNotes?: string;
   steps?: PlanStep[];
 };
 
@@ -99,6 +103,14 @@ export type StudyDesignProposal = {
   focusNotes?: string;
   lastResult?: Record<string, unknown>;
   generatedAt?: string;
+  userNotes?: string;
+};
+
+export type ProjectTask = {
+  id: string;
+  text: string;
+  status: "open" | "done";
+  linkId?: string | null;
 };
 
 export type StudyDesignData = {
@@ -110,6 +122,7 @@ export type StudyDesignData = {
   analysisPlan?: StudyDesignPlan;
   proposal?: StudyDesignProposal;
   objectiveLinks?: StudyDesignObjectiveLinks;
+  projectTasks?: ProjectTask[];
 };
 
 export const EMPTY_STUDY_DESIGN: StudyDesignData = {
@@ -121,7 +134,67 @@ export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   analysisPlan: {},
   proposal: {},
   objectiveLinks: { findingLinks: [] },
+  projectTasks: [],
 };
+
+export type ObjectiveLinkUsage = {
+  methodsSteps: number;
+  analysisSteps: number;
+  findings: number;
+  total: number;
+};
+
+export function countObjectiveLinkUsage(objectiveId: string, studyDesign: StudyDesignData): ObjectiveLinkUsage {
+  let methodsSteps = 0;
+  let analysisSteps = 0;
+  let findings = 0;
+  for (const step of studyDesign.methodsPlan?.steps ?? []) {
+    if ((step.objectiveIds ?? []).includes(objectiveId)) methodsSteps += 1;
+  }
+  for (const step of studyDesign.analysisPlan?.steps ?? []) {
+    if ((step.objectiveIds ?? []).includes(objectiveId)) analysisSteps += 1;
+  }
+  for (const link of studyDesign.objectiveLinks?.findingLinks ?? []) {
+    if ((link.objectiveIds ?? []).includes(objectiveId)) findings += 1;
+  }
+  return { methodsSteps, analysisSteps, findings, total: methodsSteps + analysisSteps + findings };
+}
+
+export function toggleProjectTask(tasks: ProjectTask[] | undefined, taskId: string, done: boolean): ProjectTask[] {
+  return (tasks ?? []).map((task) =>
+    task.id === taskId ? { ...task, status: done ? "done" : "open" } : task
+  );
+}
+
+export function addProjectTask(tasks: ProjectTask[] | undefined, text: string): ProjectTask[] {
+  const trimmed = text.trim();
+  if (!trimmed) return tasks ?? [];
+  return [...(tasks ?? []), { id: crypto.randomUUID(), text: trimmed, status: "open" }];
+}
+
+export function countOrphanObjectiveLinks(
+  studyDesign: StudyDesignData,
+  objectives: WorkspaceObjective[] | unknown,
+  aim?: string
+): number {
+  const valid = validLinkIds(normalizeObjectives(objectives), aim);
+  let orphan = 0;
+  const countInvalid = (ids: string[]) => {
+    for (const id of ids) {
+      if (!valid.has(id)) orphan += 1;
+    }
+  };
+  for (const step of studyDesign.methodsPlan?.steps ?? []) {
+    countInvalid(step.objectiveIds ?? []);
+  }
+  for (const step of studyDesign.analysisPlan?.steps ?? []) {
+    countInvalid(step.objectiveIds ?? []);
+  }
+  for (const link of studyDesign.objectiveLinks?.findingLinks ?? []) {
+    countInvalid(link.objectiveIds ?? []);
+  }
+  return orphan;
+}
 
 export function pruneFindingLinks(links: FindingLink[] | undefined, validPaperIds: number[]): FindingLink[] {
   const ids = new Set(validPaperIds);
@@ -140,6 +213,58 @@ export function upsertFindingLink(
 
 export function findingLinkForPaper(links: FindingLink[] | undefined, paperId: number): string[] {
   return (links ?? []).find((link) => link.paperId === paperId)?.objectiveIds ?? [];
+}
+
+function remapObjectiveIds(
+  ids: string[],
+  validIds: Set<string>,
+  reassignMap: Record<string, string>
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const id of ids) {
+    const mapped = reassignMap[id] ?? id;
+    if (!validIds.has(mapped) || seen.has(mapped)) continue;
+    seen.add(mapped);
+    out.push(mapped);
+  }
+  return out;
+}
+
+export function validLinkIds(
+  objectives: { id: string }[],
+  aim?: string
+): Set<string> {
+  const ids = new Set(objectives.map((o) => o.id));
+  if (aim?.trim()) ids.add(AIM_LINK_ID);
+  return ids;
+}
+
+/** Mirror of services/peggy-api/core/objectives.py reconcile_objective_links */
+export function reconcileObjectiveLinks(
+  studyDesign: StudyDesignData,
+  validIds: Set<string>,
+  reassignMap: Record<string, string> = {}
+): StudyDesignData {
+  const design = structuredClone(studyDesign);
+  for (const planKey of ["methodsPlan", "analysisPlan"] as const) {
+    const plan = design[planKey];
+    if (!plan?.steps) continue;
+    plan.steps = plan.steps.map((step) => ({
+      ...step,
+      objectiveIds: remapObjectiveIds(step.objectiveIds ?? [], validIds, reassignMap),
+    }));
+  }
+  const links = design.objectiveLinks?.findingLinks ?? [];
+  design.objectiveLinks = {
+    findingLinks: links
+      .map((link) => ({
+        ...link,
+        objectiveIds: remapObjectiveIds(link.objectiveIds ?? [], validIds, reassignMap),
+      }))
+      .filter((link) => link.objectiveIds.length > 0),
+  };
+  return design;
 }
 
 export const STUDY_TYPES = [

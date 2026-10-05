@@ -132,7 +132,7 @@ export function DiscoveryPanel() {
       if (pmids.length === 0 && dois.length === 0) {
         throw new Error("Selected papers have no PMID or DOI for ingest");
       }
-      return peggyApi.ingestPubmed({ pmids, dois });
+      return peggyApi.ingestPubmed({ pmids, dois, workspaceId: activeWorkspace?.id });
     },
     onSuccess: (job) => {
       if (job) setIngestMsg(`Ingest job queued: ${job.job_id}`);

@@ -22,7 +22,7 @@ legacy/                   Archived — do not import
 |----|-------|---------------|-------------------|
 | Literature search | `/validate/literature` | `literature` | `peggy_literature` |
 | Our findings (summary) | `/results/findings` | `own_findings` | `peggy_own_findings` |
-| Upload/Report findings | `/results/report` | `own_findings` | `peggy_own_findings` |
+| Findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
 
 Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
 
@@ -128,11 +128,11 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | — | Project hub (pick workspace) |
 | `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap |
-| `/validate` | 02 Validate | Redirects to first sub-section; tab bar on all sub-pages |
+| `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Gaps table |
 | `/validate/literature` | 02 · Literature search | PubMed + PDF literature |
 | `/validate/aim` | 02 · Validate aim | Check aim/objectives against literature |
-| `/study-design` | 03 Study Design | Redirects to first sub-section; tab bar on all sub-pages |
+| `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | FMHS guidance, approval letter upload (`ethics_documents`), AI checklist |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
@@ -140,10 +140,10 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/analysis-plan` | 03 · Analysis plan | Review my plan / help me design |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |
 | `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
-| `/results` | 05 Results | Redirects to first sub-section; tab bar on all sub-pages |
+| `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
-| `/results/report` | 05 · Upload/Report findings | Narrative, PDF, or HTML; each upload rebuilds the summary |
+| `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 05 · Comparison | Finding vs field |
 | `/chat` | 06 Ask Peggy | Q&A + agent modes |
 | `/login` | — | Supabase email magic link |

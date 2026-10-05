@@ -1,23 +1,27 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
   Button,
   CircularProgress,
-  Paper,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
-import { WorkflowResults } from "@/components/WorkflowResults";
-import { SourceCards } from "@/components/SourceCards";
+import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
+
+function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 export function ProposalFeature() {
   const { activeWorkspace } = useWorkspace();
@@ -27,20 +31,25 @@ export function ProposalFeature() {
   const proposal = studyDesign.proposal ?? {};
   const samples = studyDesign.samples ?? {};
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
+  const [userNotes, setUserNotes] = useState(proposal.userNotes ?? "");
 
   const generate = useMutation({
     mutationFn: () => peggyApi.studyProposal(activeWorkspace!.id, proposal.focusNotes ?? ""),
-    onSuccess: (data) => {
-      void commitSection("proposal", {
-        focusNotes: proposal.focusNotes,
-        lastResult: data.body,
-        generatedAt: new Date().toISOString(),
-      });
-    },
   });
 
-  const lastResult = (generate.data?.body ?? proposal.lastResult) as Record<string, unknown> | undefined;
-  const fullText = typeof lastResult?.full_text === "string" ? lastResult.full_text : null;
+  const pendingBody = generate.data?.body as Record<string, unknown> | undefined;
+  const savedBody = proposal.lastResult;
+  const displayBody = pendingBody ?? savedBody;
+  const hasUnsavedResult = !!pendingBody && !resultsEqual(pendingBody, savedBody);
+  const hasSavedResult = !!savedBody;
+
+  const sectionFields = useMemo(
+    () => ({
+      focusNotes: proposal.focusNotes,
+      userNotes,
+    }),
+    [proposal.focusNotes, userNotes]
+  );
 
   if (!activeWorkspace) {
     return <Alert severity="info">Select a project to generate a study proposal.</Alert>;
@@ -70,36 +79,43 @@ export function ProposalFeature() {
         )}
         {generate.isError && <Alert severity="error">{formatApiError(generate.error)}</Alert>}
 
-        {fullText && (
-          <Paper variant="outlined" sx={{ p: 3 }}>
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>
-              Draft proposal
-            </Typography>
-            <Typography variant="body2" component="div" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-              {fullText}
-            </Typography>
-          </Paper>
+        {displayBody && (
+          <WorkflowOutputPanel
+            mode="proposal"
+            title="Proposal"
+            body={displayBody}
+            sources={generate.data?.sources}
+            confidence={generate.data?.confidence}
+            limitations={generate.data?.limitations}
+            hasUnsavedResult={hasUnsavedResult}
+            hasSavedResult={hasSavedResult}
+            saving={savingSection === "proposal"}
+            onSaveResult={() =>
+              void commitSection("proposal", {
+                ...sectionFields,
+                lastResult: pendingBody ?? savedBody,
+                generatedAt: new Date().toISOString(),
+              }).then(() => generate.reset())
+            }
+            onClearSaved={() =>
+              void commitSection("proposal", {
+                ...sectionFields,
+                lastResult: undefined,
+                generatedAt: undefined,
+              }).then(() => generate.reset())
+            }
+            userNotes={userNotes}
+            onUserNotesChange={(notes) => {
+              setUserNotes(notes);
+              saveSection("proposal", { userNotes: notes });
+            }}
+          />
         )}
 
-        {lastResult && (
-          <>
-            <WorkflowResults
-              mode="proposal"
-              body={Object.fromEntries(Object.entries(lastResult).filter(([k]) => k !== "full_text"))}
-            />
-            {generate.data && (
-              <SourceCards
-                sources={generate.data.sources}
-                confidence={generate.data.confidence}
-                limitations={generate.data.limitations}
-              />
-            )}
-          </>
-        )}
         <StudyDesignSaveBar
           dirty={isSectionDirty("proposal")}
           saving={savingSection === "proposal"}
-          onSave={() => commitSection("proposal")}
+          onSave={() => commitSection("proposal", sectionFields)}
         />
       </Stack>
     </>

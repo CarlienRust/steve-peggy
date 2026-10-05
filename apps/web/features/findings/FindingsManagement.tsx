@@ -13,13 +13,18 @@ import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { pruneFindingLinks, upsertFindingLink } from "@/lib/studyDesign";
 
-export function FindingsManagement() {
+type FindingsManagementProps = {
+  hideIntro?: boolean;
+};
+
+export function FindingsManagement({ hideIntro }: FindingsManagementProps) {
   const [open, setOpen] = useState(false);
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, commitSection } = useStudyDesign(activeWorkspace?.id);
   const findings = useQuery({
-    queryKey: queryKeys.corpus("own_findings"),
-    queryFn: () => peggyApi.listCorpus("own_findings"),
+    queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("own_findings", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
   });
   const papers = findings.data?.papers ?? [];
   const findingLinks = studyDesign.objectiveLinks?.findingLinks ?? [];
@@ -41,9 +46,11 @@ export function FindingsManagement() {
 
   return (
     <>
-      <Alert severity="info" sx={{ mb: 3 }}>
-        Our findings stay separate from the literature corpus. New uploads update the summary on Our findings. Tag each set to objectives from the table.
-      </Alert>
+      {!hideIntro && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          Our findings stay separate from the literature corpus. New uploads update the summary above. Tag each set to objectives from the table.
+        </Alert>
+      )}
 
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography sx={{ ...monoSx, fontSize: 12, color: "text.secondary" }}>

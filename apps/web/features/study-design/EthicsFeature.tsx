@@ -36,9 +36,9 @@ export function EthicsFeature() {
   const samples = studyDesign.samples ?? {};
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
   const letters = useQuery({
-    queryKey: queryKeys.corpus("ethics_documents"),
-    queryFn: () => peggyApi.listCorpus("ethics_documents"),
-    enabled: !!activeWorkspace,
+    queryKey: queryKeys.corpus("ethics_documents", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("ethics_documents", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
   });
   const letterPapers = letters.data?.papers ?? [];
   const uploadsChanged = linkedDocumentsChanged(ethics.linkedDocuments, letterPapers);

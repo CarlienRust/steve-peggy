@@ -41,6 +41,7 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
             pmids.extend(await search_pubmed(payload["search_query"], max_results=config.MAX_PMIDS_PER_INGEST))
         pmids = list(dict.fromkeys(pmids))[: config.MAX_PMIDS_PER_INGEST]
         source_type = payload.get("source_type", "literature")
+        workspace_id = payload.get("workspace_id")
         for pmid in pmids:
             try:
                 if await catalog.count_papers(user_id) >= config.MAX_PAPERS_PER_USER:
@@ -58,12 +59,20 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
                     paper.authors,
                     paper.year,
                     source_type,
+                    workspace_id=workspace_id,
                 )
                 if record["status"] == "duplicate":
                     skipped.append({"pmid": pmid, "title": paper.title, "paper_id": record["paper_id"]})
                     continue
                 chunks = paper_to_chunks(paper, source_type=source_type)
-                n = qdrant_store.upsert_chunks(chunks, source_type=source_type, user_id=user_id)
+                for chunk in chunks:
+                    chunk.metadata["paper_id"] = record["paper_id"]
+                n = qdrant_store.upsert_chunks(
+                    chunks,
+                    source_type=source_type,
+                    user_id=user_id,
+                    workspace_id=workspace_id,
+                )
                 ingested.append({"pmid": pmid, "title": paper.title, "chunks": n})
             except Exception as e:
                 errors.append(f"PMID {pmid}: {e}")
@@ -86,6 +95,7 @@ async def ingest_upload_bytes(
     title: str,
     source_type: str = "literature",
     user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> dict:
     """Ingest uploaded file bytes (PDF, HTML, or UTF-8 text/markdown)."""
     doc_id = filename or title
@@ -107,7 +117,11 @@ async def ingest_upload_bytes(
         if not text.strip():
             raise ValueError("Empty document")
         meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
-    return await ingest_text_document(text, meta, source_type=source_type, user_id=user_id)
+    if workspace_id:
+        meta["workspace_id"] = workspace_id
+    return await ingest_text_document(
+        text, meta, source_type=source_type, user_id=user_id, workspace_id=workspace_id
+    )
 
 
 class DuplicateDocumentError(Exception):
@@ -122,8 +136,10 @@ async def ingest_text_document(
     metadata: dict,
     source_type: str = "literature",
     user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> dict:
     title = metadata.get("title", metadata.get("doc_id", "Uploaded document"))
+    ws = workspace_id or metadata.get("workspace_id")
     record = await catalog.record_paper(
         user_id,
         metadata.get("pmid", ""),
@@ -132,15 +148,24 @@ async def ingest_text_document(
         metadata.get("authors", ""),
         metadata.get("year", ""),
         source_type,
+        workspace_id=ws,
     )
     if record["status"] == "duplicate":
         raise DuplicateDocumentError(record["paper_id"], title)
-    chunks = chunk_text(text, {**metadata, "source_type": source_type})
-    n = qdrant_store.upsert_chunks(chunks, source_type=source_type, user_id=user_id)
+    paper_id = record["paper_id"]
+    chunks = chunk_text(text, {**metadata, "source_type": source_type, "paper_id": paper_id})
+    n = qdrant_store.upsert_chunks(
+        chunks,
+        source_type=source_type,
+        user_id=user_id,
+        workspace_id=ws,
+    )
     return {"chunks": n, "paper_id": record["paper_id"], "status": "created"}
 
 
-async def ingest_findings_json(data: dict, user_id: str = "dev-user") -> dict:
+async def ingest_findings_json(
+    data: dict, user_id: str = "dev-user", workspace_id: str | None = None
+) -> dict:
     narrative = data.get("narrative") or json.dumps(data.get("findings", []))
     title = data.get("title", "My findings")
     meta = {
@@ -149,4 +174,6 @@ async def ingest_findings_json(data: dict, user_id: str = "dev-user") -> dict:
         "cohort": data.get("cohort", ""),
         "source_type": "own_findings",
     }
-    return await ingest_text_document(narrative, meta, source_type="own_findings", user_id=user_id)
+    return await ingest_text_document(
+        narrative, meta, source_type="own_findings", user_id=user_id, workspace_id=workspace_id
+    )

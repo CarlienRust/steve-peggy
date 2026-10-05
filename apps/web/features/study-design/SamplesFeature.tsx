@@ -36,9 +36,9 @@ export function SamplesFeature() {
   const samples = studyDesign.samples ?? {};
   const [fieldWarnings, setFieldWarnings] = useState<Record<string, string>>({});
   const datasets = useQuery({
-    queryKey: queryKeys.corpus("sample_datasets"),
-    queryFn: () => peggyApi.listCorpus("sample_datasets"),
-    enabled: !!activeWorkspace,
+    queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
   });
   const datasetPapers = datasets.data?.papers ?? [];
   const uploadsChanged = linkedDocumentsChanged(samples.linkedDocuments, datasetPapers);

@@ -318,12 +318,26 @@ export const peggyApi = {
     dois?: string[];
     search_query?: string;
     source_type?: string;
-  }) => apiFetch<{ job_id: string; status: string }>("/ingest/pubmed", { method: "POST", body: JSON.stringify(body) }),
+    workspaceId?: string;
+  }) =>
+    apiFetch<{ job_id: string; status: string }>("/ingest/pubmed", {
+      method: "POST",
+      body: JSON.stringify({
+        pmids: body.pmids,
+        dois: body.dois,
+        search_query: body.search_query,
+        source_type: body.source_type,
+        workspace_id: body.workspaceId ?? null,
+      }),
+    }),
 
   getJob: (jobId: string) => apiFetch<{ job_id: string; status: string; result?: unknown; error?: string }>(`/ingest/jobs/${jobId}`),
 
-  listCorpus: (sourceType?: string) => {
-    const q = sourceType ? `?source_type=${sourceType}` : "";
+  listCorpus: (sourceType?: string, workspaceId?: string) => {
+    const params = new URLSearchParams();
+    if (sourceType) params.set("source_type", sourceType);
+    if (workspaceId) params.set("workspace_id", workspaceId);
+    const q = params.toString() ? `?${params.toString()}` : "";
     return apiFetch<{ papers: PaperRecord[]; count: number }>(`/corpus${q}`);
   },
 
@@ -439,7 +453,7 @@ export const peggyApi = {
 
   gapAnalysis: (
     query: string,
-    options?: { sourceTypes?: string[]; workspaceId?: string }
+    options?: { sourceTypes?: string[]; workspaceId?: string; abstractsOnly?: boolean }
   ) =>
     apiFetch<WorkflowResponse>("/workflows/gap-analysis", {
       method: "POST",
@@ -447,6 +461,7 @@ export const peggyApi = {
         query,
         source_types: options?.sourceTypes,
         workspace_id: options?.workspaceId ?? null,
+        abstracts_only: options?.abstractsOnly ?? false,
       }),
     }),
 
@@ -519,10 +534,22 @@ export const peggyApi = {
       body: JSON.stringify({ gap_summary: gapSummary, constraints }),
     }),
 
-  uploadFindings: (data: { title: string; narrative?: string; findings?: unknown[]; cohort?: string }) =>
+  uploadFindings: (data: {
+    title: string;
+    narrative?: string;
+    findings?: unknown[];
+    cohort?: string;
+    workspaceId?: string;
+  }) =>
     apiFetch<UploadResponse>("/ingest/findings", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({
+        title: data.title,
+        narrative: data.narrative,
+        findings: data.findings,
+        cohort: data.cohort,
+        workspace_id: data.workspaceId ?? null,
+      }),
     }),
 
   uploadDocument: async (
@@ -530,12 +557,14 @@ export const peggyApi = {
     options?: {
       title?: string;
       sourceType?: "literature" | "own_findings" | "sample_datasets" | "ethics_documents";
+      workspaceId?: string;
     }
   ) => {
     const form = new FormData();
     form.append("file", file);
     form.append("title", options?.title ?? file.name.replace(/\.(pdf|html|htm)$/i, ""));
     form.append("source_type", options?.sourceType ?? "literature");
+    if (options?.workspaceId) form.append("workspace_id", options.workspaceId);
     const headers = await authHeaders("");
     delete (headers as Record<string, string>)["Content-Type"];
     const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", headers, body: form });
@@ -648,29 +677,29 @@ export const peggyApi = {
       }),
     }),
 
-  getFindingsSummary: () =>
+  getFindingsSummary: (workspaceId: string) =>
     apiFetch<{
       summary: string;
       points: string[];
       source_count: number;
       updated_at: string | null;
-    }>("/workflows/findings-summary"),
+    }>(`/workflows/findings-summary?workspace_id=${encodeURIComponent(workspaceId)}`),
 
-  refreshFindingsSummary: () =>
+  refreshFindingsSummary: (workspaceId: string) =>
     apiFetch<{
       summary: string;
       points: string[];
       source_count: number;
       updated_at: string | null;
-    }>("/workflows/findings-summary", { method: "POST" }),
+    }>(`/workflows/findings-summary?workspace_id=${encodeURIComponent(workspaceId)}`, { method: "POST" }),
 };
 
 export const queryKeys = {
   health: ["health"] as const,
   limits: ["limits"] as const,
   usage: ["usage"] as const,
-  corpus: (sourceType?: string) => ["corpus", sourceType] as const,
-  findingsSummary: ["findings-summary"] as const,
+  corpus: (sourceType?: string, workspaceId?: string) => ["corpus", sourceType, workspaceId] as const,
+  findingsSummary: (workspaceId?: string) => ["findings-summary", workspaceId] as const,
   job: (id: string) => ["job", id] as const,
   profile: (userId?: string) => (userId ? (["profile", userId] as const) : (["profile"] as const)),
   workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),

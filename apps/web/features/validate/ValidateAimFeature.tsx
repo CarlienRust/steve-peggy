@@ -46,9 +46,9 @@ export function ValidateAimFeature() {
   const queryClient = useQueryClient();
 
   const literature = useQuery({
-    queryKey: queryKeys.corpus("literature"),
-    queryFn: () => peggyApi.listCorpus("literature"),
-    enabled: !!userId,
+    queryKey: queryKeys.corpus("literature", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("literature", activeWorkspace?.id),
+    enabled: !!userId && !!activeWorkspace?.id,
   });
 
   const historyQuery = useQuery({

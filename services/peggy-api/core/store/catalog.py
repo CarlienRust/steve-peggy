@@ -30,8 +30,19 @@ async def find_existing_paper(**kwargs) -> dict | None:
     return await _backend().find_existing_paper(**kwargs)
 
 
-async def record_paper(user_id: str, pmid: str, doi: str, title: str, authors: str, year: str, source_type: str) -> dict:
-    return await _backend().record_paper(user_id, pmid, doi, title, authors, year, source_type)
+async def record_paper(
+    user_id: str,
+    pmid: str,
+    doi: str,
+    title: str,
+    authors: str,
+    year: str,
+    source_type: str,
+    workspace_id: str | None = None,
+) -> dict:
+    return await _backend().record_paper(
+        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+    )
 
 
 async def get_paper(user_id: str, paper_id: int) -> dict | None:
@@ -46,8 +57,12 @@ async def delete_paper(user_id: str, paper_id: int) -> bool:
     return await _backend().delete_paper(user_id, paper_id)
 
 
-async def list_papers(user_id: str, source_type: str | None = None) -> list[dict]:
-    return await _backend().list_papers(user_id, source_type)
+async def list_papers(
+    user_id: str,
+    source_type: str | None = None,
+    workspace_id: str | None = None,
+) -> list[dict]:
+    return await _backend().list_papers(user_id, source_type, workspace_id=workspace_id)
 
 
 async def count_papers(user_id: str) -> int:
@@ -150,9 +165,15 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     return await _backend().patch_study_design(user_id, workspace_id, patch)
 
 
-async def get_findings_summary(user_id: str) -> dict | None:
-    return await _backend().get_findings_summary(user_id)
+async def get_findings_summary(user_id: str, workspace_id: str) -> dict | None:
+    return await _backend().get_findings_summary(user_id, workspace_id)
 
 
-async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
-    return await _backend().save_findings_summary(user_id, summary, points, source_count)
+async def save_findings_summary(
+    user_id: str,
+    workspace_id: str,
+    summary: str,
+    points: list,
+    source_count: int,
+) -> dict:
+    return await _backend().save_findings_summary(user_id, workspace_id, summary, points, source_count)

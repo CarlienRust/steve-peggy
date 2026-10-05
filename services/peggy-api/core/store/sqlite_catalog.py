@@ -146,6 +146,8 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_workspace_study_design(db)
         await _migrate_study_design_table(db)
         await _migrate_findings_summaries(db)
+        await _migrate_papers_workspace(db)
+        await _migrate_findings_summaries_by_workspace(db)
         await db.commit()
 
 
@@ -213,6 +215,29 @@ async def _migrate_findings_summaries(db: aiosqlite.Connection) -> None:
     )
 
 
+async def _migrate_papers_workspace(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN workspace_id TEXT")
+    except Exception:
+        pass
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_papers_workspace_source ON papers (workspace_id, source_type)"
+    )
+
+
+async def _migrate_findings_summaries_by_workspace(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS findings_summaries_by_workspace (
+            workspace_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            summary TEXT NOT NULL DEFAULT '',
+            points TEXT NOT NULL DEFAULT '[]',
+            source_count INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT
+        )"""
+    )
+
+
 def _parse_study_design(d: dict) -> dict:
     from core.study_design_merge import normalize_study_design
 
@@ -244,6 +269,12 @@ def _norm_title(title: str) -> str:
     return " ".join((title or "").lower().split())
 
 
+def _workspace_clause(workspace_id: str | None) -> tuple[str, list]:
+    if workspace_id:
+        return " AND workspace_id = ?", [workspace_id]
+    return "", []
+
+
 async def find_existing_paper(
     *,
     user_id: str,
@@ -251,32 +282,34 @@ async def find_existing_paper(
     doi: str = "",
     title: str = "",
     source_type: str = "literature",
+    workspace_id: str | None = None,
 ) -> dict | None:
     pmid = (pmid or "").strip()
     doi = (doi or "").strip()
     norm = _norm_title(title)
+    ws_sql, ws_args = _workspace_clause(workspace_id)
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
         if pmid:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ? LIMIT 1",
-                (user_id, source_type, pmid),
+                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ?{ws_sql} LIMIT 1",
+                (user_id, source_type, pmid, *ws_args),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if doi:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ? LIMIT 1",
-                (user_id, source_type, doi),
+                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ?{ws_sql} LIMIT 1",
+                (user_id, source_type, doi, *ws_args),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if norm:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ? LIMIT 1",
-                (user_id, source_type, norm),
+                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ?{ws_sql} LIMIT 1",
+                (user_id, source_type, norm, *ws_args),
             )
             row = await cur.fetchone()
             if row:
@@ -292,12 +325,23 @@ async def insert_paper(
     authors: str,
     year: str,
     source_type: str,
+    workspace_id: str | None = None,
 ) -> int:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         cur = await db.execute(
-            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type, ingested_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            (user_id, pmid, doi, title, authors, year, source_type, datetime.now(timezone.utc).isoformat()),
+            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type, ingested_at, workspace_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                user_id,
+                pmid,
+                doi,
+                title,
+                authors,
+                year,
+                source_type,
+                datetime.now(timezone.utc).isoformat(),
+                workspace_id,
+            ),
         )
         await db.commit()
         return cur.lastrowid
@@ -311,13 +355,21 @@ async def record_paper(
     authors: str,
     year: str,
     source_type: str,
+    workspace_id: str | None = None,
 ) -> dict:
     existing = await find_existing_paper(
-        user_id=user_id, pmid=pmid, doi=doi, title=title, source_type=source_type
+        user_id=user_id,
+        pmid=pmid,
+        doi=doi,
+        title=title,
+        source_type=source_type,
+        workspace_id=workspace_id,
     )
     if existing:
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
-    paper_id = await insert_paper(user_id, pmid, doi, title, authors, year, source_type)
+    paper_id = await insert_paper(
+        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+    )
     return {"status": "created", "paper_id": paper_id, "paper": await get_paper(user_id, paper_id)}
 
 
@@ -354,18 +406,23 @@ async def delete_paper(user_id: str, paper_id: int) -> bool:
         return cur.rowcount > 0
 
 
-async def list_papers(user_id: str, source_type: str | None = None) -> list[dict]:
+async def list_papers(
+    user_id: str,
+    source_type: str | None = None,
+    workspace_id: str | None = None,
+) -> list[dict]:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
+        ws_sql, ws_args = _workspace_clause(workspace_id)
         if source_type:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? ORDER BY ingested_at DESC",
-                (user_id, source_type),
+                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ?{ws_sql} ORDER BY ingested_at DESC",
+                (user_id, source_type, *ws_args),
             )
         else:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? ORDER BY ingested_at DESC",
-                (user_id,),
+                f"SELECT * FROM papers WHERE user_id = ?{ws_sql} ORDER BY ingested_at DESC",
+                (user_id, *ws_args),
             )
         rows = await cur.fetchall()
         return [dict(r) for r in rows]
@@ -831,30 +888,39 @@ def _findings_summary_row(row: dict | None) -> dict | None:
     }
 
 
-async def get_findings_summary(user_id: str) -> dict | None:
+async def get_findings_summary(user_id: str, workspace_id: str) -> dict | None:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
-            "SELECT user_id, summary, points, source_count, updated_at FROM findings_summaries WHERE user_id = ?",
-            (user_id,),
+            """SELECT workspace_id, summary, points, source_count, updated_at
+               FROM findings_summaries_by_workspace
+               WHERE user_id = ? AND workspace_id = ?""",
+            (user_id, workspace_id),
         )
         row = await cur.fetchone()
     return _findings_summary_row(dict(row) if row else None)
 
 
-async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
+async def save_findings_summary(
+    user_id: str,
+    workspace_id: str,
+    summary: str,
+    points: list,
+    source_count: int,
+) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     payload = json.dumps(points)
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
-            """INSERT INTO findings_summaries (user_id, summary, points, source_count, updated_at)
-               VALUES (?, ?, ?, ?, ?)
-               ON CONFLICT(user_id) DO UPDATE SET
+            """INSERT INTO findings_summaries_by_workspace
+               (workspace_id, user_id, summary, points, source_count, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(workspace_id) DO UPDATE SET
                    summary = excluded.summary,
                    points = excluded.points,
                    source_count = excluded.source_count,
                    updated_at = excluded.updated_at""",
-            (user_id, summary, payload, source_count, now),
+            (workspace_id, user_id, summary, payload, source_count, now),
         )
         await db.commit()
     return {

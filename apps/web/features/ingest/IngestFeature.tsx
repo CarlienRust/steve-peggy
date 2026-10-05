@@ -115,6 +115,7 @@ export function IngestForm({
         pmids,
         dois,
         search_query: v.search_query || undefined,
+        workspaceId: activeWorkspace?.id,
       });
     },
     onSuccess: (d) => {
@@ -131,11 +132,12 @@ export function IngestForm({
   });
 
   const invalidateCorpus = (finish = true) => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("literature") });
-    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("own_findings") });
-    if (variant === "findings") {
-      void peggyApi.refreshFindingsSummary().finally(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.findingsSummary });
+    const ws = activeWorkspace?.id;
+    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("literature", ws) });
+    queryClient.invalidateQueries({ queryKey: queryKeys.corpus("own_findings", ws) });
+    if (variant === "findings" && ws) {
+      void peggyApi.refreshFindingsSummary(ws).finally(() => {
+        queryClient.invalidateQueries({ queryKey: queryKeys.findingsSummary(ws) });
       });
     }
     if (finish) onIngestSuccess?.();
@@ -174,7 +176,8 @@ export function IngestForm({
   }, [jobQuery.data?.status]);
 
   const findingsMut = useMutation({
-    mutationFn: (v: z.infer<typeof findingsSchema>) => peggyApi.uploadFindings(v),
+    mutationFn: (v: z.infer<typeof findingsSchema>) =>
+      peggyApi.uploadFindings({ ...v, workspaceId: activeWorkspace?.id }),
     onSuccess: (data) => {
       invalidateCorpus(false);
       if (data.status === "duplicate") {
@@ -201,7 +204,10 @@ export function IngestForm({
           continue;
         }
         try {
-          const res = await peggyApi.uploadDocument(file, { sourceType });
+          const res = await peggyApi.uploadDocument(file, {
+            sourceType,
+            workspaceId: activeWorkspace?.id,
+          });
           if (res.status === "duplicate") {
             results.push({ name: file.name, ok: false, error: res.message ?? "Already ingested" });
           } else {

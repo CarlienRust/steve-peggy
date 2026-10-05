@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
@@ -11,8 +11,7 @@ import {
   Tabs,
   TextField,
 } from "@mui/material";
-import { WorkflowResults } from "@/components/WorkflowResults";
-import { SourceCards } from "@/components/SourceCards";
+import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
 import { PlanStepsEditor } from "@/features/study-design/PlanStepsEditor";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
@@ -28,6 +27,12 @@ type PlannerSection = "methods" | "analysis";
 type PlannerFeatureProps = {
   section: PlannerSection;
 };
+
+function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return JSON.stringify(a) === JSON.stringify(b);
+}
 
 export function PlannerFeature({ section }: PlannerFeatureProps) {
   const { activeWorkspace } = useWorkspace();
@@ -50,6 +55,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [outcomes, setOutcomes] = useState(plan.outcomeTypes ?? "");
   const [covariates, setCovariates] = useState(plan.covariates ?? "");
   const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
+  const [userNotes, setUserNotes] = useState(plan.userNotes ?? "");
   const [steps, setSteps] = useState<PlanStep[]>(plan.steps ?? []);
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
 
@@ -57,7 +63,8 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
 
   useEffect(() => {
     setSteps(plan.steps ?? []);
-  }, [activeWorkspace?.id, planKey, plan.steps]);
+    setUserNotes(plan.userNotes ?? "");
+  }, [activeWorkspace?.id, planKey, plan.steps, plan.userNotes]);
 
   const updateSteps = (next: PlanStep[]) => {
     setSteps(next);
@@ -78,17 +85,28 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       };
       return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
     },
-    onSuccess: (data) => {
-      void commitSection(planKey, {
-        mode: tab,
-        userPlan,
-        budget,
-        preferredTools: tools,
-        ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
-        lastResult: data.body,
-      });
-    },
   });
+
+  const pendingBody = run.data?.body as Record<string, unknown> | undefined;
+  const savedBody = plan.lastResult;
+  const displayBody = pendingBody ?? savedBody;
+  const hasUnsavedResult = !!pendingBody && !resultsEqual(pendingBody, savedBody);
+  const hasSavedResult = !!savedBody;
+
+  const workflowMode = section === "methods" ? "methods_plan" : "analysis_plan";
+
+  const sectionFields = useMemo(
+    () => ({
+      mode: tab,
+      userPlan,
+      budget,
+      preferredTools: tools,
+      steps,
+      userNotes,
+      ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
+    }),
+    [tab, userPlan, budget, tools, steps, userNotes, section, outcomes, covariates, analysisMethod]
+  );
 
   if (!activeWorkspace) {
     return <Alert severity="info">Select a project to plan {section}.</Alert>;
@@ -194,15 +212,35 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         )}
         {run.isError && <Alert severity="error">{formatApiError(run.error)}</Alert>}
 
-        {run.data && (
-          <>
-            <WorkflowResults mode={section === "methods" ? "methods_plan" : "analysis_plan"} body={run.data.body} />
-            <SourceCards sources={run.data.sources} confidence={run.data.confidence} limitations={run.data.limitations} />
-          </>
-        )}
-
-        {plan.lastResult && !run.data && (
-          <Alert severity="info">Previous result loaded from saved draft. Run again to refresh.</Alert>
+        {displayBody && (
+          <WorkflowOutputPanel
+            mode={workflowMode}
+            title={section === "methods" ? "Methods plan result" : "Analysis plan result"}
+            body={displayBody}
+            sources={run.data?.sources}
+            confidence={run.data?.confidence}
+            limitations={run.data?.limitations}
+            hasUnsavedResult={hasUnsavedResult}
+            hasSavedResult={hasSavedResult}
+            saving={savingSection === planKey}
+            onSaveResult={() =>
+              void commitSection(planKey, {
+                ...sectionFields,
+                lastResult: pendingBody ?? savedBody,
+              }).then(() => run.reset())
+            }
+            onClearSaved={() =>
+              void commitSection(planKey, {
+                ...sectionFields,
+                lastResult: undefined,
+              }).then(() => run.reset())
+            }
+            userNotes={userNotes}
+            onUserNotesChange={(notes) => {
+              setUserNotes(notes);
+              saveSection(planKey, { userNotes: notes });
+            }}
+          />
         )}
 
         <PlanStepsEditor
@@ -215,16 +253,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         <StudyDesignSaveBar
           dirty={isSectionDirty(planKey)}
           saving={savingSection === planKey}
-          onSave={() =>
-            commitSection(planKey, {
-              mode: tab,
-              userPlan,
-              budget,
-              preferredTools: tools,
-              steps,
-              ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
-            })
-          }
+          onSave={() => commitSection(planKey, sectionFields)}
         />
       </Stack>
     </>

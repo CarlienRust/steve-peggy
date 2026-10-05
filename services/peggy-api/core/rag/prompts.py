@@ -89,7 +89,13 @@ User question: {query}
 Answer using only the context above. Include chunk_id references. List limitations at the end."""
 
 
-def gap_analysis_prompt(query: str, sources: list[dict], project_context: str = "") -> str:
+def gap_analysis_prompt(
+    query: str,
+    sources: list[dict],
+    project_context: str = "",
+    evidence_basis: str = "full_text",
+    paper_count: int = 0,
+) -> str:
     project_block = ""
     if project_context.strip():
         project_block = f"""
@@ -105,12 +111,17 @@ Research focus / question: {query}
 
 Identify gaps relative to this focus. When own_findings sources appear, treat them as what we already know; gaps should highlight what literature still lacks or where our work could extend the field.
 
+Evidence mode for this run: {evidence_basis} ({paper_count} distinct papers in retrieval).
+For each gap set evidence_basis to "{evidence_basis}" and paper_count to the number of retrieved papers that support that gap (integer, at least 1 when citing evidence).
+
 Return JSON only with this schema:
 {{
   "gaps": [
     {{
       "topic": "string",
       "status": "understudied|contradictory|methodologically_weak|well_characterized",
+      "evidence_basis": "abstracts|full_text",
+      "paper_count": 0,
       "evidence_for": "string with chunk_id refs",
       "evidence_against": "string with chunk_id refs",
       "suggested_study": "string"

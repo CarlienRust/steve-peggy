@@ -110,21 +110,9 @@ export const MAIN_NAV: NavItem[] = [
     href: "/results",
     children: [
       {
-        label: "Methods",
-        href: "/results/methods",
-        description: "Retrospective methods write-up for manuscripts or reports.",
-        ready: false,
-      },
-      {
-        label: "Our findings",
+        label: "Findings",
         href: "/results/findings",
-        description: "Summary of what has been found so far.",
-        ready: true,
-      },
-      {
-        label: "Upload/Report findings",
-        href: "/results/report",
-        description: "Add a narrative, or upload a PDF or HTML report.",
+        description: "Upload results, summary, and objective tags in one place.",
         ready: true,
       },
       {
@@ -175,7 +163,7 @@ export function getWorkflowShortcuts(): WorkflowShortcut[] {
     { label: "Samples", href: "/study-design/samples" },
     { label: "Methods plan", href: "/study-design/methods-plan" },
     { label: "Proposal", href: "/study-design/proposal" },
-    { label: "Our findings", href: "/results/findings" },
+    { label: "Findings", href: "/results/findings" },
     { label: "Comparison", href: "/results/comparison" },
     { label: "Ask Peggy", href: "/chat" },
   ];

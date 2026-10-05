@@ -1,4 +1,4 @@
-import { FindingsSummary } from "@/features/findings/FindingsSummary";
+import { FindingsPage } from "@/features/findings/FindingsPage";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
 import { ProjectAimSection } from "@/components/ProjectAimSection";
@@ -8,13 +8,13 @@ export default function ResultsFindingsPage() {
     <>
       <PageHeader
         compact
-        title="Our findings"
-        description="What has been found so far, from your uploaded reports."
+        title="Findings"
+        description="Upload your results, read the summary, and tag findings to objectives."
         descriptionTooltip="Compared against literature in gap analysis and comparison."
       />
       <ProjectAimSection />
       <PageSection>
-        <FindingsSummary />
+        <FindingsPage />
       </PageSection>
     </>
   );

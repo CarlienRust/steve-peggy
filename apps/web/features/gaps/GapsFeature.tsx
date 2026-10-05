@@ -33,6 +33,7 @@ export function GapsFeature() {
   });
   const [query, setQuery] = useResearchQuestionPrefill(activeWorkspace, profileQuery.data);
   const [includeFindings, setIncludeFindings] = useState(true);
+  const [abstractsOnly, setAbstractsOnly] = useState(false);
   const [replayRunId, setReplayRunId] = useState<string | null>(null);
 
   const historyQuery = useQuery({
@@ -52,6 +53,7 @@ export function GapsFeature() {
       peggyApi.gapAnalysis(q, {
         sourceTypes: includeFindings ? ["literature", "own_findings"] : ["literature"],
         workspaceId: activeWorkspace?.id,
+        abstractsOnly,
       }),
     onSuccess: () => {
       setReplayRunId(null);
@@ -77,8 +79,13 @@ export function GapsFeature() {
         rows={2}
       />
       <FormControlLabel
+        control={<Switch checked={abstractsOnly} onChange={(e) => setAbstractsOnly(e.target.checked)} />}
+        label="Quick scan (abstracts only — no ingested PDFs required)"
+      />
+      <FormControlLabel
         control={<Switch checked={includeFindings} onChange={(e) => setIncludeFindings(e.target.checked)} />}
         label="Include our findings (compare what we know vs what literature still lacks)"
+        disabled={abstractsOnly}
       />
       <Button variant="contained" disabled={gap.isPending || !query.trim()} onClick={() => gap.mutate(query)}>
         {gap.isPending ? <CircularProgress size={24} /> : "Run gap analysis"}

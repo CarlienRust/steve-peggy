@@ -18,8 +18,16 @@ class PaperUpdate(BaseModel):
 
 
 @router.get("")
-async def list_corpus(source_type: Optional[str] = Query(None), user: AuthUser = Depends(get_current_user)):
-    papers = await catalog.list_papers(user.id, source_type=source_type)
+async def list_corpus(
+    source_type: Optional[str] = Query(None),
+    workspace_id: Optional[str] = Query(None),
+    user: AuthUser = Depends(get_current_user),
+):
+    if workspace_id:
+        ws = await catalog.get_workspace(user.id, workspace_id)
+        if not ws:
+            raise HTTPException(404, "Workspace not found")
+    papers = await catalog.list_papers(user.id, source_type=source_type, workspace_id=workspace_id)
     return {"papers": papers, "count": len(papers)}
 
 
@@ -54,8 +62,18 @@ async def update_corpus_item(paper_id: int, body: PaperUpdate, user: AuthUser = 
 
 @router.delete("/{paper_id}")
 async def delete_corpus_item(paper_id: int, user: AuthUser = Depends(get_current_user)):
-    """Remove catalog entry. Qdrant chunks are not purged yet (stub)."""
+    """Remove catalog entry and purge matching Qdrant vectors."""
+    paper = await catalog.get_paper(user.id, paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    source_type = paper.get("source_type") or "literature"
+    purged = qdrant_store.delete_vectors_for_paper(
+        user_id=user.id,
+        source_type=source_type,
+        title=paper.get("title") or "",
+        paper_id=paper_id,
+    )
     ok = await catalog.delete_paper(user.id, paper_id)
     if not ok:
         raise HTTPException(404, "Paper not found")
-    return {"status": "deleted", "paper_id": paper_id, "vectors_purged": False}
+    return {"status": "deleted", "paper_id": paper_id, "vectors_purged": purged > 0, "vectors_removed": purged}

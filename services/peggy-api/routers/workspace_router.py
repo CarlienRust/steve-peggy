@@ -4,7 +4,7 @@ from typing import Any, Optional
 
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_workspace_quota
-from core.objectives import normalize_objectives
+from core.objectives import normalize_objectives, reconcile_objective_links, valid_link_ids
 from core.store import catalog
 
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
@@ -57,9 +57,24 @@ async def update_workspace(
         fields["aim"] = body.aim.strip()
     if body.objectives is not None:
         fields["objectives"] = normalize_objectives(body.objectives)
+    old_ws = await catalog.get_workspace(user.id, workspace_id)
     ws = await catalog.update_workspace(user.id, workspace_id, fields)
     if not ws:
         raise HTTPException(404, "Workspace not found")
+    if body.objectives is not None and old_ws:
+        old_ids = {o["id"] for o in normalize_objectives(old_ws.get("objectives"))}
+        new_ids = {o["id"] for o in normalize_objectives(ws.get("objectives"))}
+        if old_ids - new_ids:
+            study = await catalog.get_study_design(user.id, workspace_id)
+            if study:
+                link_ids = valid_link_ids(normalize_objectives(ws.get("objectives")), ws.get("aim") or "")
+                reconciled = reconcile_objective_links(study, link_ids)
+                patch: dict = {}
+                for key in ("methodsPlan", "analysisPlan", "objectiveLinks"):
+                    if reconciled.get(key) != study.get(key):
+                        patch[key] = reconciled[key]
+                if patch:
+                    await catalog.patch_study_design(user.id, workspace_id, patch)
     return ws
 
 
@@ -79,6 +94,7 @@ class StudyDesignPatch(BaseModel):
     analysisPlan: Optional[dict[str, Any]] = None
     proposal: Optional[dict[str, Any]] = None
     objectiveLinks: Optional[dict[str, Any]] = None
+    projectTasks: Optional[list[dict[str, Any]]] = None
 
 
 @router.get("/{workspace_id}/study-design")

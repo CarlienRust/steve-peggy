@@ -9,7 +9,15 @@ from typing import Any
 
 import numpy as np
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import Distance, FieldCondition, Filter, MatchValue, PointStruct, VectorParams
+from qdrant_client.http.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PointIdsList,
+    PointStruct,
+    VectorParams,
+)
 
 import config
 
@@ -99,11 +107,19 @@ def collection_for_source(source_type: str) -> str:
     return config.COLLECTION_OWN_FINDINGS if source_type == "own_findings" else config.COLLECTION_LITERATURE
 
 
-def _user_filter(user_id: str) -> Filter:
-    return Filter(must=[FieldCondition(key="user_id", match=MatchValue(value=user_id))])
+def _user_filter(user_id: str, workspace_id: str | None = None) -> Filter:
+    must = [FieldCondition(key="user_id", match=MatchValue(value=user_id))]
+    if workspace_id:
+        must.append(FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)))
+    return Filter(must=must)
 
 
-def upsert_chunks(chunks: list, source_type: str = "literature", user_id: str = "dev-user") -> int:
+def upsert_chunks(
+    chunks: list,
+    source_type: str = "literature",
+    user_id: str = "dev-user",
+    workspace_id: str | None = None,
+) -> int:
     if not chunks:
         return 0
     client = get_client()
@@ -117,6 +133,7 @@ def upsert_chunks(chunks: list, source_type: str = "literature", user_id: str = 
                 "user_id": user_id,
                 "text": c.text,
                 "chunk_id": c.chunk_id,
+                **({"workspace_id": workspace_id} if workspace_id else {}),
                 **c.metadata,
             },
         )
@@ -132,6 +149,7 @@ def search(
     limit: int = 8,
     score_threshold: float | None = None,
     user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> list[dict[str, Any]]:
     _init_embedder()
     threshold = score_threshold if score_threshold is not None else (
@@ -151,10 +169,12 @@ def search(
             limit=limit,
             score_threshold=threshold,
             with_payload=True,
-            query_filter=_user_filter(user_id),
+            query_filter=_user_filter(user_id, workspace_id),
         )
         for hit in response.points:
             p = hit.payload or {}
+            if workspace_id and p.get("workspace_id") not in (workspace_id, None):
+                continue
             hits.append({
                 "chunk_id": p.get("chunk_id", str(hit.id)),
                 "title": p.get("title", "Unknown"),
@@ -167,6 +187,48 @@ def search(
             })
     hits.sort(key=lambda x: x["relevance_score"], reverse=True)
     return hits[:limit]
+
+
+def delete_vectors_for_paper(
+    *,
+    user_id: str,
+    source_type: str,
+    title: str,
+    paper_id: int | None = None,
+) -> int:
+    """Remove Qdrant points for one catalog paper. Matches paper_id when present, else title."""
+    client = get_client()
+    collection = collection_for_source(source_type)
+    if not client.collection_exists(collection):
+        return 0
+    norm_title = " ".join((title or "").lower().split())
+    point_ids: list = []
+    offset = None
+    while True:
+        records, offset = client.scroll(
+            collection_name=collection,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+            scroll_filter=_user_filter(user_id),
+        )
+        if not records:
+            break
+        for point in records:
+            p = point.payload or {}
+            if paper_id is not None and p.get("paper_id") == paper_id:
+                point_ids.append(point.id)
+                continue
+            pt = " ".join((p.get("title") or "").lower().split())
+            if norm_title and pt == norm_title:
+                point_ids.append(point.id)
+        if offset is None:
+            break
+    if not point_ids:
+        return 0
+    client.delete(collection_name=collection, points_selector=PointIdsList(points=point_ids))
+    return len(point_ids)
 
 
 def scroll_texts(source_type: str = "literature", limit: int = 500, user_id: str = "dev-user") -> list[str]:

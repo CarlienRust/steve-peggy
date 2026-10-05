@@ -6,6 +6,8 @@ type Gap = {
   topic?: string;
   status?: string;
   suggested_study?: string;
+  evidence_basis?: string;
+  paper_count?: number;
 };
 
 export function WorkflowResults({ mode, body }: { mode: string; body: Record<string, unknown> | null | undefined }) {
@@ -24,6 +26,8 @@ export function WorkflowResults({ mode, body }: { mode: string; body: Record<str
               <TableRow>
                 <TableCell>Topic</TableCell>
                 <TableCell>Status</TableCell>
+                <TableCell>Evidence</TableCell>
+                <TableCell>Papers</TableCell>
                 <TableCell>Suggested study</TableCell>
               </TableRow>
             </TableHead>
@@ -32,6 +36,8 @@ export function WorkflowResults({ mode, body }: { mode: string; body: Record<str
                 <TableRow key={i}>
                   <TableCell>{g.topic}</TableCell>
                   <TableCell>{g.status}</TableCell>
+                  <TableCell>{g.evidence_basis ?? "—"}</TableCell>
+                  <TableCell>{g.paper_count ?? "—"}</TableCell>
                   <TableCell>{g.suggested_study}</TableCell>
                 </TableRow>
               ))}

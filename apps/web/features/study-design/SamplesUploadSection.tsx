@@ -25,6 +25,7 @@ import {
   Typography,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
@@ -37,9 +38,11 @@ export function SamplesUploadSection() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [acknowledgedRisk, setAcknowledgedRisk] = useState(false);
 
+  const { activeWorkspace } = useWorkspace();
   const datasets = useQuery({
-    queryKey: queryKeys.corpus("sample_datasets"),
-    queryFn: () => peggyApi.listCorpus("sample_datasets"),
+    queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
   });
 
   const uploadMut = useMutation({
@@ -50,6 +53,7 @@ export function SamplesUploadSection() {
           const res = await peggyApi.uploadDocument(file, {
             sourceType: "sample_datasets",
             title: file.name.replace(/\.pdf$/i, ""),
+            workspaceId: activeWorkspace?.id,
           });
           if (res.status === "duplicate") {
             results.push({ name: file.name, ok: false, error: res.message ?? "Already uploaded" });
@@ -67,7 +71,7 @@ export function SamplesUploadSection() {
       setPdfFiles([]);
       setConfirmOpen(false);
       setAcknowledgedRisk(false);
-      queryClient.invalidateQueries({ queryKey: queryKeys.corpus("sample_datasets") });
+      queryClient.invalidateQueries({ queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id) });
     },
   });
 

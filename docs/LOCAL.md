@@ -103,7 +103,7 @@ Open http://localhost:3000 — no login screen in solo mode.
 | What | Where |
 |------|-------|
 | Literature PDFs / PubMed | **Validate → Literature search** (`/validate/literature`) |
-| Your findings | **Results → Upload/Report findings** (`/results/report`) — narrative, PDF, or HTML. Summary appears on **Our findings** (`/results/findings`) |
+| Your findings | **Results → Findings** (`/results/findings`) — summary, upload, and tags on one page |
 | Study design drafts | **Study Design** (`/study-design/*`) — saved per workspace |
 | Batch test PDFs | `python3 scripts/ingest-test-pdfs.py` |
 
@@ -149,6 +149,7 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 | PubMed ingest fails | Set `NCBI_EMAIL` in API `.env` |
 | Ingest `Internal server error` | API `.env` still on cloud Qdrant or Postgres — use local `QDRANT_URL=http://localhost:6333`, comment out `DATABASE_URL`, set `AUTH_REQUIRED=false`, restart API. Run `./scripts/check-local.sh` — need `qdrant: true` in `/health`. |
 | Cloud Qdrant / Render down | Expected — use local URLs above |
+| Papers missing after upgrade to workspace-scoped corpus | Pre-migration papers have `workspace_id` NULL — run backfill SQL in [DATABASE.md](DATABASE.md) or re-ingest into the project |
 
 ## Supabase keep-alive
 

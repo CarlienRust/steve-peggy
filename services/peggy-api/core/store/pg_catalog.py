@@ -55,6 +55,12 @@ def _row_to_dict(row: asyncpg.Record) -> dict:
     return out
 
 
+def _ws_suffix(workspace_id: str | None, arg_index: int) -> tuple[str, list]:
+    if workspace_id:
+        return f" AND workspace_id = ${arg_index}::uuid", [workspace_id]
+    return "", []
+
+
 async def find_existing_paper(
     *,
     user_id: str,
@@ -62,6 +68,7 @@ async def find_existing_paper(
     doi: str = "",
     title: str = "",
     source_type: str = "literature",
+    workspace_id: str | None = None,
 ) -> dict | None:
     pool = await _pool_conn()
     pmid = (pmid or "").strip()
@@ -69,29 +76,35 @@ async def find_existing_paper(
     norm = _norm_title(title)
     async with pool.acquire() as conn:
         if pmid:
+            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3 LIMIT 1",
+                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3{ws_sql} LIMIT 1",
                 user_id,
                 source_type,
                 pmid,
+                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
         if doi:
+            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3 LIMIT 1",
+                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3{ws_sql} LIMIT 1",
                 user_id,
                 source_type,
                 doi,
+                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
         if norm:
+            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND lower(trim(title)) = $3 LIMIT 1",
+                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND lower(trim(title)) = $3{ws_sql} LIMIT 1",
                 user_id,
                 source_type,
                 norm,
+                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
@@ -106,12 +119,13 @@ async def insert_paper(
     authors: str,
     year: str,
     source_type: str,
+    workspace_id: str | None = None,
 ) -> int:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type)
-               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7) RETURNING id""",
+            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type, workspace_id)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid) RETURNING id""",
             user_id,
             pmid,
             doi,
@@ -119,6 +133,7 @@ async def insert_paper(
             authors,
             year,
             source_type,
+            workspace_id,
         )
         return int(row["id"])
 
@@ -131,13 +146,21 @@ async def record_paper(
     authors: str,
     year: str,
     source_type: str,
+    workspace_id: str | None = None,
 ) -> dict:
     existing = await find_existing_paper(
-        user_id=user_id, pmid=pmid, doi=doi, title=title, source_type=source_type
+        user_id=user_id,
+        pmid=pmid,
+        doi=doi,
+        title=title,
+        source_type=source_type,
+        workspace_id=workspace_id,
     )
     if existing:
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
-    paper_id = await insert_paper(user_id, pmid, doi, title, authors, year, source_type)
+    paper_id = await insert_paper(
+        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+    )
     return {"status": "created", "paper_id": paper_id, "paper": await get_paper(user_id, paper_id)}
 
 
@@ -184,14 +207,34 @@ async def delete_paper(user_id: str, paper_id: int) -> bool:
         return result.endswith("1")
 
 
-async def list_papers(user_id: str, source_type: str | None = None) -> list[dict]:
+async def list_papers(
+    user_id: str,
+    source_type: str | None = None,
+    workspace_id: str | None = None,
+) -> list[dict]:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         if source_type:
+            if workspace_id:
+                rows = await conn.fetch(
+                    """SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2
+                       AND workspace_id = $3::uuid ORDER BY ingested_at DESC""",
+                    user_id,
+                    source_type,
+                    workspace_id,
+                )
+            else:
+                rows = await conn.fetch(
+                    "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 ORDER BY ingested_at DESC",
+                    user_id,
+                    source_type,
+                )
+        elif workspace_id:
             rows = await conn.fetch(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 ORDER BY ingested_at DESC",
+                """SELECT * FROM papers WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+                   ORDER BY ingested_at DESC""",
                 user_id,
-                source_type,
+                workspace_id,
             )
         else:
             rows = await conn.fetch(
@@ -684,13 +727,15 @@ async def update_workspace_github(user_id: str, workspace_id: str, fields: dict)
     return _workspace_row(row) if row else None
 
 
-async def get_findings_summary(user_id: str) -> dict | None:
+async def get_findings_summary(user_id: str, workspace_id: str) -> dict | None:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """SELECT summary, points, source_count, updated_at
-               FROM findings_summaries WHERE user_id = $1::uuid""",
+               FROM findings_summaries_by_workspace
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid""",
             user_id,
+            workspace_id,
         )
     if not row:
         return None
@@ -706,19 +751,27 @@ async def get_findings_summary(user_id: str) -> dict | None:
     }
 
 
-async def save_findings_summary(user_id: str, summary: str, points: list, source_count: int) -> dict:
+async def save_findings_summary(
+    user_id: str,
+    workspace_id: str,
+    summary: str,
+    points: list,
+    source_count: int,
+) -> dict:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO findings_summaries (user_id, summary, points, source_count, updated_at)
-               VALUES ($1::uuid, $2, $3::jsonb, $4, NOW())
-               ON CONFLICT (user_id) DO UPDATE SET
+            """INSERT INTO findings_summaries_by_workspace
+               (workspace_id, user_id, summary, points, source_count, updated_at)
+               VALUES ($2::uuid, $1::uuid, $3, $4::jsonb, $5, NOW())
+               ON CONFLICT (workspace_id) DO UPDATE SET
                    summary = EXCLUDED.summary,
                    points = EXCLUDED.points,
                    source_count = EXCLUDED.source_count,
                    updated_at = NOW()
                RETURNING summary, points, source_count, updated_at""",
             user_id,
+            workspace_id,
             summary,
             json.dumps(points),
             source_count,

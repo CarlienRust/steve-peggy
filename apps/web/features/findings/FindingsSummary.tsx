@@ -1,27 +1,31 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Alert, Button, CircularProgress, List, ListItem, ListItemText, Stack, Typography } from "@mui/material";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
+import { useWorkspace } from "@/lib/workspaceContext";
 
 export function FindingsSummary() {
   const queryClient = useQueryClient();
   const started = useRef(false);
+  const { activeWorkspace } = useWorkspace();
+  const workspaceId = activeWorkspace?.id;
 
   const papers = useQuery({
-    queryKey: queryKeys.corpus("own_findings"),
-    queryFn: () => peggyApi.listCorpus("own_findings"),
+    queryKey: queryKeys.corpus("own_findings", workspaceId),
+    queryFn: () => peggyApi.listCorpus("own_findings", workspaceId),
+    enabled: !!workspaceId,
   });
   const summary = useQuery({
-    queryKey: queryKeys.findingsSummary,
-    queryFn: () => peggyApi.getFindingsSummary(),
+    queryKey: queryKeys.findingsSummary(workspaceId),
+    queryFn: () => peggyApi.getFindingsSummary(workspaceId!),
+    enabled: !!workspaceId,
   });
   const refresh = useMutation({
-    mutationFn: () => peggyApi.refreshFindingsSummary(),
+    mutationFn: () => peggyApi.refreshFindingsSummary(workspaceId!),
     onSuccess: (data) => {
-      queryClient.setQueryData(queryKeys.findingsSummary, data);
+      queryClient.setQueryData(queryKeys.findingsSummary(workspaceId), data);
     },
   });
 
@@ -36,6 +40,10 @@ export function FindingsSummary() {
     refresh.mutate();
   }, [papers.isLoading, summary.isLoading, stale, refresh]);
 
+  if (!workspaceId) {
+    return <Alert severity="info">Select a project to view findings for this workspace.</Alert>;
+  }
+
   if (papers.isLoading || summary.isLoading) {
     return <CircularProgress size={22} />;
   }
@@ -43,8 +51,7 @@ export function FindingsSummary() {
   if (paperCount === 0) {
     return (
       <Alert severity="info">
-        No findings yet. Add a narrative or upload a PDF or HTML file on{" "}
-        <Link href="/results/report">Upload/Report findings</Link>.
+        No findings yet. Add a narrative or upload a PDF or HTML file below.
       </Alert>
     );
   }

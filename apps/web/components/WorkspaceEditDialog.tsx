@@ -20,16 +20,18 @@ import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { normalizeObjectives } from "@/lib/objectives";
 import { objectivesForForm, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
+import type { StudyDesignData } from "@/lib/studyDesign";
 import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
 
 type WorkspaceEditDialogProps = {
   open: boolean;
   onClose: () => void;
   workspace: Workspace | null;
+  studyDesign?: StudyDesignData;
   onSaved?: () => void;
 };
 
-export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: WorkspaceEditDialogProps) {
+export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onSaved }: WorkspaceEditDialogProps) {
   const queryClient = useQueryClient();
   const { userId } = useAuthSession();
   const {
@@ -112,7 +114,7 @@ export function WorkspaceEditDialog({ open, onClose, workspace, onSaved }: Works
               name="objectives"
               control={control}
               render={({ field }) => (
-                <ObjectiveListEditor value={field.value} onChange={field.onChange} />
+                <ObjectiveListEditor value={field.value} onChange={field.onChange} studyDesign={studyDesign} />
               )}
             />
             {workspace && <WorkspaceGithubSection workspace={workspace} onUpdated={onSaved} />}

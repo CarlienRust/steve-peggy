@@ -47,24 +47,78 @@ async def grounded_chat(query: str, source_types: list[str] | None = None, user_
     }
 
 
+def _discovery_candidates_to_sources(candidates: list[dict]) -> list[dict]:
+    sources: list[dict] = []
+    for i, c in enumerate(candidates):
+        abstract = (c.get("abstract") or "").strip()
+        pmid = c.get("pmid")
+        sources.append({
+            "chunk_id": f"abstract:{pmid or i}",
+            "title": c.get("title") or "Unknown",
+            "authors": c.get("authors") or "",
+            "year": str(c.get("year") or ""),
+            "excerpt": abstract[:400],
+            "relevance_score": float(c.get("relevance_score") or 0.5),
+            "source_type": "literature",
+            "pmid": pmid,
+        })
+    return sources
+
+
+def _enrich_gaps(body: dict, evidence_basis: str, source_count: int) -> dict:
+    gaps = body.get("gaps")
+    if not isinstance(gaps, list):
+        return body
+    for gap in gaps:
+        if not isinstance(gap, dict):
+            continue
+        gap.setdefault("evidence_basis", evidence_basis)
+        if "paper_count" not in gap:
+            pc = gap.get("paper_count")
+            gap["paper_count"] = int(pc) if isinstance(pc, (int, float)) else source_count
+    return body
+
+
 async def run_gap_analysis(
     query: str,
     source_types: list[str] | None = None,
     user_id: str = "dev-user",
     workspace_id: str | None = None,
+    abstracts_only: bool = False,
 ) -> dict:
+    from core.ingest.discovery import discover_literature
     from core.project_context import load_project_context
 
     st = source_types or ["literature", "own_findings"]
-    sources = qdrant_store.search(query, source_types=st, user_id=user_id)
+    workspace_aim = None
+    if workspace_id:
+        ws = await catalog.get_workspace(user_id, workspace_id)
+        workspace_aim = (ws or {}).get("aim") or None
+
+    if abstracts_only:
+        disc = await discover_literature(
+            topic=query,
+            max_results=30,
+            user_id=user_id,
+            workspace_aim=workspace_aim,
+        )
+        sources = _discovery_candidates_to_sources(disc.get("candidates") or [])
+        evidence_basis = "abstracts"
+    else:
+        sources = qdrant_store.search(query, source_types=st, user_id=user_id, workspace_id=workspace_id)
+        evidence_basis = "full_text"
+
+    distinct_papers = len({s.get("pmid") or s.get("title") for s in sources})
     project_context = await load_project_context(user_id, workspace_id)
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
-        prompts.gap_analysis_prompt(query, sources, project_context),
+        prompts.gap_analysis_prompt(
+            query, sources, project_context, evidence_basis=evidence_basis, paper_count=distinct_papers
+        ),
         json_mode=True,
     )
-    body = _parse_json(raw)
+    body = _enrich_gaps(_parse_json(raw), evidence_basis, distinct_papers)
     result = {
         "body": body,
         "sources": sources,
@@ -102,7 +156,9 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
     if objectives:
         search_query = f"{search_query}\n" + "\n".join(objectives)
 
-    sources = qdrant_store.search(search_query, source_types=["literature"], user_id=user_id)
+    sources = qdrant_store.search(
+        search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -140,7 +196,7 @@ async def run_compare(
     from core.project_context import load_project_context
 
     st = source_types or ["literature", "own_findings", "sample_datasets"]
-    sources = qdrant_store.search(finding, source_types=st, user_id=user_id)
+    sources = qdrant_store.search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id)
     project_context = await load_project_context(user_id, workspace_id)
     llm = get_llm()
     raw = await llm.complete(
@@ -405,9 +461,9 @@ def _excerpt_points(docs: list[tuple[str, str]]) -> list[str]:
     return points
 
 
-async def run_findings_summary(user_id: str) -> dict:
-    """Rebuild the stored briefing from every own_findings document."""
-    papers = await catalog.list_papers(user_id, source_type="own_findings")
+async def run_findings_summary(user_id: str, workspace_id: str) -> dict:
+    """Rebuild the stored briefing from every own_findings document in this project."""
+    papers = await catalog.list_papers(user_id, source_type="own_findings", workspace_id=workspace_id)
     docs: list[tuple[str, str]] = []
     for paper in papers:
         title = paper.get("title") or "Untitled"
@@ -421,7 +477,7 @@ async def run_findings_summary(user_id: str) -> dict:
             docs.append((title, ""))
 
     if not docs:
-        return await catalog.save_findings_summary(user_id, "", [], 0)
+        return await catalog.save_findings_summary(user_id, workspace_id, "", [], 0)
 
     blocks = []
     for title, text in docs:
@@ -451,4 +507,4 @@ async def run_findings_summary(user_id: str) -> dict:
         summary = "Uploaded findings are listed below. A generated briefing was not available."
         points = _excerpt_points(docs)
 
-    return await catalog.save_findings_summary(user_id, summary, points, len(docs))
+    return await catalog.save_findings_summary(user_id, workspace_id, summary, points, len(docs))

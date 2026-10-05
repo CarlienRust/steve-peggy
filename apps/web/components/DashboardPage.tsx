@@ -3,9 +3,21 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import { Box, Chip, IconButton, Stack, Tooltip, Typography } from "@mui/material";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
+  Box,
+  Chip,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+} from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
-import { normalizeObjectives } from "@/lib/objectives";
+import { addObjectiveTask, normalizeObjectives, toggleObjectiveTask } from "@/lib/objectives";
+import { addProjectTask, countOrphanObjectiveLinks, toggleProjectTask } from "@/lib/studyDesign";
 import { useAuthSession } from "@/lib/authContext";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { ProjectProgressPanel } from "@/components/ProjectProgressPanel";
@@ -40,9 +52,9 @@ export function DashboardPage() {
     retry: 1,
   });
   const corpus = useQuery({
-    queryKey: queryKeys.corpus(),
-    queryFn: () => peggyApi.listCorpus(),
-    enabled: authReady && !!userId,
+    queryKey: queryKeys.corpus(undefined, activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus(undefined, activeWorkspace?.id),
+    enabled: authReady && !!userId && !!activeWorkspace?.id,
   });
   const gapHistory = useQuery({
     queryKey: ["gap-history", activeWorkspace?.id],
@@ -69,6 +81,8 @@ export function DashboardPage() {
     hasValidateAim: (validateAimHistory.data?.length ?? 0) > 0,
   });
   const objectiveProgress = buildObjectiveProgress(activeWorkspace, studyDesign);
+  const orphanLinkCount = countOrphanObjectiveLinks(studyDesign, activeWorkspace?.objectives, activeWorkspace?.aim);
+  const projectTasks = studyDesign.projectTasks ?? [];
 
   const toggleObjectiveMutation = useMutation({
     mutationFn: async ({ objectiveId, done }: { objectiveId: string; done: boolean }) => {
@@ -85,6 +99,51 @@ export function DashboardPage() {
     },
     onSettled: () => setTogglingObjectiveId(null),
   });
+
+  const taskMutation = useMutation({
+    mutationFn: async (
+      patch:
+        | { kind: "objective-task-toggle"; objectiveId: string; taskId: string; done: boolean }
+        | { kind: "objective-task-add"; objectiveId: string; text: string }
+        | { kind: "project-task-toggle"; taskId: string; done: boolean }
+        | { kind: "project-task-add"; text: string }
+    ) => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      if (patch.kind === "objective-task-toggle") {
+        const objectives = toggleObjectiveTask(
+          normalizeObjectives(activeWorkspace.objectives),
+          patch.objectiveId,
+          patch.taskId,
+          patch.done
+        );
+        return peggyApi.updateWorkspace(activeWorkspace.id, { objectives });
+      }
+      if (patch.kind === "objective-task-add") {
+        const objectives = addObjectiveTask(
+          normalizeObjectives(activeWorkspace.objectives),
+          patch.objectiveId,
+          patch.text
+        );
+        return peggyApi.updateWorkspace(activeWorkspace.id, { objectives });
+      }
+      if (patch.kind === "project-task-toggle") {
+        const nextTasks = toggleProjectTask(projectTasks, patch.taskId, patch.done);
+        return peggyApi.patchStudyDesign(activeWorkspace.id, { projectTasks: nextTasks });
+      }
+      const nextTasks = addProjectTask(projectTasks, patch.text);
+      return peggyApi.patchStudyDesign(activeWorkspace.id, { projectTasks: nextTasks });
+    },
+    onSuccess: () => {
+      void refetch();
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      }
+      if (activeWorkspace?.id) {
+        void queryClient.invalidateQueries({ queryKey: ["study-design", activeWorkspace.id] });
+      }
+    },
+  });
+
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
   const embeddingsOk = health.data?.embeddings === "sentence-transformers";
   const setupHint = llmHealthHint(health.data);
@@ -122,42 +181,78 @@ export function DashboardPage() {
         {samples.expectedN && <Chip size="small" label={`N ${samples.expectedN}`} variant="outlined" />}
       </Stack>
 
-      <WorkspaceEditDialog open={editOpen} onClose={() => setEditOpen(false)} workspace={activeWorkspace} onSaved={refetch} />
+      <WorkspaceEditDialog
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        workspace={activeWorkspace}
+        studyDesign={studyDesign}
+        onSaved={refetch}
+      />
 
       {health.data && (
-        <Stack direction="row" flexWrap="wrap" gap={0.75} sx={{ mb: 3 }}>
-          <Chip
-            size="small"
-            variant="outlined"
-            label={health.data.qdrant ? "Qdrant" : "Qdrant offline"}
-            color={health.data.qdrant ? "success" : "warning"}
-          />
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`LLM ${health.data.llm_provider}${llmReady ? "" : " · offline"}`}
-            color={llmReady ? "success" : "warning"}
-          />
-          <Chip
-            size="small"
-            variant="outlined"
-            label={`Embeddings ${embeddingsOk ? "ok" : health.data.embeddings ?? "?"}`}
-            color={embeddingsOk ? "success" : "warning"}
-          />
-          {setupHint && (
-            <Typography variant="caption" color="warning.main" sx={{ alignSelf: "center", ml: 0.5 }}>
-              {setupHint}
+        <Accordion
+          disableGutters
+          elevation={0}
+          sx={{
+            mb: 3,
+            bgcolor: "transparent",
+            "&:before": { display: "none" },
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 1,
+          }}
+        >
+          <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40 }}>
+            <Typography variant="caption" color="text.secondary">
+              Developer status
             </Typography>
-          )}
-        </Stack>
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0 }}>
+            <Stack direction="row" flexWrap="wrap" gap={0.75}>
+              <Chip
+                size="small"
+                variant="outlined"
+                label={health.data.qdrant ? "Qdrant" : "Qdrant offline"}
+                color={health.data.qdrant ? "success" : "warning"}
+              />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`LLM ${health.data.llm_provider}${llmReady ? "" : " · offline"}`}
+                color={llmReady ? "success" : "warning"}
+              />
+              <Chip
+                size="small"
+                variant="outlined"
+                label={`Embeddings ${embeddingsOk ? "ok" : health.data.embeddings ?? "?"}`}
+                color={embeddingsOk ? "success" : "warning"}
+              />
+              {setupHint && (
+                <Typography variant="caption" color="warning.main" sx={{ alignSelf: "center", ml: 0.5 }}>
+                  {setupHint}
+                </Typography>
+              )}
+            </Stack>
+          </AccordionDetails>
+        </Accordion>
       )}
 
       <ProjectProgressPanel
         progress={progress}
         objectiveProgress={objectiveProgress}
+        objectives={activeWorkspace?.objectives}
+        projectTasks={projectTasks}
+        orphanLinkCount={orphanLinkCount}
         onEditProject={() => setEditOpen(true)}
         onToggleObjectiveDone={(objectiveId, done) => toggleObjectiveMutation.mutate({ objectiveId, done })}
+        onToggleObjectiveTask={(objectiveId, taskId, done) =>
+          taskMutation.mutate({ kind: "objective-task-toggle", objectiveId, taskId, done })
+        }
+        onAddObjectiveTask={(objectiveId, text) => taskMutation.mutate({ kind: "objective-task-add", objectiveId, text })}
+        onToggleProjectTask={(taskId, done) => taskMutation.mutate({ kind: "project-task-toggle", taskId, done })}
+        onAddProjectTask={(text) => taskMutation.mutate({ kind: "project-task-add", text })}
         togglingObjectiveId={togglingObjectiveId}
+        savingTasks={taskMutation.isPending}
       />
     </Box>
   );
