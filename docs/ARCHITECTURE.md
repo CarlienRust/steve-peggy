@@ -95,6 +95,8 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /auth/github/login` | GitHub OAuth authorize URL (Bearer required) |
 | `GET /auth/github/callback` | OAuth callback (stores token server-side) |
 | `GET /github/repos` | List repos for linked account |
+| `GET/POST /workspaces` | List / create projects (`aim`, `objectives[]`) |
+| `GET/PATCH/DELETE /workspaces/{id}` | Read / update / delete project |
 | `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
@@ -148,10 +150,21 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.
 
+### Project objectives (data model)
+
+| Location | Shape | Notes |
+|----------|-------|-------|
+| `workspaces.objectives` | `{ id, text, status: "open" \| "done" }[]` | Legacy `string[]` normalized on read; edited via project create/edit UI |
+| `methodsPlan.steps` / `analysisPlan.steps` | `{ id, title, objectiveIds[] }[]` | `objectiveIds` may include `"aim"` |
+| `study_design.objective_links` | `{ findingLinks: { paperId, objectiveIds[] }[] }` | Tags on `own_findings` papers; orphans pruned on delete |
+
+Migration: `009_objective_links.sql` adds the `objective_links` column. See [DATABASE.md](DATABASE.md).
+
 ### Web UI layout
 
 - **Dashboard** — `buildObjectiveProgress()` shows each objective with manual done status, counts of linked methods/analysis steps and findings, and links to the relevant screens. `buildProjectProgress()` drives the project setup roadmap (next step, possible next steps, full timeline). Sidebar nav remains the primary way to open Validate, Study Design, Results, and Ask Peggy.
-- **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`.
+- **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`. Manual **done** status on objectives is toggled from the dashboard (`PATCH /workspaces/{id}`).
+- **Welcome Setup** — `PeggySetupDialog` on the project hub explains hosted vs localhost setup.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).

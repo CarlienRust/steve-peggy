@@ -20,12 +20,16 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 | Item | Notes |
 |------|-------|
+| Validate section | `/validate/*` — gap analysis, literature, validate aim (replaces old ingest/gaps routes) |
+| Objective-linked roadmap | Stable objective IDs, plan steps, finding tags, dashboard per-objective progress |
+| Dashboard progress | Project setup stages + objective done toggle |
+| Welcome Setup dialog | Hosted vs localhost clone/run instructions |
+| Supabase pooler fix | asyncpg `statement_cache_size=0` for transaction pooler |
+| Study design save | Per-section Save; findings summary on upload |
 | Groq + Ollama default | [ENV.md](ENV.md) |
 | Dedup on ingest | PMID / DOI / title per `source_type` |
-| `/findings` page | Separate from literature corpus |
 | Ask Peggy modes | Auto (agent) / Ask / Gaps / Compare |
 | Reactive agent | Tools, loop, SQLite sessions, SSE — [AGENT.md](AGENT.md) |
-| Qdrant `query_points` fix | + integration tests |
 | `smoke-local.sh` | End-to-end API smoke |
 
 ## Product — core loop
@@ -73,8 +77,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 | Item | Status |
 |------|--------|
-| Supabase Auth | Planned — [AUTH.md](AUTH.md) |
-| Supabase Postgres | Planned — [DATABASE.md](DATABASE.md) |
+| Supabase Auth | Done locally — [AUTH.md](AUTH.md); magic link + password |
+| Supabase Postgres | Done when `DATABASE_URL` set — [DATABASE.md](DATABASE.md); migrations through `009` |
 | Vercel deploy | `vercel.json` ready |
 | Inngest | Stub — `jobs/inngest_events.py` |
 | Upstash Redis | Optional PubMed rate limit |
@@ -90,9 +94,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 ## Suggested order
 
-1. Trust local loop ([LOCAL.md](LOCAL.md))
-2. Dashboard demo placeholders when corpus empty
-3. Purge Qdrant vectors on corpus delete
-4. Agent ingest tools + cross-session Qdrant memory — [AGENT.md](AGENT.md)
-5. Supabase auth + profile ([AUTH.md](AUTH.md))
+1. Trust local loop ([LOCAL.md](LOCAL.md)) — solo or signed-in with Supabase
+2. Run Postgres migrations through `009` when using `DATABASE_URL`
+3. Dashboard demo placeholders when corpus empty
+4. Purge Qdrant vectors on corpus delete
+5. Agent ingest tools + cross-session Qdrant memory — [AGENT.md](AGENT.md)
 6. Deploy ([SCALE.md](SCALE.md))

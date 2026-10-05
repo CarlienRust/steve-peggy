@@ -2,7 +2,7 @@
 
 Evidence-grounded research synthesis: ingest peer-reviewed literature, add your own findings in a separate space, then chat, compare, and analyze gaps — with citations and stated limitations, not generic LLM answers.
 
-**Status:** **Local-first** — solo dev on your Mac (Ollama + local Qdrant + SQLite). Vercel/Render deploy paused until local loop is trusted — see [LOCAL.md](docs/LOCAL.md).
+**Status:** **Local-first** — solo dev on your Mac (Ollama + local Qdrant + SQLite), or **signed-in local** with Supabase Auth + Postgres. Vercel/Render deploy paused until the local loop is trusted — see [LOCAL.md](docs/LOCAL.md).
 
 | | |
 |---|---|
@@ -22,8 +22,11 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 | **Ask Peggy** | `/chat` — grounded Q&A; **Auto / Ask / Gaps / Compare** modes |
 | **Gap analysis** | `/validate/gap-analysis` — structured gaps; optional include our findings |
 | **Validate aim** | `/validate/aim` — check aim/objectives against literature |
-| **Project progress** | `/dashboard` — roadmap of completed stages and next steps |
+| **Project progress** | `/dashboard` — per-objective done status + project setup roadmap |
+| **Objective linking** | Stable objective IDs; tag methods/analysis steps and finding sets to objectives or aim |
 | **Compare** | `/results/comparison` — your finding vs literature (+ our findings in retrieval) |
+| **Study design** | `/study-design/*` — samples, ethics, budget, methods/analysis plans, proposal |
+| **Welcome setup** | Project hub **Setup** button — hosted vs localhost instructions |
 | **Health dashboard** | Status chips for Qdrant, LLM provider, embeddings |
 | **Profile** | Sidebar edit + Supabase sign-out; display prefs in `user_metadata` |
 | **Embeddings** | `sentence-transformers` locally (no OpenAI embeddings required) |
@@ -68,6 +71,7 @@ OLLAMA_MODEL=llama3.2
 NCBI_EMAIL=you@email.com
 QDRANT_URL=http://localhost:6333
 EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 Install Ollama:
@@ -77,13 +81,17 @@ ollama pull llama3.2
 # Ollama app in menu bar, or: ollama serve
 ```
 
-**Solo local** (no sign-in, no cloud):
+**Solo local** (no sign-in, SQLite catalog):
 
 ```bash
+# apps/web/.env.local: NEXT_PUBLIC_SOLO_LOCAL=true
+# services/peggy-api/.env: AUTH_REQUIRED=false
 ./scripts/start-local.sh          # Qdrant + API (background)
 cd apps/web && npm run dev        # http://localhost:3000
 ./scripts/check-local.sh          # verify stack
 ```
+
+**Signed-in local** (Supabase Auth + Postgres): set `NEXT_PUBLIC_SOLO_LOCAL=false` on web and `AUTH_REQUIRED=true` + `DATABASE_URL` on API. Run migrations through `009_objective_links.sql`. Details: [LOCAL.md](docs/LOCAL.md).
 
 Or three separate terminals — see [docs/LOCAL.md](docs/LOCAL.md).
 
@@ -110,14 +118,24 @@ Smoke test (Qdrant + API running):
 
 | Route | Nav label | Purpose |
 |-------|-----------|---------|
-| `/` | Project hub | Choose or create a research project |
-| `/dashboard` | 01 Dashboard | Progress roadmap, health chips |
+| `/` | Project hub | Choose or create a project; **Setup** for env help |
+| `/dashboard` | 01 Dashboard | Objective progress + project setup roadmap, health chips |
 | `/validate` | 02 Validate | Hub — gap analysis, literature search, validate aim |
+| `/validate/gap-analysis` | 02 · Gap analysis | Structured gaps vs literature |
+| `/validate/literature` | 02 · Literature search | PubMed + PDF ingest and corpus table |
+| `/validate/aim` | 02 · Validate aim | Check aim/objectives against literature |
 | `/study-design` | 03 Study Design | Hub — samples, ethics, plans, budget, proposal |
+| `/study-design/methods-plan` | 03 · Methods plan | Plan + optional steps linked to objectives |
+| `/study-design/analysis-plan` | 03 · Analysis plan | Plan + optional steps linked to objectives |
 | `/study-design/proposal` | 03 · Proposal | Study/grant draft from project context |
 | `/analysis-tool` | 04 Analysis tool | Coming soon (nav disabled) |
-| `/results` | 05 Results | Hub — methods, our findings, comparison |
+| `/results` | 05 Results | Hub — methods, our findings, upload, comparison |
+| `/results/findings` | 05 · Our findings | Summary of uploaded findings |
+| `/results/report` | 05 · Upload/Report | Add findings (narrative, PDF, HTML); tag to objectives |
+| `/results/comparison` | 05 · Comparison | Finding vs field |
 | `/chat` | 06 Ask Peggy | Q&A and agent modes |
+
+Legacy redirects: `/ingest` → literature, `/gaps` → gap analysis, `/findings` → our findings, `/compare` → comparison.
 
 ## Architecture
 
@@ -132,7 +150,7 @@ docker-compose.yml        Optional — not required locally
 scripts/                  setup-local, start-local, check-local, start-qdrant, start-api, smoke-local
 ```
 
-Flow: **ingest** → chunk + embed → **Qdrant** + **SQLite** → **retrieve** → **LLM** → cited response.
+Flow: **ingest** → chunk + embed → **Qdrant** + **catalog** (SQLite or Supabase Postgres) → **retrieve** → **LLM** → cited response.
 
 Diagram: [docs/peggy_architecture.svg](docs/peggy_architecture.svg)
 
@@ -140,16 +158,16 @@ Diagram: [docs/peggy_architecture.svg](docs/peggy_architecture.svg)
 
 | Doc | Purpose |
 |-----|---------|
-| [docs/LOCAL.md](docs/LOCAL.md) | **Primary** — native dev workflow |
+| [docs/LOCAL.md](docs/LOCAL.md) | **Primary** — native dev workflow (solo + signed-in) |
 | [docs/ENV.md](docs/ENV.md) | Ollama local / Gemini deploy LLM setup |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Done vs outstanding |
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | API, collections, routes |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | API, collections, routes, objective linking |
 | [docs/AGENT.md](docs/AGENT.md) | Chat modes today; reactive agent plan |
 | [docs/TESTING.md](docs/TESTING.md) | pytest + future Playwright |
 | [docs/DOCKER.md](docs/DOCKER.md) | Optional Compose |
-| [docs/SCALE.md](docs/SCALE.md) | Vercel + Supabase (future) |
-| [docs/AUTH.md](docs/AUTH.md) | Auth plan (future) |
-| [docs/DATABASE.md](docs/DATABASE.md) | Postgres migration (future) |
+| [docs/SCALE.md](docs/SCALE.md) | Vercel + Render deploy |
+| [docs/AUTH.md](docs/AUTH.md) | Supabase Auth (implemented) |
+| [docs/DATABASE.md](docs/DATABASE.md) | SQLite vs Supabase Postgres, migrations |
 
 ## Tests
 

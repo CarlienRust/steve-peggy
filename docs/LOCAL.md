@@ -35,7 +35,7 @@ OLLAMA_MODEL=llama3.2
 NCBI_EMAIL=you@university.ac.za
 QDRANT_URL=http://localhost:6333
 AUTH_REQUIRED=false
-CORS_ORIGINS=http://localhost:3000
+CORS_ORIGINS=http://localhost:3000,http://localhost:3001
 ```
 
 Edit `apps/web/.env.local`:
@@ -125,9 +125,10 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 
 ## Supabase auth (optional, not needed for solo local)
 
-1. Run `services/peggy-api/migrations/001_supabase_initial.sql` in Supabase SQL Editor
+1. Run migrations in order in the Supabase SQL Editor: `001` through `009_objective_links.sql` (see [DATABASE.md](DATABASE.md))
 2. Redirect URLs: `http://localhost:3000/auth/callback` and your Vercel URL
 3. Password sign-in recommended for local dev
+4. Use the **transaction pooler** URI (port **6543**) for `DATABASE_URL`; restart API after env changes
 
 ## Troubleshooting
 
