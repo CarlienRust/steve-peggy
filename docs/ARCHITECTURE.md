@@ -98,6 +98,11 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET/POST /workspaces` | List / create projects (`aim`, `objectives[]`) |
 | `GET/PATCH/DELETE /workspaces/{id}` | Read / update / delete project |
 | `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET /extraction-modules` | Versioned field schemas (`core`, `outcomes`, …) from `core/extraction/schemas/` |
+| `GET/POST /workspaces/{id}/extractions` | List or bulk upsert structured extractions per paper |
+| `PATCH /workspaces/{id}/extractions/{id}` | Review screen: confirm or correct a field (`status`, `value`, quote) |
+| `POST /workflows/extract` | Queue background extraction job (2 papers at a time); writes `extractions` rows |
+| `GET /workflows/extract/jobs/{id}` | Poll extraction job status and per-paper results |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |

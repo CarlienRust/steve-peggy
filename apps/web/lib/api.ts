@@ -115,6 +115,36 @@ export type Workspace = {
   github_last_synced_at?: string | null;
 };
 
+export type ExtractionFieldDef = {
+  id: string;
+  label: string;
+  type: string;
+  description: string;
+};
+
+export type ExtractionModuleDef = {
+  id: string;
+  version: string;
+  label: string;
+  description: string;
+  fields: ExtractionFieldDef[];
+};
+
+export type ExtractionRecord = {
+  id: number;
+  paper_id: number;
+  workspace_id: string;
+  module: string;
+  field: string;
+  value: string | null;
+  source_quote: string | null;
+  source_page: number | null;
+  status: "auto" | "confirmed" | "corrected";
+  model_version: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 export type GapAnalysisRunSummary = {
   id: string;
   workspace_id: string;
@@ -692,6 +722,84 @@ export const peggyApi = {
       source_count: number;
       updated_at: string | null;
     }>(`/workflows/findings-summary?workspace_id=${encodeURIComponent(workspaceId)}`, { method: "POST" }),
+
+  listExtractionModules: () =>
+    apiFetch<{ modules: ExtractionModuleDef[] }>("/extraction-modules"),
+
+  listExtractions: (
+    workspaceId: string,
+    filters?: { paperId?: number; module?: string; status?: string }
+  ) => {
+    const params = new URLSearchParams();
+    if (filters?.paperId != null) params.set("paper_id", String(filters.paperId));
+    if (filters?.module) params.set("module", filters.module);
+    if (filters?.status) params.set("status", filters.status);
+    const qs = params.toString();
+    return apiFetch<{ extractions: ExtractionRecord[]; count: number }>(
+      `/workspaces/${workspaceId}/extractions${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  upsertExtractions: (
+    workspaceId: string,
+    items: {
+      paper_id: number;
+      module: string;
+      field: string;
+      value?: string | null;
+      source_quote?: string | null;
+      source_page?: number | null;
+      status?: "auto" | "confirmed" | "corrected";
+      model_version?: string | null;
+    }[]
+  ) =>
+    apiFetch<{ extractions: ExtractionRecord[]; count: number }>(
+      `/workspaces/${workspaceId}/extractions`,
+      { method: "POST", body: JSON.stringify({ items }) }
+    ),
+
+  patchExtraction: (
+    workspaceId: string,
+    extractionId: number,
+    patch: {
+      value?: string | null;
+      source_quote?: string | null;
+      source_page?: number | null;
+      status?: "confirmed" | "corrected";
+    }
+  ) =>
+    apiFetch<ExtractionRecord>(`/workspaces/${workspaceId}/extractions/${extractionId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  startExtraction: (
+    workspaceId: string,
+    options?: { paperIds?: number[]; modules?: string[]; sourceTypes?: string[] }
+  ) =>
+    apiFetch<{ job_id: string; status: string }>("/workflows/extract", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        paper_ids: options?.paperIds ?? [],
+        modules: options?.modules ?? [],
+        source_types: options?.sourceTypes ?? ["literature"],
+      }),
+    }),
+
+  getExtractionJob: (jobId: string) =>
+    apiFetch<{
+      job_id: string;
+      status: string;
+      payload?: Record<string, unknown>;
+      result?: {
+        papers?: Array<Record<string, unknown>>;
+        paper_count?: number;
+        total_fields?: number;
+        modules?: string[];
+      };
+      error?: string | null;
+    }>(`/workflows/extract/jobs/${jobId}`),
 };
 
 export const queryKeys = {

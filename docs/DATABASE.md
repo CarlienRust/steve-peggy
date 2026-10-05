@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `011_findings_summary_workspace.sql`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `012_extractions.sql`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -47,6 +47,18 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 `010_papers_workspace.sql` adds `workspace_id` FK on `papers`. Ingest and `/corpus` list filter by `workspace_id` when the active project is set.
 
 `011_findings_summary_workspace.sql` adds `findings_summaries_by_workspace` (one summary row per project). API uses this table; legacy `findings_summaries` (per user) is unused by the app.
+
+`012_extractions.sql` creates `extractions` — structured fields per paper:
+
+| Column | Purpose |
+|--------|---------|
+| `paper_id`, `workspace_id`, `user_id` | FKs; `user_id` denormalised for simple RLS |
+| `module`, `field` | Schema ids from `core/extraction/schemas/*.json` |
+| `value`, `source_quote`, `source_page` | Extracted value and provenance |
+| `status` | `auto`, `confirmed`, or `corrected` |
+| `model_version` | LLM used for auto extraction |
+
+Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspaces/{id}/extractions`, `GET /extraction-modules`).
 
 **Backfill:** papers ingested before `010` have `workspace_id` NULL and will not appear in project-scoped lists until re-ingested or updated:
 

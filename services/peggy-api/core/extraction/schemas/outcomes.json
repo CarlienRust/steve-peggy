@@ -1,0 +1,38 @@
+{
+  "id": "outcomes",
+  "version": "1",
+  "label": "Outcomes",
+  "description": "Pilot module for primary and secondary outcomes (January launch benchmark).",
+  "fields": [
+    {
+      "id": "primary_outcome",
+      "label": "Primary outcome",
+      "type": "text",
+      "description": "Main endpoint or outcome measure"
+    },
+    {
+      "id": "secondary_outcomes",
+      "label": "Secondary outcomes",
+      "type": "text",
+      "description": "Other endpoints reported"
+    },
+    {
+      "id": "outcome_measure",
+      "label": "Outcome measure / scale",
+      "type": "text",
+      "description": "Instrument or metric used"
+    },
+    {
+      "id": "follow_up_duration",
+      "label": "Follow-up duration",
+      "type": "text",
+      "description": "Length of follow-up if reported"
+    },
+    {
+      "id": "effect_direction",
+      "label": "Effect direction",
+      "type": "text",
+      "description": "Direction of main finding (e.g. increased, decreased, null)"
+    }
+  ]
+}

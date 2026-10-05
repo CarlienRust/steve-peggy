@@ -261,6 +261,55 @@ def scroll_texts(source_type: str = "literature", limit: int = 500, user_id: str
     return texts
 
 
+def get_paper_text(
+    *,
+    paper_id: int,
+    source_type: str,
+    user_id: str,
+    title: str | None = None,
+) -> str:
+    """Concatenate Qdrant chunk texts for a catalog paper_id (falls back to title match)."""
+    client = get_client()
+    collection = collection_for_source(source_type)
+    if not client.collection_exists(collection):
+        return ""
+    norm_title = " ".join((title or "").lower().split())
+    parts: list[tuple[int, int, str]] = []
+    offset = None
+    while True:
+        records, offset = client.scroll(
+            collection_name=collection,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+            scroll_filter=_user_filter(user_id),
+        )
+        if not records:
+            break
+        for point in records:
+            p = point.payload or {}
+            matched = p.get("paper_id") == paper_id
+            if not matched and norm_title:
+                pt = " ".join((p.get("title") or "").lower().split())
+                matched = pt == norm_title
+            if matched and p.get("text"):
+                page = int(p.get("page") or p.get("pages") or 0)
+                idx = int(p.get("chunk_index") or 0)
+                parts.append((page, idx, str(p["text"])))
+        if offset is None:
+            break
+    parts.sort(key=lambda x: (x[0], x[1]))
+    out: list[str] = []
+    last_page: int | None = None
+    for page, _idx, text in parts:
+        if page and page != last_page:
+            out.append(f"[Page {page}]")
+            last_page = page
+        out.append(text.strip())
+    return "\n\n".join(out)
+
+
 def get_document_text(title: str, source_type: str = "own_findings", user_id: str = "dev-user") -> str:
     """Concatenate chunk texts for a document matched by title in payload."""
     client = get_client()

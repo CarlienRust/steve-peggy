@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
 
 import config
+from core.extraction.jobs import EXTRACT_JOB_TYPE, run_extraction_job
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_text_length, enforce_user_rate
 from core.rag.workflows import (
@@ -60,6 +61,13 @@ class ProposalRequest(BaseModel):
 
 class ValidateAimRequest(BaseModel):
     workspace_id: str
+
+
+class ExtractRequest(BaseModel):
+    workspace_id: str
+    paper_ids: list[int] = Field(default_factory=list)
+    modules: list[str] = Field(default_factory=list)
+    source_types: list[str] = Field(default_factory=lambda: ["literature"])
 
 
 class StudyPlanRequest(BaseModel):
@@ -301,6 +309,49 @@ async def validate_aim_run(run_id: str, user: AuthUser = Depends(get_current_use
         confidence=row.get("confidence") or "low",
         limitations=row.get("limitations") or [],
     )
+
+
+@router.post("/extract")
+async def start_extraction(
+    body: ExtractRequest,
+    background_tasks: BackgroundTasks,
+    user: AuthUser = Depends(get_current_user),
+):
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    if body.paper_ids:
+        for pid in body.paper_ids:
+            paper = await catalog.get_paper(user.id, pid)
+            if not paper:
+                raise HTTPException(404, f"Paper {pid} not found")
+            paper_ws = paper.get("workspace_id")
+            if paper_ws and str(paper_ws) != str(body.workspace_id):
+                raise HTTPException(404, f"Paper {pid} not in this project")
+    payload = {
+        "job_type": EXTRACT_JOB_TYPE,
+        "user_id": user.id,
+        "workspace_id": body.workspace_id,
+        "paper_ids": body.paper_ids,
+        "modules": body.modules or config.EXTRACTION_MODULES,
+        "source_types": body.source_types,
+        "batch_size": config.EXTRACTION_BATCH_SIZE,
+    }
+    job_id = await catalog.create_job(user.id, payload)
+    background_tasks.add_task(run_extraction_job, job_id, payload)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.get("/extract/jobs/{job_id}")
+async def get_extraction_job(job_id: str, user: AuthUser = Depends(get_current_user)):
+    job = await catalog.get_job(user.id, job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    payload = job.get("payload") or {}
+    if payload.get("job_type") != EXTRACT_JOB_TYPE:
+        raise HTTPException(404, "Extraction job not found")
+    return job
 
 
 @router.get("/findings-summary")

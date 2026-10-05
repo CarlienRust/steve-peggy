@@ -1,0 +1,32 @@
+{
+  "id": "core",
+  "version": "1",
+  "label": "Study design",
+  "description": "Shared fields extracted from every paper regardless of evidence module.",
+  "fields": [
+    {
+      "id": "design",
+      "label": "Study design",
+      "type": "text",
+      "description": "e.g. cohort, RCT, cross-sectional, systematic review"
+    },
+    {
+      "id": "n",
+      "label": "Sample size (N)",
+      "type": "text",
+      "description": "Reported N or range"
+    },
+    {
+      "id": "setting",
+      "label": "Setting / region",
+      "type": "text",
+      "description": "Country, site, or care setting"
+    },
+    {
+      "id": "population",
+      "label": "Population",
+      "type": "text",
+      "description": "Who was studied"
+    }
+  ]
+}

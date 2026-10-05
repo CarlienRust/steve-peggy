@@ -148,6 +148,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_findings_summaries(db)
         await _migrate_papers_workspace(db)
         await _migrate_findings_summaries_by_workspace(db)
+        await _migrate_extractions(db)
         await db.commit()
 
 
@@ -235,6 +236,34 @@ async def _migrate_findings_summaries_by_workspace(db: aiosqlite.Connection) -> 
             source_count INTEGER NOT NULL DEFAULT 0,
             updated_at TEXT
         )"""
+    )
+
+
+async def _migrate_extractions(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS extractions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            paper_id INTEGER NOT NULL,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            module TEXT NOT NULL,
+            field TEXT NOT NULL,
+            value TEXT,
+            source_quote TEXT,
+            source_page INTEGER,
+            status TEXT NOT NULL DEFAULT 'auto',
+            model_version TEXT,
+            created_at TEXT,
+            updated_at TEXT,
+            UNIQUE (paper_id, module, field),
+            FOREIGN KEY (paper_id) REFERENCES papers(id) ON DELETE CASCADE
+        )"""
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_extractions_workspace_status ON extractions (workspace_id, status)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_extractions_workspace_paper ON extractions (workspace_id, paper_id)"
     )
 
 
@@ -929,3 +958,141 @@ async def save_findings_summary(
         "source_count": source_count,
         "updated_at": now,
     }
+
+
+def _extraction_row(row: dict | None) -> dict | None:
+    from core.extraction_row import row_to_extraction
+
+    return row_to_extraction(row)
+
+
+async def list_extractions(
+    user_id: str,
+    workspace_id: str,
+    *,
+    paper_id: int | None = None,
+    module: str | None = None,
+    status: str | None = None,
+) -> list[dict]:
+    clauses = ["user_id = ?", "workspace_id = ?"]
+    args: list = [user_id, workspace_id]
+    if paper_id is not None:
+        clauses.append("paper_id = ?")
+        args.append(paper_id)
+    if module:
+        clauses.append("module = ?")
+        args.append(module)
+    if status:
+        clauses.append("status = ?")
+        args.append(status)
+    sql = f"""SELECT id, paper_id, workspace_id, module, field, value, source_quote,
+                     source_page, status, model_version, created_at, updated_at
+              FROM extractions WHERE {' AND '.join(clauses)} ORDER BY paper_id, module, field"""
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(sql, args)
+        rows = await cur.fetchall()
+    out: list[dict] = []
+    for row in rows:
+        parsed = _extraction_row(dict(row))
+        if parsed:
+            out.append(parsed)
+    return out
+
+
+async def get_extraction(user_id: str, workspace_id: str, extraction_id: int) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """SELECT id, paper_id, workspace_id, module, field, value, source_quote,
+                      source_page, status, model_version, created_at, updated_at
+               FROM extractions WHERE user_id = ? AND workspace_id = ? AND id = ?""",
+            (user_id, workspace_id, extraction_id),
+        )
+        row = await cur.fetchone()
+    return _extraction_row(dict(row) if row else None)
+
+
+async def upsert_extraction(row: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute(
+            """INSERT INTO extractions
+               (paper_id, workspace_id, user_id, module, field, value, source_quote,
+                source_page, status, model_version, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(paper_id, module, field) DO UPDATE SET
+                   value = excluded.value,
+                   source_quote = excluded.source_quote,
+                   source_page = excluded.source_page,
+                   status = excluded.status,
+                   model_version = excluded.model_version,
+                   updated_at = excluded.updated_at""",
+            (
+                row["paper_id"],
+                row["workspace_id"],
+                row["user_id"],
+                row["module"],
+                row["field"],
+                row.get("value"),
+                row.get("source_quote"),
+                row.get("source_page"),
+                row["status"],
+                row.get("model_version"),
+                now,
+                now,
+            ),
+        )
+        await db.commit()
+        cur = await db.execute(
+            """SELECT id, paper_id, workspace_id, module, field, value, source_quote,
+                      source_page, status, model_version, created_at, updated_at
+               FROM extractions
+               WHERE paper_id = ? AND module = ? AND field = ?""",
+            (row["paper_id"], row["module"], row["field"]),
+        )
+        saved = await cur.fetchone()
+    parsed = _extraction_row(dict(saved) if saved else None)
+    if not parsed:
+        raise RuntimeError("Failed to upsert extraction")
+    return parsed
+
+
+async def patch_extraction(
+    user_id: str,
+    workspace_id: str,
+    extraction_id: int,
+    fields: dict,
+) -> dict | None:
+    existing = await get_extraction(user_id, workspace_id, extraction_id)
+    if not existing:
+        return None
+    sets: list[str] = []
+    args: list = []
+    for key in ("value", "source_quote", "source_page", "status"):
+        if key in fields:
+            sets.append(f"{key} = ?")
+            args.append(fields[key])
+    if not sets:
+        return existing
+    sets.append("updated_at = ?")
+    args.append(datetime.now(timezone.utc).isoformat())
+    args.extend([user_id, workspace_id, extraction_id])
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            f"UPDATE extractions SET {', '.join(sets)} WHERE user_id = ? AND workspace_id = ? AND id = ?",
+            args,
+        )
+        await db.commit()
+    return await get_extraction(user_id, workspace_id, extraction_id)
+
+
+async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            "DELETE FROM extractions WHERE user_id = ? AND paper_id = ?",
+            (user_id, paper_id),
+        )
+        await db.commit()
+        return cur.rowcount

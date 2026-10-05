@@ -70,7 +70,10 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `GEMINI_API_KEY` | If gemini | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | |
 | `OLLAMA_URL` | Local ollama | `http://localhost:11434` | |
-| `OLLAMA_MODEL` | No | `llama3.2` | |
+| `OLLAMA_MODEL` | No | `llama3.2` | Also stored on `extractions.model_version` |
+| `EXTRACTION_BATCH_SIZE` | No | `2` | Papers processed concurrently per extraction job |
+| `MAX_EXTRACTION_TEXT_LEN` | No | `12000` | Truncate paper text sent to LLM |
+| `EXTRACTION_MODULES` | No | `core,outcomes` | Default modules for `/workflows/extract` |
 | `CORS_ORIGINS` | Render | `http://localhost:3000` | Comma-separated origins, **no spaces** |
 | `NCBI_EMAIL` | **Yes** (PubMed) | — | Your email |
 | `MAX_DISCOVER_RESULTS` | No | `50` | Max papers returned per discover request |

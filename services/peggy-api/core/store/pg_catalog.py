@@ -786,3 +786,136 @@ async def save_findings_summary(
         "source_count": int(row["source_count"] or 0),
         "updated_at": updated.isoformat() if hasattr(updated, "isoformat") else updated,
     }
+
+
+def _extraction_row(row) -> dict | None:
+    from core.extraction_row import row_to_extraction
+
+    return row_to_extraction(dict(row) if row else None)
+
+
+async def list_extractions(
+    user_id: str,
+    workspace_id: str,
+    *,
+    paper_id: int | None = None,
+    module: str | None = None,
+    status: str | None = None,
+) -> list[dict]:
+    clauses = ["user_id = $1::uuid", "workspace_id = $2::uuid"]
+    args: list = [user_id, workspace_id]
+    idx = 3
+    if paper_id is not None:
+        clauses.append(f"paper_id = ${idx}")
+        args.append(paper_id)
+        idx += 1
+    if module:
+        clauses.append(f"module = ${idx}")
+        args.append(module)
+        idx += 1
+    if status:
+        clauses.append(f"status = ${idx}")
+        args.append(status)
+        idx += 1
+    sql = f"""SELECT id, paper_id, workspace_id, module, field, value, source_quote,
+                     source_page, status, model_version, created_at, updated_at
+              FROM extractions WHERE {' AND '.join(clauses)}
+              ORDER BY paper_id, module, field"""
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(sql, *args)
+    return [parsed for row in rows if (parsed := _extraction_row(row))]
+
+
+async def get_extraction(user_id: str, workspace_id: str, extraction_id: int) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT id, paper_id, workspace_id, module, field, value, source_quote,
+                      source_page, status, model_version, created_at, updated_at
+               FROM extractions
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid AND id = $3""",
+            user_id,
+            workspace_id,
+            extraction_id,
+        )
+    return _extraction_row(row)
+
+
+async def upsert_extraction(row: dict) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        saved = await conn.fetchrow(
+            """INSERT INTO extractions
+               (paper_id, workspace_id, user_id, module, field, value, source_quote,
+                source_page, status, model_version, updated_at)
+               VALUES ($1, $2::uuid, $3::uuid, $4, $5, $6, $7, $8, $9, $10, NOW())
+               ON CONFLICT (paper_id, module, field) DO UPDATE SET
+                   value = EXCLUDED.value,
+                   source_quote = EXCLUDED.source_quote,
+                   source_page = EXCLUDED.source_page,
+                   status = EXCLUDED.status,
+                   model_version = EXCLUDED.model_version,
+                   updated_at = NOW()
+               RETURNING id, paper_id, workspace_id, module, field, value, source_quote,
+                         source_page, status, model_version, created_at, updated_at""",
+            row["paper_id"],
+            row["workspace_id"],
+            row["user_id"],
+            row["module"],
+            row["field"],
+            row.get("value"),
+            row.get("source_quote"),
+            row.get("source_page"),
+            row["status"],
+            row.get("model_version"),
+        )
+    parsed = _extraction_row(saved)
+    if not parsed:
+        raise RuntimeError("Failed to upsert extraction")
+    return parsed
+
+
+async def patch_extraction(
+    user_id: str,
+    workspace_id: str,
+    extraction_id: int,
+    fields: dict,
+) -> dict | None:
+    existing = await get_extraction(user_id, workspace_id, extraction_id)
+    if not existing:
+        return None
+    sets: list[str] = []
+    args: list = []
+    idx = 1
+    for key in ("value", "source_quote", "source_page", "status"):
+        if key in fields:
+            sets.append(f"{key} = ${idx}")
+            args.append(fields[key])
+            idx += 1
+    if not sets:
+        return existing
+    sets.append("updated_at = NOW()")
+    args.extend([user_id, workspace_id, extraction_id])
+    sql = f"""UPDATE extractions SET {', '.join(sets)}
+              WHERE user_id = ${idx}::uuid AND workspace_id = ${idx + 1}::uuid AND id = ${idx + 2}
+              RETURNING id, paper_id, workspace_id, module, field, value, source_quote,
+                        source_page, status, model_version, created_at, updated_at"""
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, *args)
+    return _extraction_row(row)
+
+
+async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM extractions WHERE user_id = $1::uuid AND paper_id = $2",
+            user_id,
+            paper_id,
+        )
+    try:
+        return int(str(result).split()[-1])
+    except (ValueError, IndexError):
+        return 0

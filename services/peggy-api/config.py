@@ -73,6 +73,15 @@ RATE_LIMIT_INGEST_PER_HOUR = int(os.getenv("RATE_LIMIT_INGEST_PER_HOUR", "20"))
 RATE_LIMIT_DISCOVER_PER_HOUR = int(os.getenv("RATE_LIMIT_DISCOVER_PER_HOUR", "20"))
 RATE_LIMIT_WORKFLOW_PER_HOUR = int(os.getenv("RATE_LIMIT_WORKFLOW_PER_HOUR", "15"))
 
+# Structured extraction (Phase 2B)
+EXTRACTION_BATCH_SIZE = int(os.getenv("EXTRACTION_BATCH_SIZE", "2"))
+MAX_EXTRACTION_TEXT_LEN = int(os.getenv("MAX_EXTRACTION_TEXT_LEN", "12000"))
+EXTRACTION_MODULES = [
+    m.strip()
+    for m in os.getenv("EXTRACTION_MODULES", "core,outcomes").split(",")
+    if m.strip()
+]
+
 # When false on Render, /health returns minimal status (no LLM/limits detail).
 PUBLIC_HEALTH_DETAIL = os.getenv("PUBLIC_HEALTH_DETAIL", "false").lower() in ("1", "true", "yes")
 

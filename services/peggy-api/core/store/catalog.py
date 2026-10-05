@@ -177,3 +177,37 @@ async def save_findings_summary(
     source_count: int,
 ) -> dict:
     return await _backend().save_findings_summary(user_id, workspace_id, summary, points, source_count)
+
+
+async def list_extractions(
+    user_id: str,
+    workspace_id: str,
+    *,
+    paper_id: int | None = None,
+    module: str | None = None,
+    status: str | None = None,
+) -> list[dict]:
+    return await _backend().list_extractions(
+        user_id, workspace_id, paper_id=paper_id, module=module, status=status
+    )
+
+
+async def get_extraction(user_id: str, workspace_id: str, extraction_id: int) -> dict | None:
+    return await _backend().get_extraction(user_id, workspace_id, extraction_id)
+
+
+async def upsert_extraction(row: dict) -> dict:
+    return await _backend().upsert_extraction(row)
+
+
+async def patch_extraction(
+    user_id: str,
+    workspace_id: str,
+    extraction_id: int,
+    fields: dict,
+) -> dict | None:
+    return await _backend().patch_extraction(user_id, workspace_id, extraction_id, fields)
+
+
+async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
+    return await _backend().delete_extractions_for_paper(user_id, paper_id)

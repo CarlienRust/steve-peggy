@@ -20,6 +20,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 | Item | Notes |
 |------|-------|
+| Phase 2A (evidence schema) | `extractions` table (migration 012), module JSON (`core` + `outcomes`), CRUD API, SQLite + Postgres catalog |
+| Phase 2B (extraction job) | `POST /workflows/extract`, batch size 2, benchmark script, skips confirmed/corrected fields on re-run |
 | Phase 1 (Jan launch prep) | Section hubs, explicit Save on planners/proposal, findings merge, workspace isolation, quick scan labels, objective delete confirm + orphan warning, per-objective/project tasks on dashboard |
 | Validate section | `/validate/*` — gap analysis, literature, validate aim (replaces old ingest/gaps routes) |
 | Objective-linked roadmap | Stable objective IDs, plan steps, finding tags, dashboard per-objective progress |
@@ -58,6 +60,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Future study design | API only | Superseded by study-design planners for UI |
 | Manuscript framing | API only | No UI |
 | Feedback | API only | No review UI |
+| Evidence extractions (schema + storage) | Done | Migration `012`; modules `core` + `outcomes`; API only — review UI in Phase 2C |
+| Extraction job (background) | Done | `POST /workflows/extract`, batch size 2, `scripts/benchmark-extraction.py` |
+| Evidence review screen | Not started | Phase 2C |
 | OCR for scanned PDFs | Not started | |
 | Reactive agent loop | Done | `POST /agent/run` + `/stream`; Auto mode in UI — [AGENT.md](AGENT.md) |
 
