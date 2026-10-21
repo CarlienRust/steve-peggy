@@ -1,14 +1,15 @@
 import { CorpusManagement } from "@/features/ingest/CorpusManagement";
-import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
+import { ValidateShell } from "@/components/ValidateShell";
 
 export default function ValidateLiteraturePage() {
   return (
     <>
-      <PageHeader compact title="Literature search" description="PubMed and PDF literature." />
-      <PageSection>
-        <CorpusManagement />
-      </PageSection>
+      <ValidateShell title="Literature search" description="Papers in this project. Sample data shown.">
+        <PageSection>
+          <CorpusManagement />
+        </PageSection>
+      </ValidateShell>
     </>
   );
 }

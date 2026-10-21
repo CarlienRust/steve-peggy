@@ -309,7 +309,13 @@ export type PaperRecord = {
   doi?: string;
   authors?: string;
   year?: string;
+  journal?: string;
+  screening_status?: "to_read" | "included" | "excluded";
   ingested_at?: string;
+  status?: "not_extracted" | "needs_review" | "reviewed";
+  extraction_review_status?: "not_extracted" | "needs_review" | "reviewed";
+  extraction_count?: number;
+  auto_extraction_count?: number;
 };
 
 export type DiscoveryCandidate = {
@@ -409,6 +415,32 @@ export const peggyApi = {
     apiFetch<{ status: string; paper_id: number; vectors_purged: boolean }>(`/corpus/${id}`, {
       method: "DELETE",
     }),
+
+  listWorkspacePapersSummary: (workspaceId: string, params?: { screeningStatus?: string; q?: string }) => {
+    const qs = new URLSearchParams();
+    if (params?.screeningStatus) qs.set("screening_status", params.screeningStatus);
+    if (params?.q) qs.set("q", params.q);
+    const suffix = qs.toString() ? `?${qs.toString()}` : "";
+    return apiFetch<{
+      papers: PaperRecord[];
+      count: number;
+      screening_counts: { all: number; to_read: number; included: number; excluded: number };
+    }>(`/workspaces/${workspaceId}/papers/summary${suffix}`);
+  },
+
+  getWorkspaceCoverage: (
+    workspaceId: string,
+    params: { dimension: string; dimension2?: string }
+  ) => {
+    const qs = new URLSearchParams();
+    qs.set("dimension", params.dimension);
+    if (params.dimension2) qs.set("dimension2", params.dimension2);
+    return apiFetch<{
+      dimension: { module: string; field: string };
+      dimension2: { module: string; field: string } | null;
+      cells: Array<{ value: string; value2?: string; paper_count: number }>;
+    }>(`/workspaces/${workspaceId}/coverage?${qs.toString()}`);
+  },
 
   chat: (query: string, options?: { sourceTypes?: string[]; mode?: ChatMode; workspaceId?: string }) =>
     apiFetch<ChatResponse>("/chat", {

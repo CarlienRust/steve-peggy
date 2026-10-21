@@ -376,6 +376,8 @@ Return JSON only:
   "wording_issues": ["clarity or feasibility problems in aim/objectives wording"],
   "supported": ["what the literature supports, with chunk_id refs"],
   "not_supported": ["claims or objectives not well supported by retrieved literature"],
+  "suggested_aim": "revised aim text (string, empty if no change suggested)",
+  "suggested_objectives": ["revised objectives list (strings). Keep order. Only include if changes suggested; else []"],
   "summary": "short overall assessment",
   "limitations": ["string"]
 }}"""

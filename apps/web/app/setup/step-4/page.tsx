@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Button, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -42,37 +42,59 @@ export default function SetupStep4Page() {
     onError: (err: unknown) => setError(formatApiError(err)),
   });
 
-  const onPrivacyChange = (_: unknown, value: SetupPrivacyMode | null) => {
-    if (!value) return;
-    setState({ privacy_mode: value });
-  };
+  const setPrivacy = (value: SetupPrivacyMode) => setState({ privacy_mode: value });
+
+  const modulesLabel = useMemo(() => {
+    const mods = (state.enabled_modules || []).filter(Boolean);
+    if (mods.length === 0) return "";
+    const nice = mods.map((m) => (m === "core" ? "Core" : m[0].toUpperCase() + m.slice(1)));
+    return nice.join(", ");
+  }, [state.enabled_modules]);
+
+  const settingLabel = useMemo(() => {
+    const s = state.settings || {};
+    const parts = [s["country_or_region"], s["setting_type"], s["population"]].filter(Boolean).map(String);
+    return parts.join(", ");
+  }, [state.settings]);
 
   return (
-    <SetupShell title="Privacy mode" subtitle="Choose where your data can be processed." step={4} backHref="/setup/step-3">
+    <SetupShell
+      title="Privacy"
+      subtitle="Choose where Peggy is allowed to send text. You can change this per project."
+      step={4}
+      backHref="/setup/step-3"
+    >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Stack spacing={2}>
+        <Stack spacing={2.5}>
           {error ? <Alert severity="error">{error}</Alert> : null}
 
-          <Stack spacing={0.75}>
-            <Typography fontWeight={600}>Privacy</Typography>
-            <ToggleButtonGroup
-              color="primary"
-              value={state.privacy_mode}
-              exclusive
-              onChange={onPrivacyChange}
-              sx={{ alignSelf: "flex-start" }}
-            >
-              <ToggleButton value="local_only" sx={{ textTransform: "none" }}>
-                Local only
-              </ToggleButton>
-              <ToggleButton value="hosted_allowed" sx={{ textTransform: "none" }}>
-                Hosted allowed
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7 }}>
-              Local only keeps processing on your machine. Hosted allowed lets Peggy use hosted services when configured.
-            </Typography>
+          <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
+            <ChoiceCard
+              selected={state.privacy_mode === "local_only"}
+              title="Local only"
+              tag={<Chip label="Recommended" size="small" sx={{ borderRadius: 999 }} />}
+              description="Everything stays on this computer. Peggy uses the local model."
+              onClick={() => setPrivacy("local_only")}
+            />
+            <ChoiceCard
+              selected={state.privacy_mode === "hosted_allowed"}
+              title="Allow a hosted model"
+              tag={<Chip label="Sends text out" color="warning" size="small" sx={{ borderRadius: 999 }} />}
+              description="Can give better answers on some tasks. Text from your papers and findings is sent to the provider you choose."
+              onClick={() => setPrivacy("hosted_allowed")}
+            />
           </Stack>
+
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
+              YOUR PROJECT
+            </Typography>
+            <SummaryRow label="Name" value={state.title.trim()} />
+            <SummaryRow label="Aim" value={state.aim.trim()} />
+            <SummaryRow label="Setting" value={settingLabel} />
+            <SummaryRow label="Modules" value={modulesLabel} />
+            <SummaryRow label="Privacy" value={state.privacy_mode === "local_only" ? "Local only" : "Allow a hosted model"} />
+          </Paper>
 
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 1 }}>
             <Button
@@ -96,6 +118,79 @@ export default function SetupStep4Page() {
         </Stack>
       </Paper>
     </SetupShell>
+  );
+}
+
+function ChoiceCard({
+  selected,
+  title,
+  tag,
+  description,
+  onClick,
+}: {
+  selected: boolean;
+  title: string;
+  tag: ReactNode;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <Paper
+      variant="outlined"
+      onClick={onClick}
+      sx={{
+        p: 2.5,
+        borderRadius: 2,
+        cursor: "pointer",
+        borderWidth: selected ? 1.5 : 0.5,
+        borderColor: selected ? "primary.main" : "divider",
+        flex: "1 0 0",
+      }}
+    >
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+        <Box
+          sx={{
+            width: 20,
+            height: 20,
+            borderRadius: 999,
+            border: 1,
+            borderColor: selected ? "primary.main" : "text.secondary",
+            display: "grid",
+            placeItems: "center",
+          }}
+        >
+          {selected ? <Box sx={{ width: 10, height: 10, borderRadius: 999, bgcolor: "primary.main" }} /> : null}
+        </Box>
+        <Typography fontWeight={600} sx={{ flex: 1 }}>
+          {title}
+        </Typography>
+        {tag}
+      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+        {description}
+      </Typography>
+    </Paper>
+  );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      sx={{ py: 1, px: 1, borderTop: 1, borderColor: "divider" }}
+    >
+      <Typography fontWeight={600} sx={{ width: 140 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
+        {value || "—"}
+      </Typography>
+      <Button variant="text" sx={{ textTransform: "none", color: "secondary.main" }}>
+        Edit
+      </Button>
+    </Stack>
   );
 }
 

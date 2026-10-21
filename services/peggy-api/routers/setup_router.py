@@ -111,6 +111,14 @@ async def setup_checks():
                     ) AS ok
                     """
                 )
+                papers_screening = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                      SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'papers' AND column_name = 'screening_status'
+                    ) AS ok
+                    """
+                )
                 ws_fields = await conn.fetchval(
                     """
                     SELECT EXISTS (
@@ -119,9 +127,14 @@ async def setup_checks():
                     ) AS ok
                     """
                 )
-                ok = bool(obj_hist and papers_journal and ws_fields)
+                ok = bool(obj_hist and papers_journal and papers_screening and ws_fields)
                 if not ok:
-                    detail = f"objective_history={bool(obj_hist)}, papers.journal={bool(papers_journal)}, workspaces.privacy_mode={bool(ws_fields)}"
+                    detail = (
+                        f"objective_history={bool(obj_hist)}, "
+                        f"papers.journal={bool(papers_journal)}, "
+                        f"papers.screening_status={bool(papers_screening)}, "
+                        f"workspaces.privacy_mode={bool(ws_fields)}"
+                    )
         except Exception as exc:
             detail = str(exc)[:300]
         checks.append(

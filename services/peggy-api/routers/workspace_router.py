@@ -230,12 +230,42 @@ async def get_study_design(workspace_id: str, user: AuthUser = Depends(get_curre
 
 
 @router.get("/{workspace_id}/papers/summary")
-async def papers_summary(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+async def papers_summary(
+    workspace_id: str,
+    screening_status: Optional[str] = Query(
+        None, description="Optional screening status filter (to_read|included|excluded)"
+    ),
+    q: Optional[str] = Query(None, description="Search title, author or DOI (case-insensitive substring)"),
+    user: AuthUser = Depends(get_current_user),
+):
     ws = await catalog.get_workspace(user.id, workspace_id)
     if not ws:
         raise HTTPException(404, "Workspace not found")
-    papers = await catalog.list_workspace_papers_summary(user.id, workspace_id)
-    return {"papers": papers, "count": len(papers)}
+    papers_all = await catalog.list_workspace_papers_summary(user.id, workspace_id)
+
+    # Counts for Figma chips are based on the full dataset (before filters).
+    screening_counts = {"all": len(papers_all), "to_read": 0, "included": 0, "excluded": 0}
+    for p in papers_all:
+        s = (p.get("screening_status") or "to_read").strip()
+        if s in screening_counts:
+            screening_counts[s] += 1
+
+    papers = papers_all
+    if screening_status:
+        s = screening_status.strip()
+        papers = [p for p in papers if (p.get("screening_status") or "to_read") == s]
+    if q:
+        needle = q.strip().lower()
+        if needle:
+            papers = [
+                p
+                for p in papers
+                if needle in (p.get("title") or "").lower()
+                or needle in (p.get("authors") or "").lower()
+                or needle in (p.get("doi") or "").lower()
+            ]
+
+    return {"papers": papers, "count": len(papers), "screening_counts": screening_counts}
 
 
 @router.get("/{workspace_id}/coverage")

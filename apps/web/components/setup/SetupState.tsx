@@ -4,8 +4,10 @@ import { createContext, PropsWithChildren, useContext, useMemo, useState } from 
 import type { WorkspaceObjective } from "@/lib/objectives";
 
 export type SetupPrivacyMode = "local_only" | "hosted_allowed";
+export type SetupStartMode = "idea" | "gap" | "resources";
 
 export type SetupState = {
+  start_mode?: SetupStartMode;
   title: string;
   aim: string;
   objectives: WorkspaceObjective[];

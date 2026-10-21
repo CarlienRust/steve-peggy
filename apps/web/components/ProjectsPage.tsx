@@ -163,14 +163,6 @@ export function ProjectsPage() {
         >
           <PeggyBrandLockup variant="sidebar" />
           <Stack direction="row" spacing={1} alignItems="center">
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => router.push("/setup/step-1")}
-              sx={{ textTransform: "none" }}
-            >
-              + Create new project
-            </Button>
             {!isAuthOptional() && (
               <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
                 Log out
@@ -207,18 +199,8 @@ export function ProjectsPage() {
             <CircularProgress />
           </Box>
         ) : (
-          <Box
-            sx={{
-              display: "grid",
-              gridTemplateColumns: {
-                xs: "1fr",
-                lg: workspaces.length > 0 ? "minmax(0, 1fr) minmax(0, 1fr)" : "1fr",
-              },
-              gap: { xs: 4, lg: 6 },
-              alignItems: "start",
-            }}
-          >
-            <Box sx={{ minWidth: 0, maxWidth: workspaces.length > 0 ? "none" : 720 }}>
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ maxWidth: 960, mb: 4 }}>
               <PeggyWelcomeHub
                 hasProfile={hasProfile}
                 onCreateProject={() => router.push("/setup/step-1")}
@@ -226,15 +208,22 @@ export function ProjectsPage() {
               />
             </Box>
 
-            {workspaces.length > 0 && (
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={eyebrowSx}>Research projects</Typography>
-                <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
-                  Choose a project
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Open an existing project to enter your workspace.
-                </Typography>
+            {workspaces.length > 0 ? (
+              <>
+                <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography sx={eyebrowSx}>PROJECTS</Typography>
+                    <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em" sx={{ mb: 1 }}>
+                      Your projects
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, maxWidth: 720 }}>
+                      Each project keeps its own papers, findings and plans. Nothing is shared between projects.
+                    </Typography>
+                  </Box>
+                  <Button variant="contained" onClick={() => router.push("/setup/step-1")} sx={{ textTransform: "none", flexShrink: 0 }}>
+                    + New project
+                  </Button>
+                </Box>
 
                 {loadError && (
                   <Alert severity="error" sx={{ mb: 2 }}>
@@ -283,8 +272,8 @@ export function ProjectsPage() {
                     </Paper>
                   ))}
                 </Stack>
-              </Box>
-            )}
+              </>
+            ) : null}
 
             {!workspaces.length && loadError && (
               <Alert severity="error">

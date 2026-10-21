@@ -4,6 +4,7 @@ import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { Box, Button, IconButton, Stack, TextField, Typography } from "@mui/material";
 import { ObjectiveLinkSelect } from "@/components/ObjectiveLinkSelect";
+import { StatusChip } from "@/components/StatusChip";
 import { linkTargetOptions, type WorkspaceObjective } from "@/lib/objectives";
 import type { PlanStep } from "@/lib/studyDesign";
 
@@ -59,6 +60,15 @@ export function PlanStepsEditor({ steps, aim, objectives, onChange, disabled }: 
                 <DeleteOutlineIcon />
               </IconButton>
             </Stack>
+            {Array.isArray(step.objectiveChangedObjectiveIds) && step.objectiveChangedObjectiveIds.length > 0 ? (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <StatusChip tone="warning" label="Objective changed" />
+                <Typography variant="body2" color="text.secondary">
+                  {step.objectiveChangedObjectiveIds.length} linked objective
+                  {step.objectiveChangedObjectiveIds.length === 1 ? "" : "s"} updated
+                </Typography>
+              </Stack>
+            ) : null}
             <ObjectiveLinkSelect
               options={options}
               value={step.objectiveIds}

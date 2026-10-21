@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS papers (
     authors TEXT,
     year TEXT,
     journal TEXT,
+    screening_status TEXT NOT NULL DEFAULT 'to_read',
     source_type TEXT DEFAULT 'literature',
     ingested_at TEXT
 );
@@ -168,6 +169,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_findings_summaries(db)
         await _migrate_papers_workspace(db)
         await _migrate_papers_journal(db)
+        await _migrate_papers_screening_status(db)
         await _migrate_findings_summaries_by_workspace(db)
         await _migrate_extractions(db)
         await db.commit()
@@ -287,6 +289,13 @@ async def _migrate_papers_workspace(db: aiosqlite.Connection) -> None:
 async def _migrate_papers_journal(db: aiosqlite.Connection) -> None:
     try:
         await db.execute("ALTER TABLE papers ADD COLUMN journal TEXT")
+    except Exception:
+        pass
+
+
+async def _migrate_papers_screening_status(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN screening_status TEXT NOT NULL DEFAULT 'to_read'")
     except Exception:
         pass
 
@@ -521,7 +530,7 @@ async def get_paper(user_id: str, paper_id: int) -> dict | None:
 async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None:
     if not await get_paper(user_id, paper_id):
         return None
-    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type"}
+    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type", "screening_status"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return await get_paper(user_id, paper_id)
@@ -592,7 +601,9 @@ async def list_workspace_papers_summary(user_id: str, workspace_id: str) -> list
             status = "needs_review"
         else:
             status = "reviewed"
+        # Back-compat: previously "status" meant extraction review status.
         d["status"] = status
+        d["extraction_review_status"] = status
         d["extraction_count"] = extraction_count
         d["auto_extraction_count"] = auto_count
         out.append(d)

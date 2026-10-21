@@ -1,18 +1,18 @@
 import { ValidateAimFeature } from "@/features/validate/ValidateAimFeature";
-import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
+import { ValidateShell } from "@/components/ValidateShell";
 
 export default function ValidateAimPage() {
   return (
     <>
-      <PageHeader
-        compact
-        title="Validate aim and objectives"
-        description="Check wording and fit against literature you have ingested."
-      />
-      <PageSection>
-        <ValidateAimFeature />
-      </PageSection>
+      <ValidateShell
+        title="Aim and objectives"
+        description="Write them here or paste yours. Peggy checks them against your papers. Sample data shown."
+      >
+        <PageSection>
+          <ValidateAimFeature />
+        </PageSection>
+      </ValidateShell>
     </>
   );
 }

@@ -13,6 +13,7 @@ export function SetupShell({
   step,
   totalSteps = 4,
   backHref = "/",
+  showBackButton = true,
   children,
 }: PropsWithChildren<{
   title: string;
@@ -20,6 +21,7 @@ export function SetupShell({
   step?: number;
   totalSteps?: number;
   backHref?: string;
+  showBackButton?: boolean;
 }>) {
   return (
     <Box
@@ -53,15 +55,17 @@ export function SetupShell({
           }}
         >
           <PeggyBrandLockup variant="sidebar" />
-          <Button
-            component={Link}
-            href={backHref}
-            size="small"
-            startIcon={<ArrowBackIcon />}
-            sx={{ textTransform: "none", flexShrink: 0 }}
-          >
-            Back
-          </Button>
+          {showBackButton ? (
+            <Button
+              component={Link}
+              href={backHref}
+              size="small"
+              startIcon={<ArrowBackIcon />}
+              sx={{ textTransform: "none", flexShrink: 0 }}
+            >
+              Back
+            </Button>
+          ) : null}
         </Box>
       </Box>
 
@@ -77,12 +81,10 @@ export function SetupShell({
         }}
       >
         {step ? (
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>{`Setup · Step ${step} of ${totalSteps}`}</Typography>
-        ) : (
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>Setup</Typography>
-        )}
+          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>{`NEW PROJECT  ·  STEP ${step} OF ${totalSteps}`}</Typography>
+        ) : null}
         <Stack spacing={1} sx={{ mb: 3 }}>
-          <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em">
+          <Typography variant="h1" fontWeight={600} letterSpacing="-0.02em" sx={{ fontSize: { xs: 28, sm: 36 } }}>
             {title}
           </Typography>
           {subtitle ? (

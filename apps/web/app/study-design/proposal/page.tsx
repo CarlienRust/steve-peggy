@@ -1,14 +1,15 @@
 import { ProposalFeature } from "@/features/study-design/ProposalFeature";
-import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
+import { StudyDesignShell } from "@/components/StudyDesignShell";
 
 export default function ProposalPage() {
   return (
     <>
-      <PageHeader compact title="Proposal" description="One–two page study or grant draft from project context." />
-      <PageSection>
-        <ProposalFeature />
-      </PageSection>
+      <StudyDesignShell title="Proposal" description="A 1 to 2 page draft built from your project. Edit it before you share it.">
+        <PageSection>
+          <ProposalFeature />
+        </PageSection>
+      </StudyDesignShell>
     </>
   );
 }

@@ -1,14 +1,15 @@
 import { EthicsFeature } from "@/features/study-design/EthicsFeature";
-import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
+import { StudyDesignShell } from "@/components/StudyDesignShell";
 
 export default function EthicsPage() {
   return (
     <>
-      <PageHeader compact title="Ethics" description="Approval letters, FMHS guidance, and IRB checklist." />
-      <PageSection>
-        <EthicsFeature />
-      </PageSection>
+      <StudyDesignShell title="Ethics" description="What your committee will ask for. Peggy builds a checklist from your cohort profile.">
+        <PageSection>
+          <EthicsFeature />
+        </PageSection>
+      </StudyDesignShell>
     </>
   );
 }

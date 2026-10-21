@@ -1,63 +1,125 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Box, Button, Checkbox, FormControlLabel, Paper, Stack, Typography } from "@mui/material";
+import { Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { SetupShell } from "@/components/setup/SetupShell";
 import { useSetupState } from "@/components/setup/SetupState";
-
-const MODULES: { id: string; label: string; required?: boolean }[] = [
-  { id: "core", label: "Core (Study design)", required: true },
-  { id: "outcomes", label: "Outcomes" },
-  { id: "exposure", label: "Exposure" },
-  { id: "microbiome", label: "Microbiome" },
-  { id: "diet", label: "Diet" },
-];
+import { normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 
 export default function SetupStep2Page() {
   const router = useRouter();
   const { state, setState } = useSetupState();
 
-  const enabled = new Set(state.enabled_modules ?? ["core"]);
-  enabled.add("core");
+  const mode = state.start_mode ?? "idea";
 
-  const toggle = (id: string) => {
-    const next = new Set(enabled);
-    if (id === "core") return;
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setState({ enabled_modules: Array.from(next) });
+  const [title, setTitle] = useState(state.title);
+  const [aim, setAim] = useState(state.aim);
+  const [objectivesText, setObjectivesText] = useState(() =>
+    (state.objectives || []).map((o) => o.text).filter(Boolean).join("\n")
+  );
+  const [topic, setTopic] = useState(String(state.resources?.["topic"] ?? ""));
+  const [resourcesText, setResourcesText] = useState(String(state.resources?.["resources_text"] ?? ""));
+
+  const objectives: WorkspaceObjective[] = useMemo(() => {
+    const raw = objectivesText
+      .split("\n")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((text) => ({ id: crypto.randomUUID(), text, status: "draft" as const }));
+    return normalizeObjectives(raw);
+  }, [objectivesText]);
+
+  const canContinue = title.trim().length > 0;
+
+  const onContinue = () => {
+    const patch: any = { title: title.trim() };
+    if (mode === "idea") {
+      patch.aim = aim.trim();
+      patch.objectives = objectives;
+    }
+    if (mode === "gap") {
+      patch.resources = { ...(state.resources || {}), topic: topic.trim() };
+    }
+    if (mode === "resources") {
+      patch.resources = { ...(state.resources || {}), resources_text: resourcesText.trim() };
+    }
+    setState(patch);
+    router.push("/setup/step-3");
   };
 
   return (
-    <SetupShell title="Evidence modules" subtitle="Choose what Peggy should extract and review from papers." step={2} backHref="/setup/step-1">
+    <SetupShell
+      title={
+        mode === "gap"
+          ? "Find me a gap"
+          : mode === "resources"
+            ? "Here is what I have"
+            : "I have an idea"
+      }
+      subtitle={
+        mode === "gap"
+          ? "Scan the literature for open questions in your topic."
+          : mode === "resources"
+            ? "List your data, cohorts and resources. Peggy suggests questions you can answer."
+            : "Enter your aim and objectives. Peggy checks them against the literature."
+      }
+      step={2}
+      backHref="/setup/step-1"
+    >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Stack spacing={1.5}>
-          {MODULES.map((m) => (
-            <FormControlLabel
-              key={m.id}
-              control={
-                <Checkbox
-                  checked={enabled.has(m.id)}
-                  onChange={() => toggle(m.id)}
-                  disabled={!!m.required}
+        <Stack spacing={2}>
+          <TextField label="Name" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
+
+          {mode === "idea" ? (
+            <>
+              <TextField
+                label="Aim"
+                value={aim}
+                onChange={(e) => setAim(e.target.value)}
+                fullWidth
+                multiline
+                minRows={3}
+              />
+              <Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+                  Objectives (one per line)
+                </Typography>
+                <TextField
+                  value={objectivesText}
+                  onChange={(e) => setObjectivesText(e.target.value)}
+                  fullWidth
+                  multiline
+                  minRows={4}
                 />
-              }
-              label={
-                <Box>
-                  <Typography fontWeight={600}>{m.label}</Typography>
-                  {m.required ? (
-                    <Typography variant="caption" color="text.secondary">
-                      Required
-                    </Typography>
-                  ) : null}
-                </Box>
-              }
-              sx={{ alignItems: "flex-start", m: 0 }}
+              </Box>
+            </>
+          ) : null}
+
+          {mode === "gap" ? (
+            <TextField
+              label="Topic"
+              value={topic}
+              onChange={(e) => setTopic(e.target.value)}
+              fullWidth
+              placeholder="e.g. air pollution and depression in Africa"
             />
-          ))}
+          ) : null}
+
+          {mode === "resources" ? (
+            <TextField
+              label="Resources"
+              value={resourcesText}
+              onChange={(e) => setResourcesText(e.target.value)}
+              fullWidth
+              multiline
+              minRows={6}
+              placeholder="List your datasets, cohorts, measures, and constraints."
+            />
+          ) : null}
 
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 1 }}>
             <Button
@@ -71,7 +133,8 @@ export default function SetupStep2Page() {
             <Button
               variant="contained"
               endIcon={<ArrowForwardIcon />}
-              onClick={() => router.push("/setup/step-3")}
+              onClick={onContinue}
+              disabled={!canContinue}
               sx={{ textTransform: "none" }}
             >
               Continue

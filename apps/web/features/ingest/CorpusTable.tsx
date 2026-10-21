@@ -39,6 +39,14 @@ function formatDate(iso?: string) {
   }
 }
 
+function statusLabel(status?: string) {
+  if (!status) return "—";
+  if (status === "reviewed") return "Reviewed";
+  if (status === "needs_review") return "Needs review";
+  if (status === "not_extracted") return "Not extracted";
+  return status;
+}
+
 type CorpusTableProps = {
   papers: PaperRecord[];
   emptyMessage: string;
@@ -67,6 +75,8 @@ export function CorpusTable({
   const [savingTags, setSavingTags] = useState(false);
   const queryClient = useQueryClient();
   const showLinks = !!onSaveFindingLinks && !!linkOptions;
+  const showJournal = papers.some((p) => !!p.journal);
+  const showStatus = papers.some((p) => !!p.status);
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<PaperRecord> }) => peggyApi.updatePaper(id, data),
@@ -133,9 +143,11 @@ export function CorpusTable({
           <TableHead>
             <TableRow>
               <TableCell>Title</TableCell>
+              {showJournal && <TableCell>Journal</TableCell>}
               <TableCell>Type</TableCell>
               {showLinks && <TableCell>Objectives</TableCell>}
               <TableCell>Year</TableCell>
+              {showStatus && <TableCell>Status</TableCell>}
               <TableCell>Ingested</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
@@ -143,7 +155,7 @@ export function CorpusTable({
           <TableBody>
             {papers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={showLinks ? 6 : 5}>
+                <TableCell colSpan={4 + (showJournal ? 1 : 0) + (showLinks ? 1 : 0) + (showStatus ? 1 : 0) + 1}>
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                     {emptyMessage}
                   </Typography>
@@ -162,6 +174,7 @@ export function CorpusTable({
                       </Typography>
                     )}
                   </TableCell>
+                  {showJournal && <TableCell sx={{ maxWidth: 220 }}>{p.journal || "—"}</TableCell>}
                   <TableCell>
                     <Chip label={typeLabel(p)} size="small" variant="outlined" />
                   </TableCell>
@@ -175,6 +188,11 @@ export function CorpusTable({
                     </TableCell>
                   )}
                   <TableCell>{p.year || "—"}</TableCell>
+                  {showStatus && (
+                    <TableCell>
+                      {p.status ? <Chip label={statusLabel(p.status)} size="small" variant="outlined" /> : "—"}
+                    </TableCell>
+                  )}
                   <TableCell>{formatDate(p.ingested_at)}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" aria-label="View" onClick={() => setViewPaper(p)}>

@@ -1,21 +1,15 @@
 import { FindingsPage } from "@/features/findings/FindingsPage";
-import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
-import { ProjectAimSection } from "@/components/ProjectAimSection";
+import { ResultsShell } from "@/components/ResultsShell";
 
 export default function ResultsFindingsPage() {
   return (
     <>
-      <PageHeader
-        compact
-        title="Findings"
-        description="Upload your results, read the summary, and tag findings to objectives."
-        descriptionTooltip="Compared against literature in gap analysis and comparison."
-      />
-      <ProjectAimSection />
-      <PageSection>
-        <FindingsPage />
-      </PageSection>
+      <ResultsShell title="Upload and summary" description="Add your findings. Peggy keeps them apart from the literature. Sample data shown.">
+        <PageSection>
+          <FindingsPage />
+        </PageSection>
+      </ResultsShell>
     </>
   );
 }

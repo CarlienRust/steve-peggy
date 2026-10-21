@@ -214,7 +214,7 @@ async def get_paper(user_id: str, paper_id: int) -> dict | None:
 async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None:
     if not await get_paper(user_id, paper_id):
         return None
-    allowed = {"pmid", "doi", "title", "authors", "year", "source_type"}
+    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type", "screening_status"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return await get_paper(user_id, paper_id)
@@ -311,7 +311,9 @@ async def list_workspace_papers_summary(user_id: str, workspace_id: str) -> list
             status = "needs_review"
         else:
             status = "reviewed"
+        # Back-compat: previously "status" meant extraction review status.
         d["status"] = status
+        d["extraction_review_status"] = status
         d["extraction_count"] = extraction_count
         d["auto_extraction_count"] = auto_count
         out.append(d)

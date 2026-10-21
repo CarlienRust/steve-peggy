@@ -1,49 +1,29 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Box,
   Button,
   CircularProgress,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
   Stack,
   Typography,
 } from "@mui/material";
-import CheckCircleOutlineIcon from "@mui/icons-material/CheckCircleOutline";
-import ErrorOutlineIcon from "@mui/icons-material/ErrorOutline";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
-import { SourceCards } from "@/components/SourceCards";
 import { useAuthSession } from "@/lib/authContext";
 import { normalizeObjectives } from "@/lib/objectives";
 import { useWorkspace } from "@/lib/workspaceContext";
-
-function BulletList({ title, items }: { title: string; items: string[] }) {
-  if (items.length === 0) return null;
-  return (
-    <Box>
-      <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
-        {title}
-      </Typography>
-      <List dense disablePadding>
-        {items.map((item, index) => (
-          <ListItem key={`${index}-${item.slice(0, 32)}`} disablePadding sx={{ py: 0.35, alignItems: "flex-start" }}>
-            <ListItemText primary={item} primaryTypographyProps={{ variant: "body2" }} />
-          </ListItem>
-        ))}
-      </List>
-    </Box>
-  );
-}
+import { useStudyDesign } from "@/lib/useStudyDesign";
+import { objectiveLinkSummary } from "@/lib/projectProgress";
+import { StatusChip } from "@/components/StatusChip";
 
 export function ValidateAimFeature() {
   const { activeWorkspace } = useWorkspace();
   const { userId } = useAuthSession();
   const queryClient = useQueryClient();
+  const { studyDesign } = useStudyDesign(activeWorkspace?.id);
+  const [showEarlier, setShowEarlier] = useState(false);
 
   const literature = useQuery({
     queryKey: queryKeys.corpus("literature", activeWorkspace?.id),
@@ -60,18 +40,6 @@ export function ValidateAimFeature() {
   const aim = activeWorkspace?.aim?.trim() ?? "";
   const objectives = normalizeObjectives(activeWorkspace?.objectives).filter((o) => o.text.trim());
   const literatureCount = literature.data?.count ?? 0;
-
-  const checklist = useMemo(
-    () => [
-      { ok: !!aim, label: aim ? "Aim is set" : "Aim is empty" },
-      { ok: objectives.length > 0, label: objectives.length > 0 ? "Objectives listed" : "No objectives" },
-      {
-        ok: literatureCount > 0,
-        label: literatureCount > 0 ? `${literatureCount} literature paper(s) ingested` : "No literature ingested yet",
-      },
-    ],
-    [aim, objectives.length, literatureCount]
-  );
 
   const canRun = (!!aim || objectives.length > 0) && literatureCount > 0 && !!activeWorkspace?.id;
 
@@ -93,65 +61,113 @@ export function ValidateAimFeature() {
 
   const display = check.data ?? (check.isIdle ? lastRunQuery.data : undefined);
   const body = display?.body as Record<string, unknown> | undefined;
+  const suggestedAim = typeof body?.suggested_aim === "string" ? (body.suggested_aim as string).trim() : "";
+  const suggestedObjectivesRaw = Array.isArray(body?.suggested_objectives) ? (body?.suggested_objectives as unknown[]) : [];
+  const suggestedObjectives = suggestedObjectivesRaw.map((s) => String(s ?? "").trim()).filter(Boolean);
+
+  const applySuggestion = useMutation({
+    mutationFn: async () => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      const nextAim = suggestedAim || activeWorkspace.aim || "";
+      const existing = normalizeObjectives(activeWorkspace.objectives);
+      const nextObjectives = existing.map((o, idx) => {
+        const suggested = suggestedObjectives[idx];
+        if (!suggested) return o;
+        const changed = suggested.trim() !== (o.text ?? "").trim();
+        return { ...o, text: suggested, status: changed ? "revised" : o.status };
+      });
+      for (let i = existing.length; i < suggestedObjectives.length; i++) {
+        nextObjectives.push({ id: crypto.randomUUID(), text: suggestedObjectives[i], status: "draft" });
+      }
+      return peggyApi.updateWorkspace(activeWorkspace.id, {
+        aim: nextAim,
+        objectives: nextObjectives,
+        objective_history_reason: "Applied validate-aim suggestion",
+        objective_history_actor: "peggy",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId ?? undefined) });
+      await queryClient.invalidateQueries({ queryKey: ["validate-aim-history", activeWorkspace?.id] });
+    },
+  });
 
   return (
-    <Stack spacing={3}>
+    <Stack spacing={2.5}>
       {!activeWorkspace && (
         <Alert severity="info">Select a project to validate its aim and objectives.</Alert>
       )}
 
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Project aim
-        </Typography>
-        <Typography variant="body2" color={aim ? "text.primary" : "text.secondary"} sx={{ whiteSpace: "pre-wrap" }}>
-          {aim || "Not set. Edit the project to add an aim."}
-        </Typography>
-      </Box>
+      <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+        <Button size="small" variant="contained" sx={{ textTransform: "none" }}>
+          Review my aim
+        </Button>
+        <Button size="small" variant="outlined" sx={{ textTransform: "none" }}>
+          Help me write
+        </Button>
+      </Stack>
 
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Objectives
+      <Box sx={{ p: 2.5, borderRadius: 2, border: "0.5px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+        <Typography variant="caption" sx={{ display: "block", mb: 1, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary" }}>
+          AIM
         </Typography>
-        {objectives.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            None listed.
+        <Box sx={{ p: 2, borderRadius: 2, border: "0.5px solid", borderColor: "divider", bgcolor: "background.default" }}>
+          <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+            {aim || "—"}
           </Typography>
-        ) : (
-          <List dense disablePadding>
-            {objectives.map((obj, index) => (
-              <ListItem key={obj.id} disablePadding sx={{ py: 0.25 }}>
-                <ListItemText
-                  primary={`${index + 1}. ${obj.text}`}
-                  primaryTypographyProps={{
-                    variant: "body2",
-                    sx: { textDecoration: obj.status === "done" ? "line-through" : "none" },
-                  }}
-                />
-              </ListItem>
-            ))}
-          </List>
-        )}
+        </Box>
       </Box>
 
-      <Box>
-        <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          Checklist
+      <Box sx={{ p: 2.5, borderRadius: 2, border: "0.5px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+        <Typography variant="caption" sx={{ display: "block", mb: 0.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary" }}>
+          OBJECTIVES
         </Typography>
-        <List dense disablePadding>
-          {checklist.map((item) => (
-            <ListItem key={item.label} disablePadding sx={{ py: 0.35 }}>
-              <ListItemIcon sx={{ minWidth: 32 }}>
-                {item.ok ? (
-                  <CheckCircleOutlineIcon fontSize="small" color="success" />
-                ) : (
-                  <ErrorOutlineIcon fontSize="small" color="warning" />
-                )}
-              </ListItemIcon>
-              <ListItemText primary={item.label} primaryTypographyProps={{ variant: "body2" }} />
-            </ListItem>
-          ))}
-        </List>
+        <Typography fontWeight={600} sx={{ mb: 0.5 }}>
+          Objectives and status
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Objectives can change. Peggy keeps a history and flags work linked to a changed objective.
+        </Typography>
+
+        <Stack spacing={1.25}>
+          {objectives.map((obj, idx) => {
+            const row = {
+              id: obj.id,
+              methodsSteps: (studyDesign.methodsPlan?.steps ?? []).filter((s: any) => (s?.objectiveIds ?? []).includes(obj.id)).length,
+              analysisSteps: (studyDesign.analysisPlan?.steps ?? []).filter((s: any) => (s?.objectiveIds ?? []).includes(obj.id)).length,
+              findings: (studyDesign.objectiveLinks?.findingLinks ?? []).filter((l: any) => (l?.objectiveIds ?? []).includes(obj.id)).length,
+            };
+            const linkedCount = row.methodsSteps + row.analysisSteps + row.findings;
+            const changed = (studyDesign.methodsPlan?.steps ?? []).some((s: any) =>
+              Array.isArray(s?.objectiveChangedObjectiveIds) && s.objectiveChangedObjectiveIds.includes(obj.id)
+            );
+            return (
+              <Stack key={obj.id} direction="row" spacing={2} alignItems="center" sx={{ px: 1, py: 0.75, borderTop: "0.5px solid", borderColor: "divider" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ width: 20 }}>
+                  {String(idx + 1).padStart(2, "0")}
+                </Typography>
+                <Typography variant="body2" sx={{ flex: 1 }}>
+                  {obj.text}
+                </Typography>
+                {obj.status === "revised" ? <StatusChip label="Revised" tone="neutral" /> : null}
+                {changed && linkedCount > 0 ? <StatusChip label={`${linkedCount} linked items`} tone="warning" /> : null}
+                <StatusChip label={obj.status === "defined" ? "Defined" : "Draft"} tone="neutral" />
+                <Button size="small" variant="text" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/dashboard")}>
+                  Edit
+                </Button>
+              </Stack>
+            );
+          })}
+        </Stack>
+
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
+          <Button variant="outlined" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/dashboard")}>
+            Add objective
+          </Button>
+          <Typography variant="caption" color="text.secondary">
+            Dropped objectives stay in the history.
+          </Typography>
+        </Stack>
       </Box>
 
       <Stack direction="row" spacing={1.5} alignItems="center">
@@ -163,35 +179,74 @@ export function ValidateAimFeature() {
         >
           {check.isPending ? <CircularProgress size={20} color="inherit" /> : "Check against literature"}
         </Button>
-        {!canRun && (
-          <Typography variant="caption" color="text.secondary">
-            Add an aim or objectives and ingest literature first.
-          </Typography>
-        )}
+        <Button variant="text" sx={{ textTransform: "none", color: "text.secondary" }} onClick={() => setShowEarlier((v) => !v)}>
+          Earlier checks ({historyQuery.data?.length ?? 0})
+        </Button>
       </Stack>
 
       {check.isError && <Alert severity="error">{formatApiError(check.error)}</Alert>}
 
-      {display && body && (
-        <Stack spacing={2}>
-          {typeof body.summary === "string" && body.summary && (
-            <Typography variant="body1">{body.summary}</Typography>
-          )}
-          <BulletList title="Wording issues" items={(body.wording_issues as string[]) ?? []} />
-          <BulletList title="Supported by literature" items={(body.supported as string[]) ?? []} />
-          <BulletList title="Not well supported" items={(body.not_supported as string[]) ?? []} />
-          {display.limitations?.length > 0 && (
-            <Alert severity="warning">
-              {display.limitations.map((lim, i) => (
-                <Typography key={i} variant="body2">
-                  {lim}
+      {display && body ? (
+        <>
+          <Box sx={{ p: 2.5, borderRadius: 2, border: "0.5px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+            <Typography sx={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
+              PEGGY&apos;S CHECK
+            </Typography>
+            <Typography fontWeight={600} sx={{ mb: 1 }}>
+              {typeof body.summary === "string" && body.summary ? body.summary : "Your aim is clear. One objective needs work."}
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              <StatusChip label="Aim: clear" tone="neutral" />
+              <StatusChip label="O3: not measurable" tone="warning" />
+              <StatusChip label={`${literatureCount} papers`} tone="neutral" />
+            </Stack>
+          </Box>
+
+          {(suggestedAim || suggestedObjectives.length > 0) ? (
+            <Box sx={{ p: 2.5, borderRadius: 2, border: "0.5px solid", borderColor: "divider", bgcolor: "background.paper" }}>
+              <Typography sx={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
+                SUGGESTION
+              </Typography>
+              <Typography fontWeight={600} sx={{ mb: 1 }}>
+                Make O3 measurable
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                NOW
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {objectives[2]?.text ?? "—"}
+              </Typography>
+              <Box sx={{ p: 2, borderRadius: 2, bgcolor: "background.default", border: "0.5px solid", borderColor: "divider" }}>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+                  SUGGESTED
                 </Typography>
-              ))}
-            </Alert>
-          )}
-          {display.sources?.length > 0 && <SourceCards sources={display.sources} />}
-        </Stack>
-      )}
+                <Typography variant="body2">
+                  {suggestedObjectives[2] ?? (suggestedObjectives[0] ?? suggestedAim ?? "—")}
+                </Typography>
+              </Box>
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <Button variant="contained" disabled={applySuggestion.isPending} onClick={() => applySuggestion.mutate()} sx={{ textTransform: "none" }}>
+                  {applySuggestion.isPending ? "Applying…" : "Use suggestion"}
+                </Button>
+                <Button variant="outlined" sx={{ textTransform: "none" }}>
+                  Edit first
+                </Button>
+                <Button variant="text" sx={{ textTransform: "none", color: "text.secondary" }}>
+                  Dismiss
+                </Button>
+              </Stack>
+            </Box>
+          ) : null}
+
+          <Typography variant="caption" color="text.secondary">
+            Limits: this checks your wording against the papers in this project. It does not replace your supervisor&apos;s review.
+          </Typography>
+        </>
+      ) : null}
+
+      {showEarlier ? (
+        <Alert severity="info">Earlier checks are shown in history (wired), layout pending Figma alignment.</Alert>
+      ) : null}
     </Stack>
   );
 }

@@ -15,6 +15,7 @@ class PaperUpdate(BaseModel):
     authors: Optional[str] = None
     year: Optional[str] = None
     journal: Optional[str] = None
+    screening_status: Optional[str] = None
     source_type: Optional[str] = None
 
 

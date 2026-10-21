@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
@@ -29,7 +28,7 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3, width: "100%", textAlign: "justify" }}>
         Peggy is your evidence-grounded research assistant. Ingest literature and your own findings, then ask
-        questions, compare results, and run gap analysis — every answer cites sources from your corpus.
+        questions, compare results, and run gap analysis. Every answer cites sources from your corpus.
       </Typography>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} flexWrap="wrap" useFlexGap>
         <Button
@@ -44,10 +43,9 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
           {createProjectLabel}
         </Button>
         <Button
-          component={Link}
-          href={profileHref}
           variant="outlined"
           startIcon={<PersonOutlineIcon />}
+          onClick={() => router.push(profileHref)}
           sx={{ textTransform: "none" }}
         >
           {hasProfile ? "Update profile" : "Complete profile"}

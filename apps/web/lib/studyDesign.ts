@@ -73,6 +73,11 @@ export type PlanStep = {
   id: string;
   title: string;
   objectiveIds: string[];
+  /**
+   * Server-provided: objective ids that were changed after this step/link was created.
+   * Optional because older saved study designs will not have it.
+   */
+  objectiveChangedObjectiveIds?: string[];
 };
 
 export type StudyDesignPlan = {

@@ -5,10 +5,9 @@ import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
   Button,
+  Chip,
   CircularProgress,
   Stack,
-  Tab,
-  Tabs,
   TextField,
 } from "@mui/material";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
@@ -21,6 +20,7 @@ import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 
 type PlannerSection = "methods" | "analysis";
 
@@ -42,19 +42,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
   const plan = studyDesign[planKey] ?? {};
   const samples = studyDesign.samples ?? {};
-  const studyBudget = studyDesign.budget;
-  const budgetFromTab =
-    [studyBudget?.summary, studyBudget?.constraints].filter(Boolean).join("; ") ||
-    samples.budget ||
-    "";
 
-  const [tab, setTab] = useState<"review" | "suggest">(plan.mode ?? "suggest");
+  const [tab, setTab] = useState<"review" | "suggest">(plan.mode ?? "review");
   const [userPlan, setUserPlan] = useState(plan.userPlan ?? "");
-  const [budget, setBudget] = useState(plan.budget ?? budgetFromTab);
-  const [tools, setTools] = useState(plan.preferredTools ?? plan.constraints ?? "");
-  const [outcomes, setOutcomes] = useState(plan.outcomeTypes ?? "");
-  const [covariates, setCovariates] = useState(plan.covariates ?? "");
-  const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
+  const [constraints, setConstraints] = useState(plan.constraints ?? plan.preferredTools ?? "");
   const [userNotes, setUserNotes] = useState(plan.userNotes ?? "");
   const [steps, setSteps] = useState<PlanStep[]>(plan.steps ?? []);
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
@@ -77,11 +68,12 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         workspaceId: activeWorkspace!.id,
         mode: tab,
         userPlan: tab === "review" ? userPlan : "",
-        budget,
-        tools,
-        outcomeTypes: section === "analysis" ? outcomes : undefined,
-        covariates: section === "analysis" ? covariates : undefined,
-        analysisMethod: section === "analysis" ? analysisMethod : undefined,
+        budget: "",
+        tools: "",
+        outcomeTypes: undefined,
+        covariates: undefined,
+        analysisMethod: undefined,
+        constraints,
       };
       return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
     },
@@ -99,13 +91,11 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
     () => ({
       mode: tab,
       userPlan,
-      budget,
-      preferredTools: tools,
+      constraints,
       steps,
       userNotes,
-      ...(section === "analysis" ? { outcomeTypes: outcomes, covariates, analysisMethod } : {}),
     }),
-    [tab, userPlan, budget, tools, steps, userNotes, section, outcomes, covariates, analysisMethod]
+    [tab, userPlan, constraints, steps, userNotes]
   );
 
   if (!activeWorkspace) {
@@ -116,96 +106,69 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
     <>
       <ProjectContextChips />
 
-      <Tabs value={tab} onChange={(_, v) => { setTab(v); saveSection(planKey, { mode: v }); }} sx={{ mb: 2 }}>
-        <Tab value="suggest" label="Help me design" />
-        <Tab value="review" label="Review my plan" />
-      </Tabs>
+      <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+        <Chip
+          label="Review my plan"
+          color={tab === "review" ? "primary" : "default"}
+          onClick={() => {
+            setTab("review");
+            saveSection(planKey, { mode: "review" });
+          }}
+        />
+        <Chip
+          label="Help me design"
+          variant={tab === "suggest" ? "filled" : "outlined"}
+          onClick={() => {
+            setTab("suggest");
+            saveSection(planKey, { mode: "suggest" });
+          }}
+        />
+      </Stack>
 
       <Stack spacing={2}>
-        {tab === "review" && (
-          <TextField
-            label={section === "methods" ? "Your methods plan" : "Your analysis plan"}
-            multiline
-            minRows={5}
-            value={userPlan}
-            onChange={(e) => {
-              setUserPlan(e.target.value);
-              saveSection(planKey, { userPlan: e.target.value });
-            }}
-            fullWidth
-          />
-        )}
         <TextField
-          label="Budget constraints"
-          placeholder="e.g. No paid software; student budget"
-          value={budget}
+          label={section === "methods" ? "Paste or type your methods plan" : "Paste or type your analysis plan"}
+          placeholder={section === "methods" ? "Paste or type your methods plan" : "Paste or type your analysis plan"}
+          multiline
+          minRows={6}
+          value={userPlan}
           onChange={(e) => {
-            setBudget(e.target.value);
-            saveSection(planKey, { budget: e.target.value });
-          }}
-          fullWidth
-          helperText={
-            budgetFromTab && !plan.budget
-              ? "Prefilled from Budget tab — edit for plan-specific constraints."
-              : undefined
-          }
-        />
-        <TextField
-          label="Preferred tools / software"
-          placeholder="e.g. R, Python, SPSS, free/open tools only"
-          value={tools}
-          onChange={(e) => {
-            setTools(e.target.value);
-            saveSection(planKey, { preferredTools: e.target.value });
+            setUserPlan(e.target.value);
+            saveSection(planKey, { userPlan: e.target.value });
           }}
           fullWidth
         />
-        {section === "analysis" && (
-          <>
-            <TextField
-              label="Outcome types"
-              placeholder="e.g. continuous biomarker, binary diagnosis, survival"
-              value={outcomes}
-              onChange={(e) => {
-                setOutcomes(e.target.value);
-                saveSection(planKey, { outcomeTypes: e.target.value });
-              }}
-              fullWidth
-            />
-            <TextField
-              label="Covariates (if applicable)"
-              placeholder="e.g. age, sex, BMI, treatment arm, batch"
-              value={covariates}
-              onChange={(e) => {
-                setCovariates(e.target.value);
-                saveSection(planKey, { covariates: e.target.value });
-              }}
-              fullWidth
-              helperText="Adjustments or stratification variables you plan to include."
-            />
-            <TextField
-              label="Analysis method (if pre-specified)"
-              placeholder="e.g. linear regression, mixed models, Cox proportional hazards"
-              value={analysisMethod}
-              onChange={(e) => {
-                setAnalysisMethod(e.target.value);
-                saveSection(planKey, { analysisMethod: e.target.value });
-              }}
-              fullWidth
-              helperText="Leave blank if you want Peggy to suggest methods."
-            />
-          </>
-        )}
+        <TextField
+          label="CONSTRAINTS (OPTIONAL)"
+          placeholder={section === "methods" ? "Time, staff, equipment" : "Software, skills, time"}
+          value={constraints}
+          onChange={(e) => {
+            setConstraints(e.target.value);
+            saveSection(planKey, { constraints: e.target.value });
+          }}
+          fullWidth
+        />
 
-        <Button variant="contained" disabled={llmBlocked || run.isPending} onClick={() => run.mutate()}>
-          {run.isPending ? (
-            <CircularProgress size={22} />
-          ) : tab === "review" ? (
-            "Review plan"
-          ) : (
-            "Suggest plan"
-          )}
+        <Button variant="outlined" sx={{ textTransform: "none", alignSelf: "flex-start" }} disabled>
+          Advanced options
         </Button>
+
+        <DisabledTooltipButton title={userPlan.trim() ? "" : "Paste your plan to get a review"}>
+          <Button
+            variant="contained"
+            disabled={llmBlocked || run.isPending || !userPlan.trim()}
+            onClick={() => run.mutate()}
+            sx={{ textTransform: "none", alignSelf: "flex-start" }}
+          >
+            {run.isPending ? (
+              <CircularProgress size={22} />
+            ) : tab === "review" ? (
+              "Review my plan"
+            ) : (
+              "Help me design"
+            )}
+          </Button>
+        </DisabledTooltipButton>
 
         {llmBlocked && (
           <Alert severity="warning">Update Samples to de-identified before using AI planners.</Alert>
