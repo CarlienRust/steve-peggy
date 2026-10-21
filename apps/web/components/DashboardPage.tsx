@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
@@ -8,7 +9,9 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   Box,
+  Button,
   Chip,
   IconButton,
   Stack,
@@ -19,6 +22,7 @@ import { peggyApi, queryKeys } from "@/lib/api";
 import { addObjectiveTask, normalizeObjectives, toggleObjectiveTask } from "@/lib/objectives";
 import { addProjectTask, countOrphanObjectiveLinks, toggleProjectTask } from "@/lib/studyDesign";
 import { useAuthSession } from "@/lib/authContext";
+import { isAuthOptional } from "@/lib/localMode";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { ProjectProgressPanel } from "@/components/ProjectProgressPanel";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
@@ -33,6 +37,7 @@ import { llmHealthHint } from "@/lib/llmHealthHint";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
+import { StatusChip } from "@/components/StatusChip";
 
 const DEFAULT_TITLE = process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Research project";
 
@@ -147,6 +152,7 @@ export function DashboardPage() {
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
   const embeddingsOk = health.data?.embeddings === "sentence-transformers";
   const setupHint = llmHealthHint(health.data);
+  const serviceDown = !!health.data && (!health.data.qdrant || !llmReady || !embeddingsOk);
 
   const summaryLine =
     literatureCount > 0 || ownCount > 0
@@ -164,6 +170,7 @@ export function DashboardPage() {
         <Typography variant="h1" sx={{ fontSize: { xs: "1.75rem", md: "2rem" }, fontWeight: 600, letterSpacing: "-0.02em" }}>
           {workspaceTitle}
         </Typography>
+        {isAuthOptional() ? <StatusChip label="Your data stays on this computer" tone="neutral" /> : null}
         {activeWorkspace && (
           <Tooltip title="Edit project">
             <IconButton size="small" aria-label="Edit project" onClick={() => setEditOpen(true)} sx={{ color: "text.secondary" }}>
@@ -188,6 +195,20 @@ export function DashboardPage() {
         studyDesign={studyDesign}
         onSaved={refetch}
       />
+
+      {serviceDown ? (
+        <Alert
+          severity="warning"
+          sx={{ mb: 3, alignItems: "flex-start" }}
+          action={
+            <Button component={Link} href="/setup" size="small" variant="outlined" sx={{ mt: 0.25 }}>
+              Setup check
+            </Button>
+          }
+        >
+          One service is down. Some features may not work.
+        </Alert>
+      ) : null}
 
       {health.data && (
         <Accordion

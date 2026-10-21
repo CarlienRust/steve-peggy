@@ -138,28 +138,76 @@ async def ingest_text_document(
     user_id: str = "dev-user",
     workspace_id: str | None = None,
 ) -> dict:
+    # region agent log
+    from core.debug_agent_log import dbg
+
+    dbg(
+        "jobs.py:ingest_text_document",
+        "start",
+        {"user_id": user_id, "workspace_id": workspace_id, "source_type": source_type, "text_len": len(text)},
+        hypothesis_id="B",
+    )
+    # endregion
     title = metadata.get("title", metadata.get("doc_id", "Uploaded document"))
     ws = workspace_id or metadata.get("workspace_id")
-    record = await catalog.record_paper(
-        user_id,
-        metadata.get("pmid", ""),
-        metadata.get("doi", ""),
-        title,
-        metadata.get("authors", ""),
-        metadata.get("year", ""),
-        source_type,
-        workspace_id=ws,
+    try:
+        record = await catalog.record_paper(
+            user_id,
+            metadata.get("pmid", ""),
+            metadata.get("doi", ""),
+            title,
+            metadata.get("authors", ""),
+            metadata.get("year", ""),
+            source_type,
+            workspace_id=ws,
+        )
+    except Exception as e:
+        # region agent log
+        dbg(
+            "jobs.py:ingest_text_document",
+            "record_paper failed",
+            {"err_type": type(e).__name__, "err": str(e)[:500], "workspace_id": ws},
+            hypothesis_id="B",
+        )
+        # endregion
+        raise
+    # region agent log
+    dbg(
+        "jobs.py:ingest_text_document",
+        "record_paper ok",
+        {"status": record.get("status"), "paper_id": record.get("paper_id")},
+        hypothesis_id="B",
     )
+    # endregion
     if record["status"] == "duplicate":
         raise DuplicateDocumentError(record["paper_id"], title)
     paper_id = record["paper_id"]
     chunks = chunk_text(text, {**metadata, "source_type": source_type, "paper_id": paper_id})
-    n = qdrant_store.upsert_chunks(
-        chunks,
-        source_type=source_type,
-        user_id=user_id,
-        workspace_id=ws,
+    try:
+        n = qdrant_store.upsert_chunks(
+            chunks,
+            source_type=source_type,
+            user_id=user_id,
+            workspace_id=ws,
+        )
+    except Exception as e:
+        # region agent log
+        dbg(
+            "jobs.py:ingest_text_document",
+            "upsert_chunks failed",
+            {"err_type": type(e).__name__, "err": str(e)[:500], "chunk_count": len(chunks)},
+            hypothesis_id="A",
+        )
+        # endregion
+        raise
+    # region agent log
+    dbg(
+        "jobs.py:ingest_text_document",
+        "upsert_chunks ok",
+        {"chunks": n},
+        hypothesis_id="A",
     )
+    # endregion
     return {"chunks": n, "paper_id": record["paper_id"], "status": "created"}
 
 

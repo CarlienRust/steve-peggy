@@ -5,7 +5,7 @@ import { PageSection } from "@/components/PageSection";
 export default function ChatPage() {
   return (
     <>
-      <PageHeader eyebrow="06 · Ask Peggy" title="Ask Peggy" description="Grounded Q&A with citations." />
+      <PageHeader eyebrow="05 · Ask Peggy" title="Ask Peggy" description="Grounded Q&A with citations." />
       <PageSection>
         <ChatFeature />
       </PageSection>

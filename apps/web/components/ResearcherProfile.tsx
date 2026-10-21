@@ -22,6 +22,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/authContext";
 import { isAuthOptional } from "@/lib/localMode";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { StatusChip } from "@/components/StatusChip";
 import {
   formatDisplayName,
   normalizeResearchRole,
@@ -94,10 +95,11 @@ export function ResearcherProfile() {
   if (isAuthOptional()) {
     return (
       <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
-        <Typography sx={eyebrowSx}>Local researcher</Typography>
-        <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>
-          Solo mode · SQLite
-        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+          <Typography sx={eyebrowSx}>Local researcher</Typography>
+          <StatusChip label="Local only" tone="neutral" />
+        </Box>
+        <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>SQLite</Typography>
         <Button
           fullWidth
           size="small"

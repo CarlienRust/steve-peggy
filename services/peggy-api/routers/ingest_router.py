@@ -95,6 +95,23 @@ async def upload_document(
         ws = await catalog.get_workspace(user.id, workspace_id)
         if not ws:
             raise HTTPException(404, "Workspace not found")
+    # region agent log
+    from core.debug_agent_log import dbg
+
+    dbg(
+        "ingest_router.py:upload_document",
+        "upload start",
+        {
+            "user_id": user.id,
+            "workspace_id": workspace_id,
+            "source_type": source_type,
+            "filename": file.filename,
+            "bytes": len(raw),
+            "content_type": file.content_type,
+        },
+        hypothesis_id="D",
+    )
+    # endregion
     try:
         result = await ingest_upload_bytes(
             raw,
@@ -115,6 +132,16 @@ async def upload_document(
         }
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
+    except Exception as e:
+        # region agent log
+        dbg(
+            "ingest_router.py:upload_document",
+            "upload uncaught exception",
+            {"err_type": type(e).__name__, "err": str(e)[:500]},
+            hypothesis_id="E",
+        )
+        # endregion
+        raise
     return {
         "status": "ok",
         "chunks": result["chunks"],

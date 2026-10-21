@@ -18,9 +18,11 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
+import { AskPeggyDrawer, ASK_PEGGY_DRAWER_W } from "@/components/AskPeggyDrawer";
 import {
   MAIN_NAV,
   groupsToExpand,
@@ -30,9 +32,10 @@ import {
   type NavItem,
 } from "@/lib/navigation";
 
-const SIDEBAR_W = 256;
+const SIDEBAR_W = 264;
 const MOBILE_HEADER_H = 56;
 const TABBED_SECTION_HREFS = new Set(["/study-design", "/results"]);
+const DESKTOP_RIGHT_GUTTER = 16;
 
 function sidebarAutoExpand(pathname: string): string[] {
   return groupsToExpand(pathname).filter((href) => !TABBED_SECTION_HREFS.has(href));
@@ -93,7 +96,9 @@ function NavLinkRow({
         <Typography component="span" sx={{ flex: 1 }}>
           {label}
         </Typography>
-        <Chip label={badge ?? "Soon"} size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
+        {badge ? (
+          <Chip label={badge} size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
+        ) : null}
       </Box>
     );
   }
@@ -195,7 +200,6 @@ function NavGroupRow({
               onNavigate={onNavigate}
               indent
               disabled={child.disabled}
-              badge={child.disabled || child.ready === false ? "Soon" : undefined}
             />
           ))}
         </Box>
@@ -282,6 +286,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [askOpen, setAskOpen] = useState(false);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -317,6 +322,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
                 <PeggyBrandLockup variant="compact" />
               </Box>
+              <Box sx={{ flex: 1 }} />
+              <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
+                <ChatBubbleOutlineIcon />
+              </IconButton>
             </Toolbar>
           </AppBar>
           <Drawer
@@ -357,6 +366,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         sx={{
           minHeight: "100vh",
           pl: { xs: 0, md: `${SIDEBAR_W}px` },
+          pr: { xs: 0, md: askOpen ? `${ASK_PEGGY_DRAWER_W + DESKTOP_RIGHT_GUTTER}px` : 0 },
           pt: { xs: `${MOBILE_HEADER_H}px`, md: 0 },
           animation: "peggyFadeIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both",
           "@keyframes peggyFadeIn": {
@@ -369,6 +379,26 @@ export function AppShell({ children }: { children: ReactNode }) {
           {children}
         </Box>
       </Box>
+
+      {!isMobile ? (
+        <IconButton
+          aria-label="Ask Peggy"
+          onClick={() => setAskOpen(true)}
+          sx={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 1300,
+            bgcolor: "background.paper",
+            border: `0.5px solid ${peggyColors.border}`,
+            "&:hover": { bgcolor: "background.paper" },
+          }}
+        >
+          <ChatBubbleOutlineIcon />
+        </IconButton>
+      ) : null}
+
+      <AskPeggyDrawer open={askOpen} onClose={() => setAskOpen(false)} />
     </Box>
   );
 }

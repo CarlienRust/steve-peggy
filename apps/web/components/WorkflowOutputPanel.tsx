@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import { WorkflowResults } from "@/components/WorkflowResults";
 import { SourceCards } from "@/components/SourceCards";
+import { WhatPeggyUsedDrawer } from "@/components/WhatPeggyUsedDrawer";
 import type { SourceCitation } from "@/lib/api";
 
 type WorkflowOutputPanelProps = {
@@ -51,6 +52,7 @@ export function WorkflowOutputPanel({
   onUserNotesChange,
 }: WorkflowOutputPanelProps) {
   const [clearOpen, setClearOpen] = useState(false);
+  const [usedOpen, setUsedOpen] = useState(false);
 
   if (!body) return null;
 
@@ -62,6 +64,11 @@ export function WorkflowOutputPanel({
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
           <Typography variant="subtitle2">{title}</Typography>
           <Stack direction="row" flexWrap="wrap" gap={1}>
+            {showSources ? (
+              <Button size="small" variant="outlined" onClick={() => setUsedOpen(true)}>
+                What Peggy used
+              </Button>
+            ) : null}
             {hasUnsavedResult && onSaveResult && (
               <Button size="small" variant="contained" disabled={saving} onClick={onSaveResult}>
                 {saving ? "Saving…" : "Save result to project"}
@@ -106,6 +113,16 @@ export function WorkflowOutputPanel({
           />
         )}
       </Stack>
+
+      {showSources ? (
+        <WhatPeggyUsedDrawer
+          open={usedOpen}
+          onClose={() => setUsedOpen(false)}
+          sources={sources}
+          confidence={confidence}
+          limitations={limitations}
+        />
+      ) : null}
 
       <Dialog open={clearOpen} onClose={() => setClearOpen(false)}>
         <DialogTitle>Clear saved result?</DialogTitle>

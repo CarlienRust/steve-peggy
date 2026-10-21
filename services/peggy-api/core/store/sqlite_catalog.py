@@ -304,6 +304,15 @@ def _workspace_clause(workspace_id: str | None) -> tuple[str, list]:
     return "", []
 
 
+async def _attach_paper_workspace(user_id: str, paper_id: int, workspace_id: str) -> None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            "UPDATE papers SET workspace_id = ? WHERE id = ? AND user_id = ? AND workspace_id IS NULL",
+            (workspace_id, paper_id, user_id),
+        )
+        await db.commit()
+
+
 async def find_existing_paper(
     *,
     user_id: str,
@@ -313,32 +322,33 @@ async def find_existing_paper(
     source_type: str = "literature",
     workspace_id: str | None = None,
 ) -> dict | None:
+    """Dedup is user-scoped (matches Postgres unique indexes), not workspace-scoped."""
+    del workspace_id
     pmid = (pmid or "").strip()
     doi = (doi or "").strip()
     norm = _norm_title(title)
-    ws_sql, ws_args = _workspace_clause(workspace_id)
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
         if pmid:
             cur = await db.execute(
-                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ?{ws_sql} LIMIT 1",
-                (user_id, source_type, pmid, *ws_args),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ? LIMIT 1",
+                (user_id, source_type, pmid),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if doi:
             cur = await db.execute(
-                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ?{ws_sql} LIMIT 1",
-                (user_id, source_type, doi, *ws_args),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ? LIMIT 1",
+                (user_id, source_type, doi),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if norm:
             cur = await db.execute(
-                f"SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ?{ws_sql} LIMIT 1",
-                (user_id, source_type, norm, *ws_args),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ? LIMIT 1",
+                (user_id, source_type, norm),
             )
             row = await cur.fetchone()
             if row:
@@ -395,6 +405,9 @@ async def record_paper(
         workspace_id=workspace_id,
     )
     if existing:
+        if workspace_id and not existing.get("workspace_id"):
+            await _attach_paper_workspace(user_id, int(existing["id"]), workspace_id)
+            existing = await get_paper(user_id, int(existing["id"])) or existing
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
     paper_id = await insert_paper(
         user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id

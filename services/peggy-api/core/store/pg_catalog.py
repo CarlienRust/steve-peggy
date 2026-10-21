@@ -55,10 +55,17 @@ def _row_to_dict(row: asyncpg.Record) -> dict:
     return out
 
 
-def _ws_suffix(workspace_id: str | None, arg_index: int) -> tuple[str, list]:
-    if workspace_id:
-        return f" AND workspace_id = ${arg_index}::uuid", [workspace_id]
-    return "", []
+async def _attach_paper_workspace(user_id: str, paper_id: int, workspace_id: str) -> None:
+    """Link legacy papers (workspace_id NULL) to the active workspace on re-ingest."""
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE papers SET workspace_id = $1::uuid
+               WHERE id = $2 AND user_id = $3::uuid AND workspace_id IS NULL""",
+            workspace_id,
+            paper_id,
+            user_id,
+        )
 
 
 async def find_existing_paper(
@@ -70,41 +77,38 @@ async def find_existing_paper(
     source_type: str = "literature",
     workspace_id: str | None = None,
 ) -> dict | None:
+    """Match Postgres unique indexes (user + source_type + pmid/doi/title), not workspace."""
+    del workspace_id  # listing is workspace-scoped; dedup is user-scoped per DB constraints
     pool = await _pool_conn()
     pmid = (pmid or "").strip()
     doi = (doi or "").strip()
     norm = _norm_title(title)
     async with pool.acquire() as conn:
         if pmid:
-            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3{ws_sql} LIMIT 1",
+                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3 LIMIT 1",
                 user_id,
                 source_type,
                 pmid,
-                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
         if doi:
-            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3{ws_sql} LIMIT 1",
+                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3 LIMIT 1",
                 user_id,
                 source_type,
                 doi,
-                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
         if norm:
-            ws_sql, ws_args = _ws_suffix(workspace_id, 4)
             row = await conn.fetchrow(
-                f"SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND lower(trim(title)) = $3{ws_sql} LIMIT 1",
+                """SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2
+                   AND lower(trim(title)) = $3 LIMIT 1""",
                 user_id,
                 source_type,
                 norm,
-                *ws_args,
             )
             if row:
                 return _row_to_dict(row)
@@ -157,10 +161,29 @@ async def record_paper(
         workspace_id=workspace_id,
     )
     if existing:
+        if workspace_id and not existing.get("workspace_id"):
+            await _attach_paper_workspace(user_id, int(existing["id"]), workspace_id)
+            existing = await get_paper(user_id, int(existing["id"])) or existing
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
-    paper_id = await insert_paper(
-        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
-    )
+    try:
+        paper_id = await insert_paper(
+            user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+        )
+    except asyncpg.UniqueViolationError:
+        existing = await find_existing_paper(
+            user_id=user_id,
+            pmid=pmid,
+            doi=doi,
+            title=title,
+            source_type=source_type,
+            workspace_id=workspace_id,
+        )
+        if not existing:
+            raise
+        if workspace_id and not existing.get("workspace_id"):
+            await _attach_paper_workspace(user_id, int(existing["id"]), workspace_id)
+            existing = await get_paper(user_id, int(existing["id"])) or existing
+        return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
     return {"status": "created", "paper_id": paper_id, "paper": await get_paper(user_id, paper_id)}
 
 

@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Box, Chip, Tab, Tabs } from "@mui/material";
+import { Box, Tab, Tabs } from "@mui/material";
 import { getNavGroup, isNavChildActive } from "@/lib/navigation";
-import { monoSx } from "@/theme/peggyTheme";
 
 export function SectionSubNav({ groupHref }: { groupHref: string }) {
   const pathname = usePathname() ?? "";
@@ -28,14 +27,7 @@ export function SectionSubNav({ groupHref }: { groupHref: string }) {
       >
         {group.children.map((child) => {
           const disabled = child.disabled || child.ready === false;
-          const label = (
-            <Box component="span" sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}>
-              {child.label}
-              {disabled && (
-                <Chip label="Soon" size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
-              )}
-            </Box>
-          );
+          const label = child.label;
 
           if (disabled) {
             return <Tab key={child.href} label={label} value={child.href} disabled />;

@@ -122,9 +122,38 @@ def upsert_chunks(
 ) -> int:
     if not chunks:
         return 0
+    # region agent log
+    from core.debug_agent_log import dbg
+
+    dbg(
+        "qdrant_store.py:upsert_chunks",
+        "before embed",
+        {"chunk_count": len(chunks), "collection": collection_for_source(source_type), "embedding_mode": _embedding_mode},
+        hypothesis_id="C",
+    )
+    # endregion
     client = get_client()
     collection = collection_for_source(source_type)
-    vectors = embed_texts([c.text for c in chunks])
+    try:
+        vectors = embed_texts([c.text for c in chunks])
+    except Exception as e:
+        # region agent log
+        dbg(
+            "qdrant_store.py:upsert_chunks",
+            "embed failed",
+            {"err_type": type(e).__name__, "err": str(e)[:500]},
+            hypothesis_id="C",
+        )
+        # endregion
+        raise
+    # region agent log
+    dbg(
+        "qdrant_store.py:upsert_chunks",
+        "embed ok",
+        {"vector_count": len(vectors), "embedding_mode": _embedding_mode},
+        hypothesis_id="C",
+    )
+    # endregion
     points = [
         PointStruct(
             id=point_id_for_chunk(c.chunk_id),
@@ -139,7 +168,18 @@ def upsert_chunks(
         )
         for c, vec in zip(chunks, vectors)
     ]
-    client.upsert(collection_name=collection, points=points)
+    try:
+        client.upsert(collection_name=collection, points=points)
+    except Exception as e:
+        # region agent log
+        dbg(
+            "qdrant_store.py:upsert_chunks",
+            "qdrant upsert failed",
+            {"err_type": type(e).__name__, "err": str(e)[:500], "qdrant_url": config.QDRANT_URL},
+            hypothesis_id="A",
+        )
+        # endregion
+        raise
     return len(points)
 
 

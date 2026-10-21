@@ -600,6 +600,28 @@ export const peggyApi = {
     const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", headers, body: form });
     if (!res.ok) {
       const text = await res.text();
+      // #region agent log
+      fetch("http://127.0.0.1:7290/ingest/db2becdf-6fe6-4671-adb8-08ab727906fc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "84965e" },
+        body: JSON.stringify({
+          sessionId: "84965e",
+          location: "api.ts:uploadDocument",
+          message: "upload HTTP error",
+          data: {
+            status: res.status,
+            bodyPreview: text.slice(0, 300),
+            workspaceId: options?.workspaceId ?? null,
+            sourceType: options?.sourceType ?? "literature",
+            fileName: file.name,
+            fileSize: file.size,
+          },
+          timestamp: Date.now(),
+          hypothesisId: "E",
+          runId: "pre-fix",
+        }),
+      }).catch(() => {});
+      // #endregion
       await throwApiError(res, text);
     }
     return res.json() as Promise<UploadResponse>;

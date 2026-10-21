@@ -20,6 +20,9 @@ import {
   LinearProgress,
   Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   Switch,
   TextField,
   Typography,
@@ -160,6 +163,24 @@ export function ProjectProgressPanel({
   const allDone = progress.completedCount === progress.totalCount && progress.totalCount > 0;
   const objectiveRows = (objectiveProgress?.rows ?? []).filter((row) => !row.isAim);
   const normalizedObjectives = normalizeObjectives(objectives);
+
+  const flowSteps = [
+    {
+      label: "Idea or gap",
+      done: ["aim", "literature", "gap"].every((id) => progress.stages.find((s) => s.id === id)?.done),
+    },
+    { label: "Aim and objectives", done: !!progress.stages.find((s) => s.id === "aim-check")?.done },
+    {
+      label: "Design",
+      done: ["samples", "methods", "analysis"].every((id) => progress.stages.find((s) => s.id === id)?.done),
+    },
+    {
+      label: "Ethics and admin",
+      done: ["ethics", "budget", "proposal"].every((id) => progress.stages.find((s) => s.id === id)?.done),
+    },
+    { label: "Results", done: !!progress.stages.find((s) => s.id === "findings")?.done },
+  ];
+  const activeFlowStep = Math.max(0, flowSteps.findIndex((s) => !s.done));
 
   const tasksForObjective = (objectiveId: string) =>
     normalizedObjectives.find((o) => o.id === objectiveId)?.tasks ?? [];
@@ -378,6 +399,19 @@ export function ProjectProgressPanel({
             )}
           </Box>
         )}
+
+        <Box>
+          <Typography sx={eyebrowSx} gutterBottom>
+            Project flow
+          </Typography>
+          <Stepper alternativeLabel activeStep={activeFlowStep} sx={{ pb: 1 }}>
+            {flowSteps.map((s) => (
+              <Step key={s.label} completed={s.done}>
+                <StepLabel>{s.label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        </Box>
 
         <Box>
           <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1.25 }}>

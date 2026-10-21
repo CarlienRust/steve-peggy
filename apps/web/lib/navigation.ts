@@ -45,7 +45,7 @@ export const MAIN_NAV: NavItem[] = [
         ready: true,
       },
       {
-        label: "Validate aim and objectives",
+        label: "Aim and objectives",
         href: "/validate/aim",
         description: "Check project aim and objectives against ingested literature.",
         ready: true,
@@ -55,7 +55,7 @@ export const MAIN_NAV: NavItem[] = [
   {
     kind: "group",
     num: "03",
-    label: "Study Design",
+    label: "Study design",
     href: "/study-design",
     children: [
       {
@@ -97,20 +97,13 @@ export const MAIN_NAV: NavItem[] = [
     ],
   },
   {
-    kind: "link",
-    num: "04",
-    label: "Analysis tool",
-    href: "/analysis-tool",
-    disabled: true,
-  },
-  {
     kind: "group",
-    num: "05",
+    num: "04",
     label: "Results",
     href: "/results",
     children: [
       {
-        label: "Findings",
+        label: "Upload and summary",
         href: "/results/findings",
         description: "Upload results, summary, and objective tags in one place.",
         ready: true,
@@ -123,7 +116,7 @@ export const MAIN_NAV: NavItem[] = [
       },
     ],
   },
-  { kind: "link", num: "06", label: "Ask Peggy", href: "/chat" },
+  { kind: "link", num: "05", label: "Ask Peggy", href: "/chat" },
 ];
 
 export function isNavChildActive(pathname: string, href: string): boolean {
@@ -163,7 +156,7 @@ export function getWorkflowShortcuts(): WorkflowShortcut[] {
     { label: "Samples", href: "/study-design/samples" },
     { label: "Methods plan", href: "/study-design/methods-plan" },
     { label: "Proposal", href: "/study-design/proposal" },
-    { label: "Findings", href: "/results/findings" },
+    { label: "Upload and summary", href: "/results/findings" },
     { label: "Comparison", href: "/results/comparison" },
     { label: "Ask Peggy", href: "/chat" },
   ];

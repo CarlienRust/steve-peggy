@@ -19,10 +19,13 @@ export const peggyColors = {
   muted: "#eef1ea",
   mutedForeground: "#5a6b65",
   accent: "#4a7c6f",
+  accentLow: alpha("#4a7c6f", 0.25),
+  accentMid: alpha("#4a7c6f", 0.55),
   border: alpha("#1e3330", 0.12),
   sidebar: alpha("#f8faf6", 0.85),
   warning: "#c49a3a",
   destructive: "#c44d3a",
+  scrim: "rgba(30,51,48,0.45)",
 };
 
 export function createPeggyTheme() {
@@ -45,6 +48,7 @@ export function createPeggyTheme() {
       h3: { fontSize: "1rem", fontWeight: 600 },
       body1: { fontSize: "1rem", lineHeight: 1.6 },
       body2: { fontSize: "0.875rem", lineHeight: 1.5 },
+      subtitle2: { fontSize: "0.875rem", fontWeight: 500 },
       caption: { fontSize: "0.75rem" },
     },
     components: {
@@ -97,7 +101,7 @@ export function createPeggyTheme() {
       },
       MuiTabs: {
         styleOverrides: {
-          indicator: { backgroundColor: peggyColors.accent, height: 2 },
+          indicator: { backgroundColor: peggyColors.primary, height: 2 },
         },
       },
       MuiTab: {
@@ -127,6 +131,11 @@ export function createPeggyTheme() {
         styleOverrides: {
           root: { fontFamily: "var(--font-jetbrains), monospace", fontSize: "0.65rem", height: 22 },
           outlined: { borderColor: peggyColors.border },
+        },
+      },
+      MuiBackdrop: {
+        styleOverrides: {
+          root: { backgroundColor: peggyColors.scrim },
         },
       },
       MuiAccordion: {
