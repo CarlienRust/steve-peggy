@@ -17,10 +17,26 @@ https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=7-2&t=QrO8f
 
 ### 3.2 New Project screen
 
+- Project Hub
+-- first run
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=61-2883&t=VpJ1e4N1Ny4Y5KgC-1
+-- return run
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=61-2776&t=VpJ1e4N1Ny4Y5KgC-1
+-- delete confirm
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=61-2975&t=VpJ1e4N1Ny4Y5KgC-1
+
+- Setup
+-- Step 1
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=7-289&t=QrO8f4bmWNEilWSg-1
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2552&t=77fzxLQhvw0SUd3d-1
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2592&t=77fzxLQhvw0SUd3d-1
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2642&t=77fzxLQhvw0SUd3d-1
+-- Step 2 (idea)
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2552&t=2h06RSwN2JpEpFlA-1
+-- Step 2 (resource)
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2592&t=2h06RSwN2JpEpFlA-1
+-- Step 2 (gap)
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=61-2931&t=2h06RSwN2JpEpFlA-1
+-- Step 3
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2642&t=2h06RSwN2JpEpFlA-1
+-- Step 4 
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=53-2727&t=77fzxLQhvw0SUd3d-1
 
 ### 3.3 Validate
@@ -115,16 +131,16 @@ https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2603&t=7
 Figma file: https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw ("Peggy UI")
 Scope: web only. Desktop layouts at 1440px. Screens use sample text.
 
-Put this file in `docs/FIGMA_HANDOFF.md`. Use it together with the Cursor implementation plan (`docs/LAUNCH.md`). This file is the source of truth for the UI. Do not depend on Figma access to build from it.
+This file is the source of truth for the UI. Do not depend on Figma access to build from it.
 
-## Read this first
+### Read this first
 
 - The Figma account is on the Starter plan. Figma MCP calls are limited there, and Code Connect is not available (it needs an Organization or Enterprise plan and a published library). Build from this file.
 - If you do have Figma MCP access, use `get_design_context` on one screen at a time (node IDs are in section 5). Do not fetch the whole file.
 - Most of the visual system already exists in `apps/web/theme/peggyTheme.ts`. Reuse it. Add only what is listed under "New tokens".
 - Before editing, grep to confirm file paths. If something here differs from the code, say so. Do not guess.
 
-## 4.1 Rules for the agent
+### 4.1 Rules for the agent
 
 - Use MUI components with theme overrides. No new UI library.
 - Copy is short and plain. One line where possible. No em dashes in UI text.
@@ -136,7 +152,7 @@ Put this file in `docs/FIGMA_HANDOFF.md`. Use it together with the Cursor implem
 - Project data is private. Show the chip "Your data stays on this computer" on the dashboard when the project is local only.
 - Layout: sidebar 264px, content max width 960px, section gap 24px, panel padding 20px, radius 8px, hairline borders at 0.5px.
 
-## 4.2 Tokens
+### 4.2 Tokens
 
 Figma variables map to `peggyColors` in `peggyTheme.ts`:
 
@@ -180,7 +196,7 @@ Type:
 | Eyebrow | JetBrains Mono 500, 10px, +12%, uppercase | `eyebrowSx` |
 | Mono small | JetBrains Mono 500, 11px | `monoSx` |
 
-## 4.3 Components
+### 4.3 Components
 
 "Existing" means extend the file named. "New" means create it, ideally under `apps/web/components/` or the feature folder shown.
 
@@ -211,15 +227,20 @@ Type:
 | Command block | New `CommandBlock` | Mono text with a Copy button. Used on the setup check. |
 | Switch, Module row | MUI Switch inside a new `ModuleToggleRow` | Used for evidence modules in the new project flow and in project settings. Core is always on: show the switch on at 50% opacity and disabled. |
 | Choice card (default, selected) | New `ChoiceCard` (radio card) | Used for the privacy choice. Selected has a 1.5px primary border and a filled radio. Tag chip: accent "Recommended", warning "Sends text out". |
+| Project card | New `ProjectCard` on the project hub | Title, aim (max 3 lines), stage chip, privacy chip (accent "Local only", warning "Hosted allowed"), progress with percent, last opened, Open / Rename / Delete. Cards in a row share one height (CSS grid, `align-items: stretch`). |
 
-## 4.4 Screens and routes
+### 4.4 Screens and routes
 
 | Screen (Figma frame) | Route | Notes |
 |---|---|---|
 | Dashboard | `/dashboard` | Flow diagram, next-step card, coverage summary, objectives list. Progress is computed from linked work, with a manual override. |
 | Dashboard: service down | `/dashboard` | Banner when `/health` reports a failed service, with a link to the setup check. Health chip beside the title. |
-| New project: step 1 | project create flow (`/onboarding` or `/projects`; confirm) | Three starting options. Continue is disabled until one is chosen. |
+| Project hub | `/` | Not inside a project. Top bar: Local only chip, Setup check, user, Log out. Header with a New project button, a row of project cards, and a setup status line. |
+| Project hub: first run | `/` | Shown when there are no projects. Three short steps, Create your first project, setup status. |
+| Project hub: delete confirmation | `/` | Confirm dialog naming the project and what is removed. |
+| New project: step 1 | opened by New project on the hub (`/onboarding` or `/projects`; confirm) | Three starting options. Continue is disabled until one is chosen. |
 | New project: step 2 (idea) | create flow, step 2 | Project name, aim, optional objectives. Continue is disabled until name and aim are filled. |
+| New project: step 2 (gap) | create flow, step 2 | One topic field, optional region, scan depth. States plainly that search terms go to PubMed, Europe PMC and OpenAlex and project data does not. |
 | New project: step 2 (resources) | create flow, step 2 | Six optional fields. Continue is disabled until at least one has text. Saves to the project's `resources` section. |
 | New project: step 3 | create flow, step 3 | Country or region, setting type, population, evidence module toggles. |
 | New project: step 4 | create flow, step 4 | Privacy choice, summary with Edit per row, Create project. Creating opens `/dashboard`. |
@@ -242,17 +263,17 @@ Type:
 | Ask Peggy: What Peggy used | opens from any answer | Right drawer, 440px, with a scrim. Sticky footer actions. |
 | Setup check | new route `/setup` | Six checks with copyable fix commands. Reads `/health`. |
 
-Not designed yet: the "Find me a gap" version of step 2 (one topic field, then a quick scan), mobile layouts, extraction failed and chat error states, empty states other than literature.
+Not designed: mobile layouts, extraction failed and chat error states, and empty states other than the hub and literature.
 
-## 4.5 Figma node IDs
+### 4.5 Figma node IDs
 
 Use these only if you have Figma access.
 
-Screens: Dashboard 7:2, New project 7:289, Literature search 9:200, Extraction review 9:364, Gap analysis 17:511, Methods plan 17:757, Ask Peggy 20:928, Ask Peggy panel 20:1069, Comparison 28:1056, Upload and summary 30:1217, Delete confirmation 30:1413, Analysis plan 32:1454, Samples and datasets 32:1658, Budget 33:1695, Ethics 34:1811, Proposal 34:2011, What Peggy used 36:2065, Setup check 47:2224, Dashboard service down 47:2371, Literature empty 47:2603, New project step 2 (idea) 53:2552, step 2 (resources) 53:2592, step 3 53:2642, step 4 53:2727, Aim and objectives 54:2652.
+Screens: Dashboard 7:2, New project 7:289, Literature search 9:200, Extraction review 9:364, Gap analysis 17:511, Methods plan 17:757, Ask Peggy 20:928, Ask Peggy panel 20:1069, Comparison 28:1056, Upload and summary 30:1217, Delete confirmation 30:1413, Analysis plan 32:1454, Samples and datasets 32:1658, Budget 33:1695, Ethics 34:1811, Proposal 34:2011, What Peggy used 36:2065, Setup check 47:2224, Dashboard service down 47:2371, Literature empty 47:2603, New project step 2 (idea) 53:2552, step 2 (resources) 53:2592, step 3 53:2642, step 4 53:2727, Aim and objectives 54:2652, Project hub 61:2776, Project hub first run 61:2883, New project step 2 (gap) 61:2931, Project hub delete confirmation 61:2975.
 
-Components: Button 3:18, Chip 3:28, Nav item 3:40, Nav child 3:46, Flow step 3:64, Tooltip 3:66, Search input 3:69, Select field 5:2, Matrix cell 5:15, Start option card 5:17, Objective row 5:24, Paper row 5:39, Extraction row 5:48, Sidebar 5:65, Progress bar 7:359, Tab 8:49, Gap card 16:45, Summary row 16:69, Checklist row 16:76, Text field 16:84, Message 19:68, Composer 19:70, Compare row 21:61, Finding row 29:63, Confirm dialog 29:79, Step row 31:67, Budget row 31:81, Source card 35:72, Command block 37:75, Switch 52:80, Module row 52:82, Choice card 52:107.
+Components: Button 3:18, Chip 3:28, Nav item 3:40, Nav child 3:46, Flow step 3:64, Tooltip 3:66, Search input 3:69, Select field 5:2, Matrix cell 5:15, Start option card 5:17, Objective row 5:24, Paper row 5:39, Extraction row 5:48, Sidebar 5:65, Progress bar 7:359, Tab 8:49, Gap card 16:45, Summary row 16:69, Checklist row 16:76, Text field 16:84, Message 19:68, Composer 19:70, Compare row 21:61, Finding row 29:63, Confirm dialog 29:79, Step row 31:67, Budget row 31:81, Source card 35:72, Command block 37:75, Switch 52:80, Module row 52:82, Choice card 52:107, Project card 60:80.
 
-## 4.6 Methods and analysis plan inputs
+### 4.6 Methods and analysis plan inputs
 
 Keep only these inputs:
 - Your plan (paste to review).
@@ -261,7 +282,7 @@ Keep only these inputs:
 
 Remove budget, outcome types and covariates from the form. Pre-fill them from the project record (aim, objectives, samples, enabled modules, extractions). Keep the old fields in saved data so older projects still load.
 
-## 4.6b New project flow and Aim and objectives: behavior
+### 4.6b New project flow and Aim and objectives: behavior
 
 New project (4 steps, one screen each, Back and Continue at the bottom):
 1. Start: idea, gap or resources.
@@ -279,7 +300,7 @@ Aim and objectives (`/validate/aim`):
 - "Earlier checks" opens the saved runs from the validate-aim history endpoint.
 - Always show the limits line under the result.
 
-## 4.7 Suggested build order
+### 4.7 Suggested build order
 
 1. Tokens, `StatusChip`, `DisabledTooltipButton`, Confirm dialog.
 2. `AppShell` navigation changes and the Ask Peggy side panel.
@@ -290,7 +311,24 @@ Aim and objectives (`/validate/aim`):
 7. Extraction review and the coverage matrix (needs the evidence layer from Phase 4 of the implementation plan).
 8. Chat updates, the What Peggy used drawer, the setup check.
 
-## 8. Checks before calling a screen done
+### 4.8 Fidelity pass, one screen at a time
+
+Do shared pieces first, then pages. A page only looks right when tokens, `StatusChip`, buttons, panels and tables are right.
+
+Per screen:
+1. Open the Figma frame and the running page at 1440px wide, side by side.
+2. Check the page frame: sidebar 264px, content 960px centered, 32px page padding, 24px between sections.
+3. Check the header: eyebrow (mono 10px, uppercase), then the title (36px, 600, -2% tracking), then one caption line, then tabs if the page has them.
+4. Check panels: white fill, 8px radius, 0.5px hairline, 20px padding. No MUI shadow or elevation.
+5. Check tables: surface-fill header row with mono eyebrow labels, rows at least 52px with a 0.5px bottom line, fixed-width status and action columns so columns do not drift.
+6. Check chips: mono 11px, pill, tone colors exactly as in section 3.
+7. Check buttons: 36px high, 8px radius, no uppercase transform, disabled at about 0.45 opacity with a tooltip.
+8. Check copy against the frame. Keep it short.
+9. Note differences in one list, fix them, and re-compare.
+
+Usual causes of mismatch: MUI default Paper shadow, button text transform, default font weights, default Chip height and radius, default Tabs indicator color, table cell padding, and line height on body text.
+
+## 4.9 Checks before calling a screen done
 
 - Matches the Figma frame at 1440px: spacing, type, chip tones.
 - Uses theme tokens. No hard-coded hex values.
