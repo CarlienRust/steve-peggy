@@ -20,6 +20,7 @@ class PaperRecord:
     year: str
     abstract: str
     doi: str = ""
+    journal: str = ""
 
 
 def _base_params() -> dict:
@@ -91,4 +92,14 @@ def _parse_pubmed_xml(xml_text: str, pmid: str) -> PaperRecord | None:
     for id_el in article.findall(".//ArticleId"):
         if id_el.get("IdType") == "doi" and id_el.text:
             doi = id_el.text
-    return PaperRecord(pmid=pmid, title=title, authors=", ".join(authors), year=year, abstract=abstract, doi=doi)
+    journal_el = article.find(".//Journal/Title")
+    journal = "".join(journal_el.itertext()).strip() if journal_el is not None else ""
+    return PaperRecord(
+        pmid=pmid,
+        title=title,
+        authors=", ".join(authors),
+        year=year,
+        abstract=abstract,
+        doi=doi,
+        journal=journal,
+    )

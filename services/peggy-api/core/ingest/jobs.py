@@ -60,6 +60,7 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
                     paper.year,
                     source_type,
                     workspace_id=workspace_id,
+                    journal=getattr(paper, "journal", "") or "",
                 )
                 if record["status"] == "duplicate":
                     skipped.append({"pmid": pmid, "title": paper.title, "paper_id": record["paper_id"]})

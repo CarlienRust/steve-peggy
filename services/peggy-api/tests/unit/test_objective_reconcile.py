@@ -2,7 +2,7 @@ from core.objectives import AIM_LINK_ID, normalize_objectives, reconcile_objecti
 
 
 def test_reconcile_strips_orphan_objective_ids():
-    objectives = normalize_objectives([{"id": "keep", "text": "Stay", "status": "open"}])
+    objectives = normalize_objectives([{"id": "keep", "text": "Stay", "status": "draft"}])
     valid = valid_link_ids(objectives, aim="My aim")
     study = {
         "methodsPlan": {
@@ -18,7 +18,7 @@ def test_reconcile_strips_orphan_objective_ids():
 
 
 def test_reconcile_reassign_map():
-    objectives = normalize_objectives([{"id": "new", "text": "New", "status": "open"}])
+    objectives = normalize_objectives([{"id": "new", "text": "New", "status": "draft"}])
     valid = valid_link_ids(objectives)
     study = {
         "analysisPlan": {

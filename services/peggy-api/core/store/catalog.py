@@ -39,9 +39,19 @@ async def record_paper(
     year: str,
     source_type: str,
     workspace_id: str | None = None,
+    *,
+    journal: str = "",
 ) -> dict:
     return await _backend().record_paper(
-        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+        user_id,
+        pmid,
+        doi,
+        title,
+        authors,
+        year,
+        source_type,
+        workspace_id=workspace_id,
+        journal=journal,
     )
 
 
@@ -63,6 +73,24 @@ async def list_papers(
     workspace_id: str | None = None,
 ) -> list[dict]:
     return await _backend().list_papers(user_id, source_type, workspace_id=workspace_id)
+
+
+async def list_workspace_papers_summary(user_id: str, workspace_id: str) -> list[dict]:
+    """Return workspace papers with a computed UI status based on extraction review completeness."""
+    return await _backend().list_workspace_papers_summary(user_id, workspace_id)
+
+
+async def get_workspace_coverage(
+    user_id: str,
+    workspace_id: str,
+    *,
+    dimension: tuple[str, str],
+    dimension2: tuple[str, str] | None = None,
+) -> dict:
+    """Aggregate counts across extractions for dashboard/gap coverage matrices."""
+    return await _backend().get_workspace_coverage(
+        user_id, workspace_id, dimension=dimension, dimension2=dimension2
+    )
 
 
 async def count_papers(user_id: str) -> int:
@@ -117,12 +145,50 @@ async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
     return await _backend().get_workspace(user_id, workspace_id)
 
 
-async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
-    return await _backend().create_workspace(user_id, title, aim, objectives)
+async def create_workspace(
+    user_id: str,
+    title: str,
+    aim: str,
+    objectives: list[str],
+    *,
+    resources: dict | None = None,
+    settings: dict | None = None,
+    enabled_modules: list[str] | None = None,
+    privacy_mode: str | None = None,
+    last_opened_at: str | None = None,
+) -> dict:
+    return await _backend().create_workspace(
+        user_id,
+        title,
+        aim,
+        objectives,
+        resources=resources,
+        settings=settings,
+        enabled_modules=enabled_modules,
+        privacy_mode=privacy_mode,
+        last_opened_at=last_opened_at,
+    )
 
 
 async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dict | None:
     return await _backend().update_workspace(user_id, workspace_id, fields)
+
+
+async def append_objective_history(user_id: str, workspace_id: str, entries: list[dict]) -> None:
+    """Persist objective edit history entries.
+
+    Expected keys per entry:
+      - objective_id (str)
+      - old_text (str)
+      - new_text (str)
+      - old_status (str|None)
+      - new_status (str|None)
+      - reason (str)
+      - actor (str: 'user'|'peggy')
+    """
+    if not entries:
+        return
+    return await _backend().append_objective_history(user_id, workspace_id, entries)
 
 
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:

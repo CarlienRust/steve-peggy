@@ -1,5 +1,5 @@
 import type { PaperRecord, Workspace } from "@/lib/api";
-import { AIM_LINK_ID, normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
+import { AIM_LINK_ID, normalizeObjectives, type ObjectiveStatus, type WorkspaceObjective } from "@/lib/objectives";
 import type { StudyDesignData } from "@/lib/studyDesign";
 
 export type ProgressStage = {
@@ -23,7 +23,7 @@ export type ObjectiveProgressRow = {
   id: string;
   label: string;
   text: string;
-  status: "open" | "done";
+  status: ObjectiveStatus;
   methodsSteps: number;
   analysisSteps: number;
   findings: number;
@@ -194,13 +194,13 @@ export function buildObjectiveProgress(
       id: AIM_LINK_ID,
       label: "Aim",
       text: aim,
-      status: "open",
+      status: "draft",
       isAim: true,
       ...aimCounts,
     });
   }
 
-  const completedCount = objectives.filter((o) => o.status === "done").length;
+  const completedCount = objectives.filter((o) => o.status === "defined" || o.status === "done").length;
   return {
     rows,
     completedCount,
@@ -214,7 +214,7 @@ export function toggleObjectiveStatus(
   done: boolean
 ): WorkspaceObjective[] {
   return normalizeObjectives(objectives).map((obj) =>
-    obj.id === objectiveId ? { ...obj, status: done ? "done" : "open" } : obj
+    obj.id === objectiveId ? { ...obj, status: done ? "defined" : "draft" } : obj
   );
 }
 

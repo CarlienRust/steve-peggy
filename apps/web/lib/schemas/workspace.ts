@@ -8,7 +8,7 @@ export const workspaceFormSchema = z.object({
     z.object({
       id: z.string(),
       text: z.string(),
-      status: z.enum(["open", "done"]),
+      status: z.enum(["draft", "defined", "revised", "dropped", "open", "done"]),
     })
   ),
 });
@@ -16,5 +16,5 @@ export const workspaceFormSchema = z.object({
 export type WorkspaceFormValues = z.infer<typeof workspaceFormSchema>;
 
 export function objectivesForForm(raw: WorkspaceObjective[] | string[] | undefined): WorkspaceObjective[] {
-  return normalizeObjectives(raw).filter((obj) => obj.text.trim() || obj.status === "done");
+  return normalizeObjectives(raw).filter((obj) => obj.text.trim() || obj.status === "defined" || obj.status === "done");
 }

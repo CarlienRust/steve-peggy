@@ -93,6 +93,7 @@ cd apps/web && npm run dev        # terminal 3
 
 ```bash
 ./scripts/check-local.sh
+curl -s http://localhost:8000/setup/checks | python3 -m json.tool
 ./scripts/smoke-local.sh          # after ingest
 ```
 
@@ -125,7 +126,7 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 
 ## Supabase auth (optional, not needed for solo local)
 
-1. Run migrations in order in the Supabase SQL Editor: `001` through `009_objective_links.sql` (see [DATABASE.md](DATABASE.md))
+1. Run migrations in order in the Supabase SQL Editor: `001` through `015_papers_journal.sql` (see [DATABASE.md](DATABASE.md))
 2. Redirect URLs: `http://localhost:3000/auth/callback` and your Vercel URL
 3. Password sign-in recommended for local dev
 4. Use the **transaction pooler** URI (port **6543**) for `DATABASE_URL`; restart API after env changes

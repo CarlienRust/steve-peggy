@@ -11,6 +11,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   Paper,
   Stack,
   TextField,
@@ -18,6 +19,9 @@ import {
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
@@ -30,6 +34,7 @@ import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 export function ProjectsPage() {
   const router = useRouter();
@@ -53,6 +58,10 @@ export function ProjectsPage() {
   const [objectives, setObjectives] = useState<WorkspaceObjective[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [canBackToDashboard, setCanBackToDashboard] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
+  const [renameId, setRenameId] = useState<string | null>(null);
+  const [renameTitle, setRenameTitle] = useState("");
 
   useEffect(() => {
     setCanBackToDashboard(!!loadActiveWorkspaceId());
@@ -95,6 +104,32 @@ export function ProjectsPage() {
   const createProjectLabel = workspaces.length === 0 ? "Create first project" : "Create new project";
   const pageLoading = !ready || isLoading || profileLoading;
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => peggyApi.deleteWorkspace(id),
+    onSuccess: () => {
+      if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      setDeleteId(null);
+    },
+    onError: (err: unknown) => setError(formatApiError(err)),
+  });
+
+  const renameMutation = useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => peggyApi.updateWorkspace(id, { title }),
+    onSuccess: () => {
+      if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      setRenameOpen(false);
+      setRenameId(null);
+      setRenameTitle("");
+    },
+    onError: (err: unknown) => setError(formatApiError(err)),
+  });
+
+  const openRename = (id: string, currentTitle: string) => {
+    setRenameId(id);
+    setRenameTitle(currentTitle);
+    setRenameOpen(true);
+  };
+
   return (
     <Box
       sx={{
@@ -127,11 +162,21 @@ export function ProjectsPage() {
           }}
         >
           <PeggyBrandLockup variant="sidebar" />
-          {!isAuthOptional() && (
-            <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
-              Log out
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => router.push("/setup/step-1")}
+              sx={{ textTransform: "none" }}
+            >
+              + Create new project
             </Button>
-          )}
+            {!isAuthOptional() && (
+              <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
+                Log out
+              </Button>
+            )}
+          </Stack>
         </Box>
       </Box>
 
@@ -176,7 +221,7 @@ export function ProjectsPage() {
             <Box sx={{ minWidth: 0, maxWidth: workspaces.length > 0 ? "none" : 720 }}>
               <PeggyWelcomeHub
                 hasProfile={hasProfile}
-                onCreateProject={() => setDialogOpen(true)}
+                onCreateProject={() => router.push("/setup/step-1")}
                 createProjectLabel={createProjectLabel}
               />
             </Box>
@@ -203,14 +248,33 @@ export function ProjectsPage() {
                       key={ws.id}
                       sx={{
                         p: 2.5,
-                        cursor: "pointer",
                         border: 1,
                         borderColor: "divider",
                         "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
                       }}
-                      onClick={() => openProject(ws.id)}
                     >
-                      <Typography fontWeight={600}>{ws.title}</Typography>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography fontWeight={600} noWrap>
+                            {ws.title}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {ws.privacy_mode === "hosted_allowed" ? "Hosted allowed" : "Local only"}
+                            {ws.last_opened_at ? ` · Last opened ${new Date(ws.last_opened_at).toLocaleDateString()}` : ""}
+                          </Typography>
+                        </Box>
+                        <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0}>
+                          <IconButton size="small" aria-label="Open project" onClick={() => openProject(ws.id)}>
+                            <OpenInNewIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" aria-label="Rename project" onClick={() => openRename(ws.id, ws.title)}>
+                            <EditOutlinedIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton size="small" aria-label="Delete project" onClick={() => setDeleteId(ws.id)}>
+                            <DeleteOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Stack>
+                      </Stack>
                       {ws.aim && (
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
                           {ws.aim}
@@ -251,6 +315,45 @@ export function ProjectsPage() {
               </Button>
             </DialogActions>
           </Box>
+        </Dialog>
+
+        <ConfirmDialog
+          open={!!deleteId}
+          title="Delete project?"
+          body="This removes the project and its linked data."
+          confirmLabel={deleteMutation.isPending ? "Deleting…" : "Delete"}
+          destructive
+          onCancel={() => setDeleteId(null)}
+          onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+        />
+
+        <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Rename project</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <TextField
+                label="Project title"
+                value={renameTitle}
+                onChange={(e) => setRenameTitle(e.target.value)}
+                required
+                fullWidth
+              />
+              {renameMutation.isError && <Alert severity="error">{formatApiError(renameMutation.error)}</Alert>}
+            </Stack>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button variant="outlined" onClick={() => setRenameOpen(false)} sx={{ textTransform: "none" }}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => renameId && renameMutation.mutate({ id: renameId, title: renameTitle.trim() })}
+              disabled={!renameTitle.trim() || renameMutation.isPending}
+              sx={{ textTransform: "none" }}
+            >
+              {renameMutation.isPending ? "Saving…" : "Save"}
+            </Button>
+          </DialogActions>
         </Dialog>
       </Box>
     </Box>

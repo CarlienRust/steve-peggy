@@ -8,6 +8,9 @@ from typing import Any
 
 AIM_LINK_ID = "aim"
 
+# Objective lifecycle statuses (Figma-aligned)
+OBJECTIVE_STATUSES = ("draft", "defined", "revised", "dropped")
+
 
 def objective_texts(raw: Any) -> list[str]:
     return [o["text"] for o in normalize_objectives(raw)]
@@ -41,16 +44,21 @@ def normalize_objectives(raw: Any) -> list[dict]:
         if isinstance(item, str):
             text = item.strip()
             if text:
-                out.append({"id": str(uuid.uuid4()), "text": text, "status": "open", "tasks": []})
+                out.append({"id": str(uuid.uuid4()), "text": text, "status": "draft", "tasks": []})
             continue
         if isinstance(item, dict):
             text = str(item.get("text") or "").strip()
             if not text:
                 continue
             oid = str(item.get("id") or uuid.uuid4())
-            status = item.get("status") or "open"
-            if status not in ("open", "done"):
-                status = "open"
+            status = str(item.get("status") or "draft").strip().lower()
+            # Back-compat for older workspaces/UI
+            if status == "open":
+                status = "draft"
+            if status == "done":
+                status = "defined"
+            if status not in OBJECTIVE_STATUSES:
+                status = "draft"
             entry: dict = {"id": oid, "text": text, "status": status}
             if "tasks" in item:
                 entry["tasks"] = _normalize_tasks(item.get("tasks"))

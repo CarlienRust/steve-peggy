@@ -124,18 +124,21 @@ async def insert_paper(
     year: str,
     source_type: str,
     workspace_id: str | None = None,
+    *,
+    journal: str = "",
 ) -> int:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type, workspace_id)
-               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8::uuid) RETURNING id""",
+            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, journal, source_type, workspace_id)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9::uuid) RETURNING id""",
             user_id,
             pmid,
             doi,
             title,
             authors,
             year,
+            journal,
             source_type,
             workspace_id,
         )
@@ -151,6 +154,8 @@ async def record_paper(
     year: str,
     source_type: str,
     workspace_id: str | None = None,
+    *,
+    journal: str = "",
 ) -> dict:
     existing = await find_existing_paper(
         user_id=user_id,
@@ -167,7 +172,15 @@ async def record_paper(
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
     try:
         paper_id = await insert_paper(
-            user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+            user_id,
+            pmid,
+            doi,
+            title,
+            authors,
+            year,
+            source_type,
+            workspace_id=workspace_id,
+            journal=journal,
         )
     except asyncpg.UniqueViolationError:
         existing = await find_existing_paper(
@@ -265,6 +278,113 @@ async def list_papers(
                 user_id,
             )
         return [_row_to_dict(r) for r in rows]
+
+
+async def list_workspace_papers_summary(user_id: str, workspace_id: str) -> list[dict]:
+    """Paper rows + computed status based on extraction review completeness."""
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT
+              p.*,
+              COUNT(e.id) AS extraction_count,
+              SUM(CASE WHEN e.status = 'auto' THEN 1 ELSE 0 END) AS auto_extraction_count
+            FROM papers p
+            LEFT JOIN extractions e
+              ON e.paper_id = p.id AND e.workspace_id = p.workspace_id AND e.user_id = p.user_id
+            WHERE p.user_id = $1::uuid AND p.workspace_id = $2::uuid
+            GROUP BY p.id
+            ORDER BY p.ingested_at DESC
+            """,
+            user_id,
+            workspace_id,
+        )
+    out: list[dict] = []
+    for r in rows:
+        d = _row_to_dict(r)
+        extraction_count = int(r.get("extraction_count") or 0)
+        auto_count = int(r.get("auto_extraction_count") or 0)
+        if extraction_count == 0:
+            status = "not_extracted"
+        elif auto_count > 0:
+            status = "needs_review"
+        else:
+            status = "reviewed"
+        d["status"] = status
+        d["extraction_count"] = extraction_count
+        d["auto_extraction_count"] = auto_count
+        out.append(d)
+    return out
+
+
+async def get_workspace_coverage(
+    user_id: str,
+    workspace_id: str,
+    *,
+    dimension: tuple[str, str],
+    dimension2: tuple[str, str] | None = None,
+) -> dict:
+    (m1, f1) = dimension
+    m2 = f2 = None
+    if dimension2:
+        (m2, f2) = dimension2
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        if not dimension2:
+            rows = await conn.fetch(
+                """
+                SELECT
+                  COALESCE(NULLIF(trim(e1.value), ''), '(missing)') AS v1,
+                  COUNT(DISTINCT p.id) AS paper_count
+                FROM papers p
+                LEFT JOIN extractions e1
+                  ON e1.paper_id = p.id AND e1.workspace_id = p.workspace_id AND e1.user_id = p.user_id
+                 AND e1.module = $3 AND e1.field = $4
+                WHERE p.user_id = $1::uuid AND p.workspace_id = $2::uuid
+                GROUP BY v1
+                ORDER BY paper_count DESC, v1 ASC
+                """,
+                user_id,
+                workspace_id,
+                m1,
+                f1,
+            )
+            cells = [{"value": r["v1"], "paper_count": int(r["paper_count"])} for r in rows]
+            return {"dimension": {"module": m1, "field": f1}, "dimension2": None, "cells": cells}
+
+        rows = await conn.fetch(
+            """
+            SELECT
+              COALESCE(NULLIF(trim(e1.value), ''), '(missing)') AS v1,
+              COALESCE(NULLIF(trim(e2.value), ''), '(missing)') AS v2,
+              COUNT(DISTINCT p.id) AS paper_count
+            FROM papers p
+            LEFT JOIN extractions e1
+              ON e1.paper_id = p.id AND e1.workspace_id = p.workspace_id AND e1.user_id = p.user_id
+             AND e1.module = $3 AND e1.field = $4
+            LEFT JOIN extractions e2
+              ON e2.paper_id = p.id AND e2.workspace_id = p.workspace_id AND e2.user_id = p.user_id
+             AND e2.module = $5 AND e2.field = $6
+            WHERE p.user_id = $1::uuid AND p.workspace_id = $2::uuid
+            GROUP BY v1, v2
+            ORDER BY paper_count DESC, v1 ASC, v2 ASC
+            """,
+            user_id,
+            workspace_id,
+            m1,
+            f1,
+            m2,
+            f2,
+        )
+        cells = [
+            {"value": r["v1"], "value2": r["v2"], "paper_count": int(r["paper_count"])} for r in rows
+        ]
+        return {
+            "dimension": {"module": m1, "field": f1},
+            "dimension2": {"module": m2, "field": f2},
+            "cells": cells,
+        }
 
 
 async def count_papers(user_id: str) -> int:
@@ -444,6 +564,21 @@ def _workspace_row(row: asyncpg.Record) -> dict:
     elif obj is None:
         obj = []
     d["objectives"] = normalize_objectives(obj)
+    for key, default in (
+        ("resources", {}),
+        ("settings", {}),
+        ("enabled_modules", []),
+    ):
+        val = d.get(key)
+        if isinstance(val, str):
+            try:
+                d[key] = json.loads(val or json.dumps(default))
+            except Exception:
+                d[key] = default
+        elif val is None:
+            d[key] = default
+    if not d.get("privacy_mode"):
+        d["privacy_mode"] = "local_only"
     sd = d.get("study_design")
     if isinstance(sd, str):
         try:
@@ -488,19 +623,35 @@ async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
     return _workspace_row(row) if row else None
 
 
-async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
+async def create_workspace(
+    user_id: str,
+    title: str,
+    aim: str,
+    objectives: list[str],
+    *,
+    resources: dict | None = None,
+    settings: dict | None = None,
+    enabled_modules: list[str] | None = None,
+    privacy_mode: str | None = None,
+    last_opened_at: str | None = None,
+) -> dict:
     ws_id = str(uuid.uuid4())
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO workspaces (id, user_id, title, aim, objectives)
-               VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb)
+            """INSERT INTO workspaces (id, user_id, title, aim, objectives, resources, settings, enabled_modules, privacy_mode, last_opened_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::timestamptz)
                RETURNING *""",
             ws_id,
             user_id,
             title,
             aim,
             json.dumps(objectives or []),
+            json.dumps(resources or {}),
+            json.dumps(settings or {}),
+            json.dumps(enabled_modules or []),
+            privacy_mode or "local_only",
+            last_opened_at,
         )
     return _workspace_row(row)
 
@@ -512,10 +663,17 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     title = fields.get("title", existing["title"])
     aim = fields.get("aim", existing["aim"])
     objectives = fields.get("objectives", existing.get("objectives", []))
+    resources = fields.get("resources", existing.get("resources", {}))
+    settings = fields.get("settings", existing.get("settings", {}))
+    enabled_modules = fields.get("enabled_modules", existing.get("enabled_modules", []))
+    privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
+    last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """UPDATE workspaces SET title = $3, aim = $4, objectives = $5::jsonb, updated_at = NOW()
+            """UPDATE workspaces SET title = $3, aim = $4, objectives = $5::jsonb,
+               resources = $6::jsonb, settings = $7::jsonb, enabled_modules = $8::jsonb,
+               privacy_mode = $9, last_opened_at = $10::timestamptz, updated_at = NOW()
                WHERE id = $1::uuid AND user_id = $2::uuid
                RETURNING *""",
             workspace_id,
@@ -523,9 +681,43 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
             title,
             aim,
             json.dumps(objectives),
+            json.dumps(resources),
+            json.dumps(settings),
+            json.dumps(enabled_modules),
+            privacy_mode,
+            last_opened_at,
         )
     return _workspace_row(row) if row else None
 
+
+async def append_objective_history(user_id: str, workspace_id: str, entries: list[dict]) -> None:
+    if not entries:
+        return
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = [
+            (
+                workspace_id,
+                user_id,
+                str(e.get("objective_id") or ""),
+                str(e.get("old_text") or ""),
+                str(e.get("new_text") or ""),
+                e.get("old_status"),
+                e.get("new_status"),
+                str(e.get("reason") or ""),
+                str(e.get("actor") or "user"),
+            )
+            for e in entries
+            if str(e.get("objective_id") or "").strip()
+        ]
+        if not rows:
+            return
+        await conn.executemany(
+            """INSERT INTO objective_history (
+                 workspace_id, user_id, objective_id, old_text, new_text, old_status, new_status, reason, actor
+               ) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8, $9)""",
+            rows,
+        )
 
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     pool = await _pool_conn()

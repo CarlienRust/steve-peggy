@@ -108,6 +108,11 @@ export type Workspace = {
   title: string;
   aim: string;
   objectives: WorkspaceObjective[];
+  resources?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+  enabled_modules?: string[];
+  privacy_mode?: "local_only" | "hosted_allowed";
+  last_opened_at?: string | null;
   github_repo_owner?: string | null;
   github_repo_name?: string | null;
   github_repo_url?: string | null;
@@ -652,11 +657,39 @@ export const peggyApi = {
   listWorkspaces: () =>
     apiFetch<{ workspaces: Workspace[]; count: number }>("/workspaces"),
 
-  createWorkspace: (body: { title: string; aim?: string; objectives?: WorkspaceObjective[] }) =>
+  createWorkspace: (body: {
+    title: string;
+    aim?: string;
+    objectives?: WorkspaceObjective[];
+    resources?: Record<string, unknown>;
+    settings?: Record<string, unknown>;
+    enabled_modules?: string[];
+    privacy_mode?: "local_only" | "hosted_allowed";
+    last_opened_at?: string | null;
+  }) =>
     apiFetch<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(body) }),
 
-  updateWorkspace: (id: string, body: Partial<{ title: string; aim: string; objectives: WorkspaceObjective[] }>) =>
+  updateWorkspace: (
+    id: string,
+    body: Partial<{
+      title: string;
+      aim: string;
+      objectives: WorkspaceObjective[];
+      resources: Record<string, unknown>;
+      settings: Record<string, unknown>;
+      enabled_modules: string[];
+      privacy_mode: "local_only" | "hosted_allowed";
+      last_opened_at: string | null;
+      objective_history_reason: string;
+      objective_history_actor: "user" | "peggy";
+    }>
+  ) =>
     apiFetch<Workspace>(`/workspaces/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  getSetupChecks: () =>
+    apiFetch<{ checks: { id: string; label: string; status: string; detail: string; fixCommand: string }[]; count: number }>(
+      "/setup/checks"
+    ),
 
   deleteWorkspace: (id: string) =>
     apiFetch<{ status: string; id: string }>(`/workspaces/${id}`, { method: "DELETE" }),

@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS papers (
     title TEXT,
     authors TEXT,
     year TEXT,
+    journal TEXT,
     source_type TEXT DEFAULT 'literature',
     ingested_at TEXT
 );
@@ -86,6 +87,23 @@ CREATE TABLE IF NOT EXISTS workspaces (
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_user ON workspaces (user_id);
 
+CREATE TABLE IF NOT EXISTS objective_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workspace_id TEXT NOT NULL,
+    user_id TEXT NOT NULL,
+    objective_id TEXT NOT NULL,
+    old_text TEXT NOT NULL DEFAULT '',
+    new_text TEXT NOT NULL DEFAULT '',
+    old_status TEXT,
+    new_status TEXT,
+    reason TEXT NOT NULL DEFAULT '',
+    actor TEXT NOT NULL DEFAULT 'user',
+    created_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_objective_history_ws_created ON objective_history (workspace_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_objective_history_ws_obj ON objective_history (workspace_id, objective_id, created_at);
+
 CREATE TABLE IF NOT EXISTS study_design (
     workspace_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
@@ -144,9 +162,12 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_user_id_columns(db)
         await _migrate_workspace_github(db)
         await _migrate_workspace_study_design(db)
+        await _migrate_workspace_project_fields(db)
+        await _migrate_objective_history(db)
         await _migrate_study_design_table(db)
         await _migrate_findings_summaries(db)
         await _migrate_papers_workspace(db)
+        await _migrate_papers_journal(db)
         await _migrate_findings_summaries_by_workspace(db)
         await _migrate_extractions(db)
         await db.commit()
@@ -180,6 +201,43 @@ async def _migrate_workspace_study_design(db: aiosqlite.Connection) -> None:
     except Exception:
         pass
 
+
+async def _migrate_workspace_project_fields(db: aiosqlite.Connection) -> None:
+    for col, default in (
+        ("resources", "'{}'"),
+        ("settings", "'{}'"),
+        ("enabled_modules", "'[]'"),
+        ("privacy_mode", "'local_only'"),
+        ("last_opened_at", "NULL"),
+    ):
+        try:
+            await db.execute(f"ALTER TABLE workspaces ADD COLUMN {col} TEXT DEFAULT {default}")
+        except Exception:
+            pass
+
+
+async def _migrate_objective_history(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS objective_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            objective_id TEXT NOT NULL,
+            old_text TEXT NOT NULL DEFAULT '',
+            new_text TEXT NOT NULL DEFAULT '',
+            old_status TEXT,
+            new_status TEXT,
+            reason TEXT NOT NULL DEFAULT '',
+            actor TEXT NOT NULL DEFAULT 'user',
+            created_at TEXT
+        )"""
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_objective_history_ws_created ON objective_history (workspace_id, created_at)"
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_objective_history_ws_obj ON objective_history (workspace_id, objective_id, created_at)"
+    )
 
 async def _migrate_study_design_table(db: aiosqlite.Connection) -> None:
     await db.execute(
@@ -224,6 +282,13 @@ async def _migrate_papers_workspace(db: aiosqlite.Connection) -> None:
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_papers_workspace_source ON papers (workspace_id, source_type)"
     )
+
+
+async def _migrate_papers_journal(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN journal TEXT")
+    except Exception:
+        pass
 
 
 async def _migrate_findings_summaries_by_workspace(db: aiosqlite.Connection) -> None:
@@ -290,6 +355,20 @@ def _workspace_dict(row: aiosqlite.Row | dict) -> dict:
     except (json.JSONDecodeError, TypeError):
         raw_objectives = []
     d["objectives"] = normalize_objectives(raw_objectives)
+    for key, default in (
+        ("resources", {}),
+        ("settings", {}),
+        ("enabled_modules", []),
+    ):
+        try:
+            if isinstance(d.get(key), str):
+                d[key] = json.loads(d.get(key) or json.dumps(default))
+            elif d.get(key) is None:
+                d[key] = default
+        except Exception:
+            d[key] = default
+    if not d.get("privacy_mode"):
+        d["privacy_mode"] = "local_only"
     d["study_design"] = _parse_study_design(d)
     return d
 
@@ -365,11 +444,13 @@ async def insert_paper(
     year: str,
     source_type: str,
     workspace_id: str | None = None,
+    *,
+    journal: str = "",
 ) -> int:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         cur = await db.execute(
-            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, source_type, ingested_at, workspace_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO papers (user_id, pmid, doi, title, authors, year, journal, source_type, ingested_at, workspace_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 user_id,
                 pmid,
@@ -377,6 +458,7 @@ async def insert_paper(
                 title,
                 authors,
                 year,
+                journal,
                 source_type,
                 datetime.now(timezone.utc).isoformat(),
                 workspace_id,
@@ -395,6 +477,8 @@ async def record_paper(
     year: str,
     source_type: str,
     workspace_id: str | None = None,
+    *,
+    journal: str = "",
 ) -> dict:
     existing = await find_existing_paper(
         user_id=user_id,
@@ -410,7 +494,15 @@ async def record_paper(
             existing = await get_paper(user_id, int(existing["id"])) or existing
         return {"status": "duplicate", "paper_id": existing["id"], "paper": existing}
     paper_id = await insert_paper(
-        user_id, pmid, doi, title, authors, year, source_type, workspace_id=workspace_id
+        user_id,
+        pmid,
+        doi,
+        title,
+        authors,
+        year,
+        source_type,
+        workspace_id=workspace_id,
+        journal=journal,
     )
     return {"status": "created", "paper_id": paper_id, "paper": await get_paper(user_id, paper_id)}
 
@@ -429,7 +521,7 @@ async def get_paper(user_id: str, paper_id: int) -> dict | None:
 async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None:
     if not await get_paper(user_id, paper_id):
         return None
-    allowed = {"pmid", "doi", "title", "authors", "year", "source_type"}
+    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return await get_paper(user_id, paper_id)
@@ -468,6 +560,102 @@ async def list_papers(
             )
         rows = await cur.fetchall()
         return [dict(r) for r in rows]
+
+
+async def list_workspace_papers_summary(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """
+            SELECT
+              p.*,
+              COUNT(e.id) AS extraction_count,
+              SUM(CASE WHEN e.status = 'auto' THEN 1 ELSE 0 END) AS auto_extraction_count
+            FROM papers p
+            LEFT JOIN extractions e
+              ON e.paper_id = p.id AND e.workspace_id = p.workspace_id AND e.user_id = p.user_id
+            WHERE p.user_id = ? AND p.workspace_id = ?
+            GROUP BY p.id
+            ORDER BY p.ingested_at DESC
+            """,
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    out: list[dict] = []
+    for r in rows:
+        d = dict(r)
+        extraction_count = int(d.get("extraction_count") or 0)
+        auto_count = int(d.get("auto_extraction_count") or 0)
+        if extraction_count == 0:
+            status = "not_extracted"
+        elif auto_count > 0:
+            status = "needs_review"
+        else:
+            status = "reviewed"
+        d["status"] = status
+        d["extraction_count"] = extraction_count
+        d["auto_extraction_count"] = auto_count
+        out.append(d)
+    return out
+
+
+async def get_workspace_coverage(
+    user_id: str,
+    workspace_id: str,
+    *,
+    dimension: tuple[str, str],
+    dimension2: tuple[str, str] | None = None,
+) -> dict:
+    (m1, f1) = dimension
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        if not dimension2:
+            cur = await db.execute(
+                """
+                SELECT
+                  COALESCE(NULLIF(trim(e1.value), ''), '(missing)') AS v1,
+                  COUNT(DISTINCT p.id) AS paper_count
+                FROM papers p
+                LEFT JOIN extractions e1
+                  ON e1.paper_id = p.id AND e1.workspace_id = p.workspace_id AND e1.user_id = p.user_id
+                 AND e1.module = ? AND e1.field = ?
+                WHERE p.user_id = ? AND p.workspace_id = ?
+                GROUP BY v1
+                ORDER BY paper_count DESC, v1 ASC
+                """,
+                (m1, f1, user_id, workspace_id),
+            )
+            rows = await cur.fetchall()
+            cells = [{"value": r["v1"], "paper_count": int(r["paper_count"])} for r in rows]
+            return {"dimension": {"module": m1, "field": f1}, "dimension2": None, "cells": cells}
+
+        (m2, f2) = dimension2
+        cur = await db.execute(
+            """
+            SELECT
+              COALESCE(NULLIF(trim(e1.value), ''), '(missing)') AS v1,
+              COALESCE(NULLIF(trim(e2.value), ''), '(missing)') AS v2,
+              COUNT(DISTINCT p.id) AS paper_count
+            FROM papers p
+            LEFT JOIN extractions e1
+              ON e1.paper_id = p.id AND e1.workspace_id = p.workspace_id AND e1.user_id = p.user_id
+             AND e1.module = ? AND e1.field = ?
+            LEFT JOIN extractions e2
+              ON e2.paper_id = p.id AND e2.workspace_id = p.workspace_id AND e2.user_id = p.user_id
+             AND e2.module = ? AND e2.field = ?
+            WHERE p.user_id = ? AND p.workspace_id = ?
+            GROUP BY v1, v2
+            ORDER BY paper_count DESC, v1 ASC, v2 ASC
+            """,
+            (m1, f1, m2, f2, user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+        cells = [{"value": r["v1"], "value2": r["v2"], "paper_count": int(r["paper_count"])} for r in rows]
+        return {
+            "dimension": {"module": m1, "field": f1},
+            "dimension2": {"module": m2, "field": f2},
+            "cells": cells,
+        }
 
 
 async def count_papers(user_id: str) -> int:
@@ -654,15 +842,33 @@ async def get_workspace(user_id: str, workspace_id: str) -> dict | None:
         return _workspace_dict(row)
 
 
-async def create_workspace(user_id: str, title: str, aim: str, objectives: list[str]) -> dict:
+async def create_workspace(
+    user_id: str,
+    title: str,
+    aim: str,
+    objectives: list[str],
+    *,
+    resources: dict | None = None,
+    settings: dict | None = None,
+    enabled_modules: list[str] | None = None,
+    privacy_mode: str | None = None,
+    last_opened_at: str | None = None,
+) -> dict:
     now = datetime.now(timezone.utc).isoformat()
     ws_id = str(uuid.uuid4())
     objectives_json = json.dumps(objectives or [])
+    resources_json = json.dumps(resources or {})
+    settings_json = json.dumps(settings or {})
+    modules_json = json.dumps(enabled_modules or [])
+    pmode = privacy_mode or "local_only"
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
-            """INSERT INTO workspaces (id, user_id, title, aim, objectives, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (ws_id, user_id, title, aim, objectives_json, now, now),
+            """INSERT INTO workspaces (
+                 id, user_id, title, aim, objectives,
+                 resources, settings, enabled_modules, privacy_mode, last_opened_at,
+                 created_at, updated_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ws_id, user_id, title, aim, objectives_json, resources_json, settings_json, modules_json, pmode, last_opened_at, now, now),
         )
         await db.commit()
     return await get_workspace(user_id, ws_id)  # type: ignore[return-value]
@@ -677,14 +883,53 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     aim = fields.get("aim", existing["aim"])
     objectives = fields.get("objectives", existing.get("objectives", []))
     objectives_json = json.dumps(objectives)
+    resources_json = json.dumps(fields.get("resources", existing.get("resources", {})))
+    settings_json = json.dumps(fields.get("settings", existing.get("settings", {})))
+    modules_json = json.dumps(fields.get("enabled_modules", existing.get("enabled_modules", [])))
+    privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
+    last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
-            """UPDATE workspaces SET title = ?, aim = ?, objectives = ?, updated_at = ?
+            """UPDATE workspaces SET title = ?, aim = ?, objectives = ?,
+               resources = ?, settings = ?, enabled_modules = ?, privacy_mode = ?, last_opened_at = ?,
+               updated_at = ?
                WHERE id = ? AND user_id = ?""",
-            (title, aim, objectives_json, now, workspace_id, user_id),
+            (title, aim, objectives_json, resources_json, settings_json, modules_json, privacy_mode, last_opened_at, now, workspace_id, user_id),
         )
         await db.commit()
     return await get_workspace(user_id, workspace_id)
+
+
+async def append_objective_history(user_id: str, workspace_id: str, entries: list[dict]) -> None:
+    if not entries:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    rows = [
+        (
+            workspace_id,
+            user_id,
+            str(e.get("objective_id") or ""),
+            str(e.get("old_text") or ""),
+            str(e.get("new_text") or ""),
+            e.get("old_status"),
+            e.get("new_status"),
+            str(e.get("reason") or ""),
+            str(e.get("actor") or "user"),
+            now,
+        )
+        for e in entries
+        if str(e.get("objective_id") or "").strip()
+    ]
+    if not rows:
+        return
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.executemany(
+            """INSERT INTO objective_history (
+                 workspace_id, user_id, objective_id, old_text, new_text, old_status, new_status, reason, actor, created_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            rows,
+        )
+        await db.commit()
 
 
 async def _upsert_study_design_row(db: aiosqlite.Connection, user_id: str, workspace_id: str, design: dict) -> None:

@@ -201,7 +201,7 @@ export function DashboardPage() {
           severity="warning"
           sx={{ mb: 3, alignItems: "flex-start" }}
           action={
-            <Button component={Link} href="/setup" size="small" variant="outlined" sx={{ mt: 0.25 }}>
+            <Button component={Link} href="/setup/checks" size="small" variant="outlined" sx={{ mt: 0.25 }}>
               Setup check
             </Button>
           }

@@ -13,6 +13,15 @@ from core.store.catalog import init_catalog  # noqa: E402
 from main import app  # noqa: E402
 
 
+@pytest.fixture(autouse=True)
+async def _fresh_sqlite_db(tmp_path, monkeypatch):
+    """Fresh SQLite DB per test (covers unit tests that don't use the client fixture)."""
+    db_path = tmp_path / "test.db"
+    monkeypatch.setenv("SQLITE_DB", str(db_path))
+    monkeypatch.setattr(config, "SQLITE_DB", str(db_path))
+    await init_catalog(str(db_path))
+
+
 @pytest.fixture
 async def client(tmp_path, monkeypatch):
     """Fresh SQLite catalog per test so workspace/paper counts stay isolated."""

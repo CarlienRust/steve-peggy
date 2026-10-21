@@ -6,10 +6,12 @@ export type ObjectiveTask = {
   status: "open" | "done";
 };
 
+export type ObjectiveStatus = "draft" | "defined" | "revised" | "dropped" | "open" | "done";
+
 export type WorkspaceObjective = {
   id: string;
   text: string;
-  status: "open" | "done";
+  status: ObjectiveStatus;
   tasks?: ObjectiveTask[];
 };
 
@@ -17,7 +19,7 @@ export function newObjective(text: string): WorkspaceObjective {
   return {
     id: crypto.randomUUID(),
     text: text.trim(),
-    status: "open",
+    status: "draft",
     tasks: [],
   };
 }
@@ -57,7 +59,15 @@ export function normalizeObjectives(raw: unknown): WorkspaceObjective[] {
       const text = String((item as WorkspaceObjective).text ?? "").trim();
       if (!text) continue;
       const id = String((item as WorkspaceObjective).id ?? crypto.randomUUID());
-      const status = (item as WorkspaceObjective).status === "done" ? "done" : "open";
+      const rawStatus = String((item as WorkspaceObjective).status ?? "").toLowerCase().trim();
+      const status: ObjectiveStatus =
+        rawStatus === "done"
+          ? "defined"
+          : rawStatus === "open"
+            ? "draft"
+            : rawStatus === "draft" || rawStatus === "defined" || rawStatus === "revised" || rawStatus === "dropped"
+              ? (rawStatus as ObjectiveStatus)
+              : "draft";
       const tasks = normalizeTasks((item as WorkspaceObjective).tasks);
       out.push({ id, text, status, tasks });
     }

@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `012_extractions.sql`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `015_papers_journal.sql`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -59,6 +59,15 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 | `model_version` | LLM used for auto extraction |
 
 Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspaces/{id}/extractions`, `GET /extraction-modules`).
+
+`013_workspace_project_fields.sql` adds Figma-aligned project fields on `workspaces`:
+- `resources JSONB`, `settings JSONB`, `enabled_modules JSONB`
+- `privacy_mode TEXT` (`local_only` | `hosted_allowed`)
+- optional `last_opened_at TIMESTAMPTZ` (project hub cards)
+
+`014_objective_history.sql` creates `objective_history` (audit-ready objective edits), keyed by `(workspace_id, objective_id)` over time.
+
+`015_papers_journal.sql` adds `papers.journal` for the Literature table.
 
 **Backfill:** papers ingested before `010` have `workspace_id` NULL and will not appear in project-scoped lists until re-ingested or updated:
 

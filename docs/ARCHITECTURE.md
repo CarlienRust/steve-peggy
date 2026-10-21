@@ -98,6 +98,8 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET/POST /workspaces` | List / create projects (`aim`, `objectives[]`) |
 | `GET/PATCH/DELETE /workspaces/{id}` | Read / update / delete project |
 | `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET /workspaces/{id}/papers/summary` | Literature table payload: papers + computed review status from `extractions` |
+| `GET /workspaces/{id}/coverage` | Coverage matrix aggregation for dashboard/gap analysis (grouped counts from `extractions`) |
 | `GET /extraction-modules` | Versioned field schemas (`core`, `outcomes`, …) from `core/extraction/schemas/` |
 | `GET/POST /workspaces/{id}/extractions` | List or bulk upsert structured extractions per paper |
 | `PATCH /workspaces/{id}/extractions/{id}` | Review screen: confirm or correct a field (`status`, `value`, quote) |
@@ -114,6 +116,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |
 | `POST /feedback` | Correction queue (API only) |
 | `GET /health` | Qdrant, LLM, embeddings status |
+| `GET /setup/checks` | Deterministic setup checks for the Setup screen (includes fix commands) |
 
 Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Chat/workflow gap/compare also return structured `body`.
 
@@ -159,16 +162,17 @@ Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/s
 
 | Location | Shape | Notes |
 |----------|-------|-------|
-| `workspaces.objectives` | `{ id, text, status: "open" \| "done" }[]` | Legacy `string[]` normalized on read; edited via project create/edit UI |
+| `workspaces.objectives` | `{ id, text, status: "draft" \| "defined" \| "revised" \| "dropped" }[]` | Legacy `string[]` and `status: open|done` are normalized on read/write (open→draft, done→defined) |
 | `methodsPlan.steps` / `analysisPlan.steps` | `{ id, title, objectiveIds[] }[]` | `objectiveIds` may include `"aim"` |
 | `study_design.objective_links` | `{ findingLinks: { paperId, objectiveIds[] }[] }` | Tags on `own_findings` papers; orphans pruned on delete |
+| `objective_history` | `{ workspace_id, objective_id, old_text, new_text, old_status, new_status, reason, actor, created_at }[]` | Append-only audit trail when objectives change |
 
 Migration: `009_objective_links.sql` adds the `objective_links` column. See [DATABASE.md](DATABASE.md).
 
 ### Web UI layout
 
 - **Dashboard** — `buildObjectiveProgress()` shows each objective with manual done status, counts of linked methods/analysis steps and findings, and links to the relevant screens. `buildProjectProgress()` drives the project setup roadmap (next step, possible next steps, full timeline). Sidebar nav remains the primary way to open Validate, Study Design, Results, and Ask Peggy.
-- **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`. Manual **done** status on objectives is toggled from the dashboard (`PATCH /workspaces/{id}`).
+- **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`. When objective text changes, linked steps and finding links receive derived flags (`objectiveChanged`, `objectiveChangedObjectiveIds`) to surface “Objective changed” in the UI.
 - **Welcome Setup** — `PeggySetupDialog` on the project hub explains hosted vs localhost setup.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.

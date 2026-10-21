@@ -24,6 +24,7 @@ from routers import (
     ingest_router,
     limits_router,
     profile_router,
+    setup_router,
     workflow_router,
     workspace_router,
 )
@@ -124,6 +125,7 @@ app.include_router(workspace_router.router)
 app.include_router(extractions_router.router)
 app.include_router(extractions_router.workspace_router)
 app.include_router(github_router.router)
+app.include_router(setup_router.router)
 
 
 @app.get("/health")

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Box, Button, Stack, Typography } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
-import { PeggySetupDialog } from "@/components/PeggySetupDialog";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
 type PeggyWelcomeHubProps = {
@@ -16,8 +15,8 @@ type PeggyWelcomeHubProps = {
 };
 
 export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabel }: PeggyWelcomeHubProps) {
+  const router = useRouter();
   const profileHref = hasProfile ? "/onboarding?update=1" : "/onboarding";
-  const [setupOpen, setSetupOpen] = useState(false);
 
   return (
     <Box sx={{ mb: 0 }}>
@@ -36,7 +35,7 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
         <Button
           variant="outlined"
           startIcon={<SettingsOutlinedIcon />}
-          onClick={() => setSetupOpen(true)}
+          onClick={() => router.push("/setup")}
           sx={{ textTransform: "none" }}
         >
           Setup
@@ -54,7 +53,6 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
           {hasProfile ? "Update profile" : "Complete profile"}
         </Button>
       </Stack>
-      <PeggySetupDialog open={setupOpen} onClose={() => setSetupOpen(false)} />
     </Box>
   );
 }

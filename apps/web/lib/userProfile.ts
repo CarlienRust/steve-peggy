@@ -6,6 +6,11 @@ export type Workspace = {
   title: string;
   aim: string;
   objectives: WorkspaceObjective[];
+  resources?: Record<string, unknown>;
+  settings?: Record<string, unknown>;
+  enabled_modules?: string[];
+  privacy_mode?: "local_only" | "hosted_allowed";
+  last_opened_at?: string | null;
   github_repo_owner?: string | null;
   github_repo_name?: string | null;
   github_repo_url?: string | null;
