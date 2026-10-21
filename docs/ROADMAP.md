@@ -45,7 +45,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Corpus management | Done | `/validate/literature` literature table |
 | Findings management | Done | Single `/results/findings` page (legacy `/results/report` redirects) |
 | Ingest dedup | Done | `duplicate` status, job `skipped` |
-| Ask Peggy (chat) | Done | Mode chips + intent routing |
+| Ask Peggy (chat) | Done | Conversation + composer; Auto / Ask / Gaps / Compare |
 | Gap analysis | Done | Optional include our findings; per-workspace history |
 | Literature discovery | Done | PubMed + Europe PMC + OpenAlex; suggestions; in-corpus badge |
 | GitHub repo link | Done | OAuth + README/docs sync per project |
@@ -56,7 +56,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Papers `workspace_id` | Done | Migration `010`; ingest + corpus list scoped to active project |
 | Findings summary per workspace | Done | Migration `011`; API + UI scoped per workspace |
 | Gap quick scan (abstracts only) | Done | Toggle on gap analysis; `evidence_basis` + `paper_count` on gaps |
-| Study design (samples, ethics, methods, analysis) | Done | Workspace JSON + PHI guards; FMHS ethics |
+| Study design (samples, ethics, methods, analysis) | Done | Workspace JSON + PHI guards; Figma-aligned ethics/methods/analysis screens |
 | Future study design | API only | Superseded by study-design planners for UI |
 | Manuscript framing | API only | No UI |
 | Feedback | API only | No review UI |

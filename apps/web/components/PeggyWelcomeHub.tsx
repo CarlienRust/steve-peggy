@@ -2,18 +2,15 @@
 
 import { useRouter } from "next/navigation";
 import { Box, Button, Stack, Typography } from "@mui/material";
-import AddIcon from "@mui/icons-material/Add";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
 type PeggyWelcomeHubProps = {
   hasProfile: boolean;
-  onCreateProject: () => void;
-  createProjectLabel: string;
 };
 
-export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabel }: PeggyWelcomeHubProps) {
+export function PeggyWelcomeHub({ hasProfile }: PeggyWelcomeHubProps) {
   const router = useRouter();
   const profileHref = hasProfile ? "/onboarding?update=1" : "/onboarding";
 
@@ -38,9 +35,6 @@ export function PeggyWelcomeHub({ hasProfile, onCreateProject, createProjectLabe
           sx={{ textTransform: "none" }}
         >
           Setup
-        </Button>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={onCreateProject} sx={{ textTransform: "none" }}>
-          {createProjectLabel}
         </Button>
         <Button
           variant="outlined"

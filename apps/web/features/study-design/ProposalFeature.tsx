@@ -8,6 +8,10 @@ import {
   CircularProgress,
   Stack,
   TextField,
+  Paper,
+  Typography,
+  Divider,
+  Box,
 } from "@mui/material";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { ProjectContextChips } from "@/features/study-design/ProjectContextChips";
@@ -16,6 +20,8 @@ import { peggyApi, formatApiError } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
+import { StatusChip } from "@/components/StatusChip";
+import { monoSx, peggyColors } from "@/theme/peggyTheme";
 
 function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
   if (!a && !b) return true;
@@ -30,6 +36,10 @@ export function ProposalFeature() {
   );
   const proposal = studyDesign.proposal ?? {};
   const samples = studyDesign.samples ?? {};
+  const ethics = studyDesign.ethics ?? {};
+  const budget = studyDesign.budget ?? {};
+  const methodsPlan = studyDesign.methodsPlan ?? {};
+  const analysisPlan = studyDesign.analysisPlan ?? {};
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
   const [userNotes, setUserNotes] = useState(proposal.userNotes ?? "");
 
@@ -55,11 +65,84 @@ export function ProposalFeature() {
     return <Alert severity="info">Select a project to generate a study proposal.</Alert>;
   }
 
+  const readinessItems = [
+    {
+      label: "Aim and objectives",
+      detail: `${(activeWorkspace.objectives ?? []).length} objectives${activeWorkspace.objectives?.length ? "" : ""}`,
+      tone: activeWorkspace.aim?.trim() ? ("accent" as const) : ("warning" as const),
+      status: activeWorkspace.aim?.trim() ? "Ready" : "To do",
+    },
+    {
+      label: "Samples and datasets",
+      detail: samples.expectedN ? `${samples.expectedN} planned participants.` : "Add a cohort profile.",
+      tone: samples.expectedN ? ("accent" as const) : ("warning" as const),
+      status: samples.expectedN ? "Ready" : "To do",
+    },
+    {
+      label: "Methods and analysis plans",
+      detail: (methodsPlan.userPlan || analysisPlan.userPlan) ? "Both are drafts." : "Draft your plans.",
+      tone: (methodsPlan.userPlan || analysisPlan.userPlan) ? ("neutral" as const) : ("warning" as const),
+      status: (methodsPlan.userPlan || analysisPlan.userPlan) ? "Draft" : "To do",
+    },
+    {
+      label: "Budget",
+      detail: (budget.lineItems?.length ?? 0) > 0 ? `${budget.lineItems?.length ?? 0} line items.` : "Add line items.",
+      tone: (budget.lineItems?.length ?? 0) > 0 ? ("accent" as const) : ("warning" as const),
+      status: (budget.lineItems?.length ?? 0) > 0 ? "Ready" : "To do",
+    },
+    {
+      label: "Ethics",
+      detail: ethics.linkedDocuments?.length ? "Approval letter uploaded." : "Approval letter missing.",
+      tone: ethics.linkedDocuments?.length ? ("accent" as const) : ("warning" as const),
+      status: ethics.linkedDocuments?.length ? "Ready" : "To do",
+    },
+  ];
+
   return (
     <>
       <ProjectContextChips />
 
       <Stack spacing={2}>
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
+            WHAT PEGGY WILL USE
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            Missing parts are marked as to do in the draft. Nothing blocks you.
+          </Typography>
+          <Divider sx={{ my: 1.5 }} />
+          <Stack spacing={1}>
+            {readinessItems.map((item) => (
+              <Stack
+                key={item.label}
+                direction="row"
+                spacing={2}
+                alignItems="center"
+                sx={{ py: 1, borderBottom: `0.5px solid ${peggyColors.border}` }}
+              >
+                <Box sx={{ width: 10, height: 10, borderRadius: 999, bgcolor: item.tone === "warning" ? peggyColors.warning : peggyColors.accent }} />
+                <Box sx={{ flex: 1 }}>
+                  <Typography fontWeight={600}>{item.label}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {item.detail}
+                  </Typography>
+                </Box>
+                <StatusChip tone={item.tone === "warning" ? "warning" : item.tone === "accent" ? "accent" : "neutral"} label={item.status} />
+              </Stack>
+            ))}
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+            <Button
+              variant="contained"
+              disabled={llmBlocked || generate.isPending}
+              onClick={() => generate.mutate()}
+              sx={{ textTransform: "none" }}
+            >
+              {generate.isPending ? <CircularProgress size={22} color="inherit" /> : "Redraft all sections"}
+            </Button>
+          </Stack>
+        </Paper>
+
         <TextField
           label="Audience or focus (optional)"
           placeholder="e.g. FMHS HREC application, small grant, MSc protocol"
@@ -69,10 +152,6 @@ export function ProposalFeature() {
           multiline
           minRows={2}
         />
-
-        <Button variant="contained" disabled={llmBlocked || generate.isPending} onClick={() => generate.mutate()}>
-          {generate.isPending ? <CircularProgress size={22} /> : "Generate proposal"}
-        </Button>
 
         {llmBlocked && (
           <Alert severity="warning">Update Samples to de-identified before generating a proposal.</Alert>

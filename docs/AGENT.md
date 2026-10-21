@@ -9,7 +9,7 @@ Peggy ships a **reactive agent** (ReAct loop with tools) alongside **single-shot
 | **Agent** | Ask Peggy → **Auto** mode | `POST /agent/run` or `POST /agent/stream` |
 | **Single-shot** | Ask / Gaps / Compare chips | `POST /chat` or `/workflows/*` |
 
-`POST /chat` is unchanged. Auto in the UI uses the agent; manual modes still use intent routing + one-shot workflows.
+`POST /chat` is unchanged. Auto in the UI uses the agent; manual modes still use intent routing + one-shot workflows. `/chat` shows a conversation thread (user bubble + Peggy cards with citation chips) and a composer with those mode chips.
 
 ## Agent architecture
 

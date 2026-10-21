@@ -3,6 +3,8 @@ import { AIM_LINK_ID, normalizeObjectives, type WorkspaceObjective } from "@/lib
 export type StudyDesignSamples = {
   studyType?: string;
   expectedN?: string;
+  setting?: string;
+  ageRange?: string;
   dataTypes?: string[];
   identifierLevel?: "none" | "de_identified" | "identifiable";
   collectionStatus?: string;
@@ -48,6 +50,7 @@ export type BudgetLineItem = {
   description: string;
   amount: string;
   notes: string;
+  objectiveIds?: string[];
 };
 
 export type StudyDesignBudget = {
@@ -323,6 +326,7 @@ export const DEFAULT_BUDGET_LINE_ITEMS = (): BudgetLineItem[] =>
     description: "",
     amount: "",
     notes: "",
+    objectiveIds: [],
   }));
 export const COLLECTION_STATUSES = ["Planned", "Collecting", "Complete"] as const;
 export const IDENTIFIER_LEVELS = [

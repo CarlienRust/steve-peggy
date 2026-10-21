@@ -14,6 +14,7 @@ export function SetupShell({
   totalSteps = 4,
   backHref = "/",
   showBackButton = true,
+  eyebrow,
   children,
 }: PropsWithChildren<{
   title: string;
@@ -22,6 +23,7 @@ export function SetupShell({
   totalSteps?: number;
   backHref?: string;
   showBackButton?: boolean;
+  eyebrow?: string;
 }>) {
   return (
     <Box
@@ -80,7 +82,9 @@ export function SetupShell({
           py: { xs: 3, sm: 4, md: 4 },
         }}
       >
-        {step ? (
+        {eyebrow ? (
+          <Typography sx={{ ...eyebrowSx, mb: 1.5, color: "secondary.main" }}>{eyebrow}</Typography>
+        ) : step ? (
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>{`NEW PROJECT  ·  STEP ${step} OF ${totalSteps}`}</Typography>
         ) : null}
         <Stack spacing={1} sx={{ mb: 3 }}>

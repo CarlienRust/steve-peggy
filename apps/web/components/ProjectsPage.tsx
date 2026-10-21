@@ -101,7 +101,6 @@ export function ProjectsPage() {
 
   const workspaces = data?.workspaces ?? [];
   const hasProfile = !!profile;
-  const createProjectLabel = workspaces.length === 0 ? "Create first project" : "Create new project";
   const pageLoading = !ready || isLoading || profileLoading;
 
   const deleteMutation = useMutation({
@@ -201,11 +200,7 @@ export function ProjectsPage() {
         ) : (
           <Box sx={{ minWidth: 0 }}>
             <Box sx={{ maxWidth: 960, mb: 4 }}>
-              <PeggyWelcomeHub
-                hasProfile={hasProfile}
-                onCreateProject={() => router.push("/setup/step-1")}
-                createProjectLabel={createProjectLabel}
-              />
+              <PeggyWelcomeHub hasProfile={hasProfile} />
             </Box>
 
             {workspaces.length > 0 ? (

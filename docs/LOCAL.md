@@ -97,7 +97,7 @@ curl -s http://localhost:8000/setup/checks | python3 -m json.tool
 ./scripts/smoke-local.sh          # after ingest
 ```
 
-Open http://localhost:3000 — no login screen in solo mode.
+Open http://localhost:3000 — no login screen in solo mode. Setup check UI: http://localhost:3000/setup/checks.
 
 ## Add content
 

@@ -3,10 +3,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
+  Box,
   Button,
   Chip,
   CircularProgress,
   FormControlLabel,
+  LinearProgress,
   Paper,
   Stack,
   Switch,
@@ -14,6 +16,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   formatApiError,
   peggyApi,
@@ -21,21 +24,26 @@ import {
   type AgentResponse,
   type AgentStreamEvent,
   type ChatMode,
+  type SourceCitation,
 } from "@/lib/api";
-import { SourceCards } from "@/components/SourceCards";
 import { WorkflowResults } from "@/components/WorkflowResults";
-import { AgentResultPanel } from "@/features/chat/AgentResultPanel";
 import { UsageQuotaBanner } from "@/features/chat/UsageQuotaBanner";
 import { ProjectContextImport } from "@/components/ProjectContextImport";
+import { WhatPeggyUsedDrawer } from "@/components/WhatPeggyUsedDrawer";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { StatusChip } from "@/components/StatusChip";
 import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useAuthSession } from "@/lib/authContext";
+import { useStudyDesign } from "@/lib/useStudyDesign";
+import { normalizeObjectives } from "@/lib/objectives";
+import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
-const MODES: { id: ChatMode; label: string; hint: string }[] = [
-  { id: "auto", label: "Auto", hint: "Reactive agent — searches corpus and picks tools automatically" },
-  { id: "chat", label: "Ask", hint: "Grounded Q&A with citations" },
-  { id: "gap_analysis", label: "Gaps", hint: "Structured gap table vs corpus" },
-  { id: "compare", label: "Compare", hint: "Your finding vs literature (paste finding in the question)" },
+const MODES: { id: ChatMode; label: string }[] = [
+  { id: "auto", label: "Auto" },
+  { id: "chat", label: "Ask" },
+  { id: "gap_analysis", label: "Gaps" },
+  { id: "compare", label: "Compare" },
 ];
 
 const SESSION_KEY = "peggy_chat_session_id";
@@ -60,15 +68,56 @@ const TOOL_LABELS: Record<string, string> = {
   summarise_context: "Summarising context",
 };
 
+type ChatTurn = {
+  id: string;
+  role: "user" | "peggy";
+  text: string;
+  sources?: SourceCitation[];
+  limitations?: string[];
+  body?: Record<string, unknown> | null;
+  error?: boolean;
+};
+
+function sourceChipLabel(source: SourceCitation, index: number) {
+  const author = (source.authors || source.title || "Source").split(",")[0]?.trim() || "Source";
+  const year = source.year || "";
+  return `[${index + 1}] ${author}${year ? `, ${year}` : ""}`;
+}
+
+function projectStage(opts: {
+  objectives: ReturnType<typeof normalizeObjectives>;
+  hasMethods: boolean;
+  hasEthics: boolean;
+  hasFindings: boolean;
+}) {
+  if (opts.hasFindings) return "Results";
+  if (opts.hasEthics) return "Ethics and admin";
+  if (opts.hasMethods) return "Design";
+  if (opts.objectives.length > 0) return "Aim and objectives";
+  return "Idea or gap";
+}
+
 export function ChatFeature() {
+  const router = useRouter();
   const { activeWorkspace } = useWorkspace();
   const { userId } = useAuthSession();
+  const { studyDesign, saveSection, commitSection } = useStudyDesign(activeWorkspace?.id);
   const profileQuery = useQuery({
     queryKey: queryKeys.profile(userId ?? undefined),
     queryFn: () => peggyApi.getProfileOptional(),
     enabled: !!userId,
   });
-  const [prefillQuery, setPrefillQuery] = useResearchQuestionPrefill(activeWorkspace, profileQuery.data);
+  const literatureQuery = useQuery({
+    queryKey: queryKeys.corpus("literature", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("literature", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const findingsQuery = useQuery({
+    queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("own_findings", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const [prefillQuery] = useResearchQuestionPrefill(activeWorkspace, profileQuery.data);
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<ChatMode>("auto");
   const [includeFindings, setIncludeFindings] = useState(true);
@@ -77,6 +126,8 @@ export function ChatFeature() {
   const [agentPending, setAgentPending] = useState(false);
   const [agentError, setAgentError] = useState<string | null>(null);
   const [stepLabel, setStepLabel] = useState<string | null>(null);
+  const [usedOpen, setUsedOpen] = useState(false);
+  const [turns, setTurns] = useState<ChatTurn[]>([]);
 
   useEffect(() => {
     setSessionId(getSessionId());
@@ -114,9 +165,27 @@ export function ChatFeature() {
   const unitLabel = mode === "auto" ? "agent runs" : "messages";
 
   const chat = useMutation({
-    mutationFn: (q: string) =>
-      peggyApi.chat(q, { mode, sourceTypes, workspaceId: activeWorkspace?.id }),
-    onSuccess: refreshUsage,
+    mutationFn: (q: string) => peggyApi.chat(q, { mode, sourceTypes, workspaceId: activeWorkspace?.id }),
+    onSuccess: (data) => {
+      refreshUsage();
+      setTurns((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "peggy",
+          text: data.response ?? "",
+          sources: data.sources,
+          limitations: data.limitations,
+          body: data.body,
+        },
+      ]);
+    },
+    onError: (err: unknown) => {
+      setTurns((prev) => [
+        ...prev,
+        { id: crypto.randomUUID(), role: "peggy", text: formatApiError(err), error: true },
+      ]);
+    },
   });
 
   const runAgent = useCallback(
@@ -137,7 +206,9 @@ export function ChatFeature() {
         }
         refreshUsage();
       } catch (err) {
-        setAgentError(formatApiError(err));
+        const message = formatApiError(err);
+        setAgentError(message);
+        setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: "peggy", text: message, error: true }]);
         refreshUsage();
       } finally {
         setAgentPending(false);
@@ -150,6 +221,7 @@ export function ChatFeature() {
   function applyStreamEvent(event: AgentStreamEvent) {
     if (event.type === "error" && event.message) {
       setAgentError(event.message);
+      setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: "peggy", text: event.message ?? "Error", error: true }]);
     }
     if (event.type === "step_start") {
       setStepLabel(event.summary ?? "Working…");
@@ -163,38 +235,78 @@ export function ChatFeature() {
     if (event.type === "final" && event.response) {
       setAgentData(event.response);
       setStepLabel(null);
+      setTurns((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "peggy",
+          text: event.response!.answer,
+          sources: event.response!.sources,
+          limitations: event.response!.limitations,
+          body: event.response!.body,
+        },
+      ]);
     }
   }
 
   const handleSend = () => {
     if (!query || queryTooLong || quotaExhausted) return;
+    const text = query;
+    setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: "user", text }]);
     if (mode === "auto") {
-      void runAgent(query);
+      void runAgent(text);
     } else {
-      chat.mutate(query);
+      chat.mutate(text);
     }
   };
 
   const isPending = mode === "auto" ? agentPending : chat.isPending;
-  const activeMode = mode === "auto" ? "auto" : (chat.data?.mode ?? mode);
   const sendDisabled = !query || isPending || queryTooLong || quotaExhausted;
+  const latestPeggy = [...turns].reverse().find((t) => t.role === "peggy" && !t.error);
+  const literatureCount = literatureQuery.data?.count ?? literatureQuery.data?.papers?.length ?? 0;
+  const findingsCount = findingsQuery.data?.count ?? findingsQuery.data?.papers?.length ?? 0;
+  const objectives = normalizeObjectives(activeWorkspace?.objectives);
+  const stage = projectStage({
+    objectives,
+    hasMethods: !!(studyDesign.methodsPlan?.userPlan?.trim() || (studyDesign.methodsPlan?.steps?.length ?? 0)),
+    hasEthics: !!(studyDesign.ethics?.approvalObtained || studyDesign.ethics?.fmhsTrack),
+    hasFindings: findingsCount > 0,
+  });
+
+  const addToMethods = () => {
+    if (!latestPeggy?.text) return;
+    const existing = studyDesign.methodsPlan?.userPlan ?? "";
+    const next = existing.trim() ? `${existing.trim()}\n\n${latestPeggy.text}` : latestPeggy.text;
+    saveSection("methodsPlan", { userPlan: next });
+    void commitSection("methodsPlan", { ...(studyDesign.methodsPlan ?? {}), userPlan: next });
+    router.push("/study-design/methods-plan");
+  };
+
+  const chipSx = (active: boolean) =>
+    active
+      ? { bgcolor: peggyColors.primary, color: peggyColors.primaryForeground, "& .MuiChip-label": { ...monoSx, fontSize: 11 } }
+      : {
+          bgcolor: peggyColors.muted,
+          border: `0.5px solid ${peggyColors.border}`,
+          "& .MuiChip-label": { ...monoSx, fontSize: 11, color: peggyColors.mutedForeground },
+        };
 
   return (
-    <Stack spacing={2}>
-      <Stack direction="row" flexWrap="wrap" gap={1}>
-        {MODES.map((m) => (
-          <Chip
-            key={m.id}
-            label={m.label}
-            onClick={() => setMode(m.id)}
-            color={mode === m.id ? "primary" : "default"}
-            variant={mode === m.id ? "filled" : "outlined"}
-          />
-        ))}
+    <Stack spacing={3}>
+      <Stack spacing={1}>
+        <Typography sx={{ ...eyebrowSx, color: peggyColors.accent }}>ASK PEGGY</Typography>
+        <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          Ask Peggy
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+          Answers cite your papers. Peggy says when the evidence is thin.
+        </Typography>
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ pt: 0.5 }}>
+          <StatusChip tone="neutral" label={`Stage: ${stage}`} />
+          <StatusChip tone="accent" label={`Literature ${literatureCount}`} />
+          <StatusChip tone="neutral" label={`Our findings ${findingsCount}`} />
+        </Stack>
       </Stack>
-      <Typography variant="caption" color="text.secondary">
-        {MODES.find((m) => m.id === mode)?.hint}
-      </Typography>
 
       <UsageQuotaBanner
         isError={usageQuery.isError}
@@ -204,17 +316,87 @@ export function ChatFeature() {
         freeTierNotice={limitsQuery.data?.llm?.free_tier ? limitsQuery.data.llm.notice : undefined}
       />
 
-      <FormControlLabel
-        control={
-          <Switch
-            id="peggy-include-findings"
-            name="include_findings"
-            checked={includeFindings}
-            onChange={(e) => setIncludeFindings(e.target.checked)}
-          />
-        }
-        label="Include our findings in retrieval"
-      />
+      <Paper variant="outlined" sx={{ p: 2.5, bgcolor: peggyColors.surface }}>
+        <Stack spacing={2}>
+          {turns.length === 0 && !isPending && (
+            <Typography variant="body2" color="text.secondary">
+              {literatureCount === 0
+                ? "No papers yet. Add literature so answers can cite your corpus."
+                : "Ask about your papers, your plan or your findings."}
+            </Typography>
+          )}
+
+          {turns.map((turn) =>
+            turn.role === "user" ? (
+              <Stack key={turn.id} direction="row" justifyContent="flex-end" sx={{ pl: { sm: 12 } }}>
+                <Box sx={{ bgcolor: peggyColors.primary, color: peggyColors.primaryForeground, px: 2, py: 1, borderRadius: 1, maxWidth: "100%" }}>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                    {turn.text}
+                  </Typography>
+                </Box>
+              </Stack>
+            ) : (
+              <Stack key={turn.id} direction="row" justifyContent="flex-start" sx={{ pr: { sm: 12 } }}>
+                <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+                  <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 1 }}>
+                    PEGGY
+                  </Typography>
+                  {turn.error ? (
+                    <Alert severity="error">{turn.text}</Alert>
+                  ) : (
+                    <>
+                      <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: peggyColors.foreground }}>
+                        {turn.text}
+                      </Typography>
+                      {turn.body ? <WorkflowResults mode={mode === "auto" ? "chat" : mode} body={turn.body} /> : null}
+                      {(turn.sources?.length ?? 0) > 0 && (
+                        <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 1 }}>
+                          {turn.sources!.map((s, i) => (
+                            <StatusChip key={s.chunk_id} tone="neutral" label={sourceChipLabel(s, i)} />
+                          ))}
+                        </Stack>
+                      )}
+                      {(turn.limitations?.length ?? 0) > 0 && (
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                          Limits: {turn.limitations!.join(" ")}
+                        </Typography>
+                      )}
+                    </>
+                  )}
+                </Paper>
+              </Stack>
+            )
+          )}
+
+          {isPending && (
+            <Stack direction="row" justifyContent="flex-start" sx={{ pr: { sm: 12 } }}>
+              <Paper variant="outlined" sx={{ p: 2, flex: 1 }}>
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 1 }}>
+                  PEGGY
+                </Typography>
+                <LinearProgress />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                  {stepLabel ?? "Working…"}
+                </Typography>
+              </Paper>
+            </Stack>
+          )}
+
+          {latestPeggy && !isPending && (
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              <Button variant="outlined" onClick={addToMethods} sx={{ textTransform: "none" }}>
+                Add to Methods plan
+              </Button>
+              <Button variant="text" onClick={() => router.push("/validate/literature")} sx={{ textTransform: "none", color: peggyColors.accent }}>
+                Open papers
+              </Button>
+              <Button variant="text" onClick={() => setUsedOpen(true)} sx={{ textTransform: "none", color: peggyColors.accent }}>
+                What Peggy used
+              </Button>
+            </Stack>
+          )}
+        </Stack>
+      </Paper>
 
       {(mode === "compare" || mode === "gap_analysis") && (
         <ProjectContextImport
@@ -222,53 +404,58 @@ export function ChatFeature() {
         />
       )}
 
-      <TextField
-        id="peggy-chat-query"
-        name="query"
-        label={mode === "compare" ? "Your finding to compare" : "Ask Peggy"}
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        fullWidth
-        multiline
-        rows={3}
-        error={queryTooLong}
-        helperText={
-          queryTooLong
-            ? `Question must be under ${maxQueryLen.toLocaleString()} characters.`
-            : `${query.length.toLocaleString()} / ${maxQueryLen.toLocaleString()} characters`
-        }
-        placeholder={
-          mode === "gap_analysis"
-            ? "e.g. Gaps in microbiome and type-2 diabetes research given our cohort results"
-            : mode === "compare"
-              ? "e.g. Butyrate producers were reduced in our N=45 cohort"
-              : "Ask anything about your literature and findings corpus"
-        }
+      <Paper variant="outlined" sx={{ p: 2 }}>
+        <TextField
+          id="peggy-chat-query"
+          name="query"
+          placeholder="Ask about your papers, your plan or your findings"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          fullWidth
+          multiline
+          minRows={2}
+          error={queryTooLong}
+          helperText={
+            queryTooLong ? `Question must be under ${maxQueryLen.toLocaleString()} characters.` : undefined
+          }
+          InputProps={{ disableUnderline: true }}
+          variant="standard"
+        />
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+          {MODES.map((m) => (
+            <Chip key={m.id} label={m.label} onClick={() => setMode(m.id)} sx={chipSx(mode === m.id)} />
+          ))}
+          <Box sx={{ flex: 1 }} />
+          <DisabledTooltipButton title={!query.trim() ? "Type a question first" : quotaExhausted ? "Hourly limit reached" : ""}>
+            <span>
+              <Button variant="contained" disabled={sendDisabled} onClick={handleSend} sx={{ textTransform: "none" }}>
+                {isPending ? <CircularProgress size={22} color="inherit" /> : "Send"}
+              </Button>
+            </span>
+          </DisabledTooltipButton>
+        </Stack>
+        <FormControlLabel
+          control={
+            <Switch
+              id="peggy-include-findings"
+              name="include_findings"
+              checked={includeFindings}
+              onChange={(e) => setIncludeFindings(e.target.checked)}
+              size="small"
+            />
+          }
+          label={<Typography variant="caption">Include our findings in retrieval</Typography>}
+          sx={{ mt: 1, ml: 0 }}
+        />
+      </Paper>
+
+      <WhatPeggyUsedDrawer
+        open={usedOpen}
+        onClose={() => setUsedOpen(false)}
+        sources={latestPeggy?.sources ?? agentData?.sources ?? chat.data?.sources ?? []}
+        confidence={agentData?.confidence ?? chat.data?.confidence}
+        limitations={latestPeggy?.limitations ?? agentData?.limitations ?? chat.data?.limitations}
       />
-      <Button variant="contained" disabled={sendDisabled} onClick={handleSend}>
-        {isPending ? <CircularProgress size={24} /> : "Send"}
-      </Button>
-
-      {mode === "auto" && (
-        <AgentResultPanel pending={agentPending} stepLabel={stepLabel} error={agentError} data={agentData} />
-      )}
-
-      {mode !== "auto" && chat.isError && <Alert severity="error">{formatApiError(chat.error)}</Alert>}
-
-      {mode !== "auto" && chat.data && (
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="caption" color="text.secondary" sx={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>
-            Mode: {activeMode.replace("_", " ")}
-          </Typography>
-          {chat.data.response && (
-            <Typography variant="body1" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
-              {chat.data.response}
-            </Typography>
-          )}
-          <WorkflowResults mode={activeMode} body={chat.data.body} />
-          <SourceCards sources={chat.data.sources} confidence={chat.data.confidence} limitations={chat.data.limitations} />
-        </Paper>
-      )}
     </Stack>
   );
 }

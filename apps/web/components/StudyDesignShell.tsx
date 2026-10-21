@@ -3,7 +3,7 @@
 import { PropsWithChildren } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Box, Tab, Tabs, Typography } from "@mui/material";
-import { eyebrowSx } from "@/theme/peggyTheme";
+import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 
 const TABS = [
   { label: "Samples and datasets", href: "/study-design/samples" },
@@ -28,7 +28,7 @@ export function StudyDesignShell({
 
   return (
     <Box sx={{ width: "100%" }}>
-      <Typography sx={{ ...eyebrowSx, mb: 2 }}>STUDY DESIGN</Typography>
+      <Typography sx={{ ...eyebrowSx, mb: 2, color: peggyColors.accent }}>STUDY DESIGN</Typography>
       <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em", mb: 1 }}>
         {title}
       </Typography>

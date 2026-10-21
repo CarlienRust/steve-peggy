@@ -21,6 +21,9 @@ https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=17-511&t=Qr
 
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=9-200&t=QrO8f4bmWNEilWSg-1
 
+-- empty
+https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2603&t=77fzxLQhvw0SUd3d-1
+
 #### Aims and objectives
 
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=54-2652&t=77fzxLQhvw0SUd3d-1
@@ -78,22 +81,6 @@ https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=20-1069&t=Q
 
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=36-2065&t=9tqpdnNIWrDNrXPZ-1
 
-### 3.7 Chat empty state (no papers yet) and loading and error states
-
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2603&t=9tqpdnNIWrDNrXPZ-1
-
-### 3.8 Delete confirmations
-
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=30-1413&t=QrO8f4bmWNEilWSg-1
-
-### 3.9 Setup check
+### 3.7 Setup check - on home page
 
 https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2224&t=9tqpdnNIWrDNrXPZ-1
-
-### 3.10 System down
-
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2371&t=9tqpdnNIWrDNrXPZ-1
-
-### 3.11 Empty literature search
-
-https://www.figma.com/design/Z2umjjoyVlsYPMR4IDAxGw/Peggy-UI?node-id=47-2603&t=77fzxLQhvw0SUd3d-1

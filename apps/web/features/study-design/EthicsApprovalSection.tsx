@@ -1,237 +1,197 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import UploadFileIcon from "@mui/icons-material/UploadFile";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { useState } from "react";
 import {
-  Alert,
   Button,
   Checkbox,
-  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControlLabel,
-  IconButton,
-  List,
-  ListItem,
-  ListItemSecondaryAction,
-  ListItemText,
-  Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import { peggyApi, queryKeys } from "@/lib/api";
+import type { PaperRecord } from "@/lib/api";
 import type { StudyDesignEthics } from "@/lib/studyDesign";
-import { useWorkspace } from "@/lib/workspaceContext";
-import { peggyColors, monoSx } from "@/theme/peggyTheme";
-
-type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
+import { peggyColors } from "@/theme/peggyTheme";
 
 type EthicsApprovalSectionProps = {
   ethics: StudyDesignEthics;
   onSave: (patch: Partial<StudyDesignEthics>) => void;
+  papers: PaperRecord[];
+  onUploadClick: () => void;
 };
 
-export function EthicsApprovalSection({ ethics, onSave }: EthicsApprovalSectionProps) {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [pdfFiles, setPdfFiles] = useState<File[]>([]);
-  const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
+function formatShortDate(value?: string) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+}
 
-  const { activeWorkspace } = useWorkspace();
-  const letters = useQuery({
-    queryKey: queryKeys.corpus("ethics_documents", activeWorkspace?.id),
-    queryFn: () => peggyApi.listCorpus("ethics_documents", activeWorkspace?.id),
-    enabled: !!activeWorkspace?.id,
-  });
+function SummaryRow({
+  label,
+  value,
+  actionLabel,
+  onAction,
+}: {
+  label: string;
+  value: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  return (
+    <Stack
+      direction="row"
+      spacing={2}
+      alignItems="center"
+      sx={{ py: 1, px: 1, borderBottom: `0.5px solid ${peggyColors.border}`, width: "100%" }}
+    >
+      <Typography fontWeight={500} sx={{ width: 140, flexShrink: 0 }}>
+        {label}
+      </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
+        {value}
+      </Typography>
+      <Button variant="text" onClick={onAction} sx={{ textTransform: "none", color: peggyColors.accent, flexShrink: 0 }}>
+        {actionLabel}
+      </Button>
+    </Stack>
+  );
+}
 
-  const uploadMut = useMutation({
-    mutationFn: async (files: File[]) => {
-      const results: UploadResult[] = [];
-      for (const file of files) {
-        try {
-          const res = await peggyApi.uploadDocument(file, {
-            sourceType: "ethics_documents",
-            title: file.name.replace(/\.pdf$/i, ""),
-            workspaceId: activeWorkspace?.id,
-          });
-          if (res.status === "duplicate") {
-            results.push({ name: file.name, ok: false, error: res.message ?? "Already uploaded" });
-          } else {
-            results.push({ name: file.name, ok: true, chunks: res.chunks });
-          }
-        } catch (e) {
-          results.push({ name: file.name, ok: false, error: (e as Error).message });
-        }
-      }
-      return results;
-    },
-    onSuccess: (results) => {
-      setUploadResults(results);
-      setPdfFiles([]);
-      queryClient.invalidateQueries({ queryKey: queryKeys.corpus("ethics_documents", activeWorkspace?.id) });
-    },
-  });
+export function EthicsApprovalSection({ ethics, onSave, papers, onUploadClick }: EthicsApprovalSectionProps) {
+  const [committeeOpen, setCommitteeOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [committee, setCommittee] = useState(ethics.fmhsTrack ?? "");
+  const [approvalObtained, setApprovalObtained] = useState(!!ethics.approvalObtained);
+  const [approvalDate, setApprovalDate] = useState(ethics.approvalDate ?? "");
+  const [expiryDate, setExpiryDate] = useState(ethics.expiryDate ?? "");
+  const [acknowledgedSafety, setAcknowledgedSafety] = useState(!!ethics.acknowledgedSafety);
 
-  const addPdfFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfs = Array.from(incoming).filter(
-      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
-    );
-    if (pdfs.length === 0) return;
-    setPdfFiles((prev) => {
-      const names = new Set(prev.map((f) => f.name));
-      return [...prev, ...pdfs.filter((f) => !names.has(f.name))];
-    });
-    setUploadResults([]);
-  }, []);
+  const latestPaper = papers[0];
+  const letterValue = papers.length
+    ? `Uploaded${latestPaper?.ingested_at ? ` · ${formatShortDate(latestPaper.ingested_at)}` : ""}`
+    : "Not uploaded";
 
-  const onFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) addPdfFiles(e.target.files);
-    e.target.value = "";
+  const statusValue = ethics.approvalObtained
+    ? `Approved${ethics.approvalDate ? ` · ${formatShortDate(ethics.approvalDate)}` : ""}`
+    : "Not yet obtained";
+
+  const openCommittee = () => {
+    setCommittee(ethics.fmhsTrack ?? "");
+    setCommitteeOpen(true);
   };
 
-  const onDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    if (e.dataTransfer.files?.length) addPdfFiles(e.dataTransfer.files);
+  const openStatus = () => {
+    setApprovalObtained(!!ethics.approvalObtained);
+    setApprovalDate(ethics.approvalDate ?? "");
+    setExpiryDate(ethics.expiryDate ?? "");
+    setAcknowledgedSafety(!!ethics.acknowledgedSafety);
+    setStatusOpen(true);
   };
-
-  const papers = letters.data?.papers ?? [];
 
   return (
-    <Stack spacing={2}>
-      <Typography variant="subtitle2">Ethics approval</Typography>
-
-      <FormControlLabel
-        control={
-          <Checkbox
-            checked={!!ethics.approvalObtained}
-            onChange={(e) => onSave({ approvalObtained: e.target.checked })}
-          />
-        }
-        label="Ethics approval already obtained"
+    <>
+      <SummaryRow
+        label="Committee"
+        value={ethics.fmhsTrack?.trim() || "Not set"}
+        actionLabel="Change"
+        onAction={openCommittee}
       />
+      <SummaryRow label="Status" value={statusValue} actionLabel="Update" onAction={openStatus} />
+      <SummaryRow label="Approval letter" value={letterValue} actionLabel="Upload" onAction={onUploadClick} />
 
-      {ethics.approvalObtained && (
-        <>
-          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-            <TextField
-              label="Approval date"
-              type="date"
-              value={ethics.approvalDate ?? ""}
-              onChange={(e) => onSave({ approvalDate: e.target.value || undefined })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              sx={{ minWidth: 160 }}
-            />
-            <TextField
-              label="Expiry / renewal date"
-              type="date"
-              value={ethics.expiryDate ?? ""}
-              onChange={(e) => onSave({ expiryDate: e.target.value || undefined })}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              helperText="Optional — renewal reminders planned for a future release"
-              sx={{ minWidth: 160, flex: 1 }}
-            />
-          </Stack>
-
-          <Typography variant="body2" color="text.secondary">
-            Upload your letter of approval (PDF). Stored privately and not mixed with literature or findings.
-          </Typography>
-
-          <Paper
-            variant="outlined"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={onDrop}
-            onClick={() => fileInputRef.current?.click()}
-            sx={{
-              p: 2.5,
-              textAlign: "center",
-              cursor: "pointer",
-              borderStyle: "dashed",
-              borderColor: peggyColors.border,
-              bgcolor: peggyColors.muted,
-              "&:hover": { borderColor: peggyColors.accent },
-            }}
-          >
-            <UploadFileIcon sx={{ fontSize: 32, color: "text.secondary", mb: 0.5 }} />
-            <Typography variant="body2" fontWeight={500}>
-              Drop approval letter PDF or click to browse
-            </Typography>
-          </Paper>
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="application/pdf,.pdf"
-            multiple
-            hidden
-            onChange={onFileInputChange}
+      <Dialog open={committeeOpen} onClose={() => setCommitteeOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Committee</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Committee"
+            value={committee}
+            onChange={(e) => setCommittee(e.target.value)}
+            placeholder="e.g. UCT HREC · FMHS"
+            fullWidth
+            sx={{ mt: 1 }}
           />
-
-          {pdfFiles.length > 0 && (
-            <List dense component={Paper} variant="outlined" disablePadding>
-              {pdfFiles.map((file) => (
-                <ListItem key={file.name} divider>
-                  <ListItemText primary={file.name} primaryTypographyProps={{ noWrap: true }} />
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      aria-label={`Remove ${file.name}`}
-                      onClick={() => setPdfFiles((prev) => prev.filter((f) => f.name !== file.name))}
-                    >
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              ))}
-            </List>
-          )}
-
-          <Button
-            variant="outlined"
-            disabled={pdfFiles.length === 0 || uploadMut.isPending}
-            onClick={() => uploadMut.mutate(pdfFiles)}
-            sx={{ alignSelf: "flex-start" }}
-          >
-            {uploadMut.isPending ? (
-              <CircularProgress size={22} />
-            ) : (
-              `Upload letter${pdfFiles.length > 0 ? ` (${pdfFiles.length})` : ""}`
-            )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCommitteeOpen(false)} sx={{ textTransform: "none" }}>
+            Cancel
           </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              onSave({ fmhsTrack: committee.trim() || undefined });
+              setCommitteeOpen(false);
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-          {uploadResults.length > 0 && (
-            <Stack spacing={1}>
-              {uploadResults.map((r) => (
-                <Alert key={r.name} severity={r.ok ? "success" : "error"}>
-                  {r.ok ? `${r.name} uploaded` : `${r.name} — ${r.error}`}
-                </Alert>
-              ))}
+      <Dialog open={statusOpen} onClose={() => setStatusOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Ethics approval status</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox checked={approvalObtained} onChange={(e) => setApprovalObtained(e.target.checked)} />
+              }
+              label="Ethics approval already obtained"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox checked={acknowledgedSafety} onChange={(e) => setAcknowledgedSafety(e.target.checked)} />
+              }
+              label="I will not paste identifiable participant data into Peggy"
+            />
+            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              <TextField
+                label="Approval date"
+                type="date"
+                value={approvalDate}
+                onChange={(e) => setApprovalDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ minWidth: 160 }}
+              />
+              <TextField
+                label="Expiry / renewal date"
+                type="date"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                size="small"
+                sx={{ minWidth: 160, flex: 1 }}
+              />
             </Stack>
-          )}
-
-          {papers.length > 0 && (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                Approval letters ({papers.length})
-              </Typography>
-              <List dense disablePadding>
-                {papers.map((p) => (
-                  <ListItem key={p.id} disablePadding sx={{ py: 0.5 }}>
-                    <ListItemText primary={p.title} secondary={p.ingested_at?.slice(0, 10)} />
-                  </ListItem>
-                ))}
-              </List>
-            </Paper>
-          )}
-
-          <Typography variant="caption" color="text.secondary" sx={monoSx}>
-            Stored as ethics documents — excluded from literature search and gap analysis.
-          </Typography>
-        </>
-      )}
-    </Stack>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setStatusOpen(false)} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              onSave({
+                approvalObtained,
+                acknowledgedSafety,
+                approvalDate: approvalDate || undefined,
+                expiryDate: expiryDate || undefined,
+              });
+              setStatusOpen(false);
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 }

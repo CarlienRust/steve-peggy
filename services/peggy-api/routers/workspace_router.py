@@ -320,10 +320,12 @@ async def patch_study_design(
     patch = body.model_dump(exclude_none=True)
     samples_patch = patch.get("samples") or {}
     for field, label in (
+        ("setting", "Setting"),
         ("summary", "Samples summary"),
         ("recruitment", "Recruitment"),
         ("inclusionCriteria", "Inclusion criteria"),
         ("exclusionCriteria", "Exclusion criteria"),
+        ("ageRange", "Age range"),
         ("budget", "Study budget"),
     ):
         if samples_patch.get(field):
