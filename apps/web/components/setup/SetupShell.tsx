@@ -13,7 +13,7 @@ export function SetupShell({
   step,
   totalSteps = 4,
   backHref = "/",
-  showBackButton = true,
+  showBackButton = false,
   eyebrow,
   children,
 }: PropsWithChildren<{
@@ -56,7 +56,9 @@ export function SetupShell({
             gap: 2,
           }}
         >
-          <PeggyBrandLockup variant="sidebar" />
+          <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit" }}>
+            <PeggyBrandLockup variant="sidebar" />
+          </Box>
           {showBackButton ? (
             <Button
               component={Link}

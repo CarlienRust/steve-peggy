@@ -7,6 +7,10 @@ import {
   Box,
   Button,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
   IconButton,
   List,
@@ -90,6 +94,10 @@ export function EthicsFeature() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pdfFiles, setPdfFiles] = useState<File[]>([]);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
+  const [viewPaperId, setViewPaperId] = useState<number | null>(null);
+  const [viewText, setViewText] = useState<string | null>(null);
+  const [viewLoading, setViewLoading] = useState(false);
+  const [viewError, setViewError] = useState<string | null>(null);
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
     activeWorkspace?.id
@@ -397,15 +405,35 @@ export function EthicsFeature() {
                   <TableCell>
                     <StatusChip tone="accent" label="Uploaded" />
                   </TableCell>
-                  <TableCell align="right">
+                  <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
                     {p.id != null && (
-                      <Button
-                        variant="text"
-                        onClick={() => deleteMut.mutate(p.id as number)}
-                        sx={{ textTransform: "none", color: peggyColors.accent, minWidth: 0 }}
-                      >
-                        Delete
-                      </Button>
+                      <>
+                        <Button
+                          variant="text"
+                          onClick={() => {
+                            const id = p.id as number;
+                            setViewPaperId(id);
+                            setViewLoading(true);
+                            setViewError(null);
+                            setViewText(null);
+                            void peggyApi
+                              .getPaperText(id)
+                              .then((res) => setViewText(res.text || ""))
+                              .catch((err) => setViewError(formatApiError(err)))
+                              .finally(() => setViewLoading(false));
+                          }}
+                          sx={{ textTransform: "none", color: peggyColors.accent, minWidth: 0 }}
+                        >
+                          View
+                        </Button>
+                        <Button
+                          variant="text"
+                          onClick={() => deleteMut.mutate(p.id as number)}
+                          sx={{ textTransform: "none", color: peggyColors.accent, minWidth: 0 }}
+                        >
+                          Delete
+                        </Button>
+                      </>
                     )}
                   </TableCell>
                 </TableRow>
@@ -414,6 +442,46 @@ export function EthicsFeature() {
           </Table>
         )}
       </Paper>
+
+      <Dialog
+        open={viewPaperId != null}
+        onClose={() => {
+          setViewPaperId(null);
+          setViewText(null);
+          setViewError(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          {letterPapers.find((p) => p.id === viewPaperId)?.title ?? "Ethics document"}
+        </DialogTitle>
+        <DialogContent dividers>
+          {viewLoading ? (
+            <Box sx={{ display: "grid", placeItems: "center", minHeight: 120 }}>
+              <CircularProgress size={28} />
+            </Box>
+          ) : viewError ? (
+            <Alert severity="error">{viewError}</Alert>
+          ) : (
+            <Typography variant="body2" component="pre" sx={{ whiteSpace: "pre-wrap", fontFamily: "inherit", m: 0 }}>
+              {viewText || "No extracted text for this file."}
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setViewPaperId(null);
+              setViewText(null);
+              setViewError(null);
+            }}
+            sx={{ textTransform: "none" }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <StudyDesignSaveBar
         dirty={dirty}

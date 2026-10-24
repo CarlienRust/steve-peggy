@@ -8,6 +8,7 @@
 | [AGENT.md](AGENT.md) | Chat modes today; planned reactive agent |
 | [ROADMAP.md](ROADMAP.md) | Done vs backlog |
 | [LAUNCH.md](LAUNCH.md) | January launch plan (archived from project draft) |
+| [LAUNCH_CHECKLIST.md](LAUNCH_CHECKLIST.md) | Working / not-working matrix for pilot readiness |
 | [TESTING.md](TESTING.md) | pytest, CI, smoke script |
 | [CODE_REVIEW.md](CODE_REVIEW.md) | Code health snapshot |
 | [RESEARCH_PAPERS.md](RESEARCH_PAPERS.md) | Evidence base — standards and papers behind Study Design, RAG, and ethics |

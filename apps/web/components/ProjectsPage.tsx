@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -17,7 +18,6 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -57,15 +57,10 @@ export function ProjectsPage() {
   const [aim, setAim] = useState("");
   const [objectives, setObjectives] = useState<WorkspaceObjective[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [canBackToDashboard, setCanBackToDashboard] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [renameOpen, setRenameOpen] = useState(false);
   const [renameId, setRenameId] = useState<string | null>(null);
   const [renameTitle, setRenameTitle] = useState("");
-
-  useEffect(() => {
-    setCanBackToDashboard(!!loadActiveWorkspaceId());
-  }, []);
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -160,7 +155,9 @@ export function ProjectsPage() {
             gap: 2,
           }}
         >
-          <PeggyBrandLockup variant="sidebar" />
+          <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit" }}>
+            <PeggyBrandLockup variant="sidebar" />
+          </Box>
           <Stack direction="row" spacing={1} alignItems="center">
             {!isAuthOptional() && (
               <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
@@ -183,15 +180,6 @@ export function ProjectsPage() {
         }}
       >
         <LocalDevBanner />
-        {canBackToDashboard && (
-          <Button
-            startIcon={<ArrowBackIcon />}
-            onClick={() => router.push("/dashboard")}
-            sx={{ textTransform: "none", mb: 2, px: 0, minWidth: 0 }}
-          >
-            Back to dashboard
-          </Button>
-        )}
 
         {pageLoading ? (
           <Box sx={{ display: "grid", placeItems: "center", minHeight: "40vh" }}>
@@ -230,15 +218,17 @@ export function ProjectsPage() {
                   {workspaces.map((ws) => (
                     <Paper
                       key={ws.id}
+                      onClick={() => openProject(ws.id)}
                       sx={{
                         p: 2.5,
                         border: 1,
                         borderColor: "divider",
+                        cursor: "pointer",
                         "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
                       }}
                     >
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
-                        <Box sx={{ minWidth: 0 }}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
                           <Typography fontWeight={600} noWrap>
                             {ws.title}
                           </Typography>
@@ -247,7 +237,7 @@ export function ProjectsPage() {
                             {ws.last_opened_at ? ` · Last opened ${new Date(ws.last_opened_at).toLocaleDateString()}` : ""}
                           </Typography>
                         </Box>
-                        <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} onClick={(e) => e.stopPropagation()}>
                           <IconButton size="small" aria-label="Open project" onClick={() => openProject(ws.id)}>
                             <OpenInNewIcon fontSize="small" />
                           </IconButton>

@@ -137,18 +137,18 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/` | — | Project hub (pick workspace). Welcome block: Setup + profile. New projects: **+ New project** in Your projects, or the Setup wizard |
 | `/setup` | — | New-project landing + link to Setup check |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
-| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap |
+| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON** (`GET /workspaces/{id}/export`) |
 | `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
-| `/validate/gap-analysis` | 02 · Gap analysis | Gaps table |
-| `/validate/literature` | 02 · Literature search | PubMed + PDF literature |
-| `/validate/aim` | 02 · Validate aim | Check aim/objectives against literature |
+| `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
+| `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
+| `/validate/aim` | 02 · Aim and objectives | Edit aim/objectives in place, save to workspace, literature check, criteria + suggestion apply |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From-your-project summary, paste/review, steps, similar-studies checklist |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From-your-project summary, objective-linked steps, paste/review, similar-studies checklist |
-| `/study-design/proposal` | 03 · Proposal | 1–2 page study/grant draft from project context |
+| `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
 | `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |

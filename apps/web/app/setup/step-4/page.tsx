@@ -2,12 +2,12 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, Chip, Paper, Stack, Tooltip, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SetupShell } from "@/components/setup/SetupShell";
-import { useSetupState, type SetupPrivacyMode } from "@/components/setup/SetupState";
+import { useSetupState } from "@/components/setup/SetupState";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
@@ -42,8 +42,6 @@ export default function SetupStep4Page() {
     onError: (err: unknown) => setError(formatApiError(err)),
   });
 
-  const setPrivacy = (value: SetupPrivacyMode) => setState({ privacy_mode: value });
-
   const modulesLabel = useMemo(() => {
     const mods = (state.enabled_modules || []).filter(Boolean);
     if (mods.length === 0) return "";
@@ -62,7 +60,7 @@ export default function SetupStep4Page() {
       title="Privacy"
       subtitle="Choose where Peggy is allowed to send text. You can change this per project."
       step={4}
-      backHref="/setup/step-3"
+      showBackButton={false}
     >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Stack spacing={2.5}>
@@ -74,26 +72,37 @@ export default function SetupStep4Page() {
               title="Local only"
               tag={<Chip label="Recommended" size="small" sx={{ borderRadius: 999 }} />}
               description="Everything stays on this computer. Peggy uses the local model."
-              onClick={() => setPrivacy("local_only")}
+              onClick={() => setState({ privacy_mode: "local_only" })}
             />
-            <ChoiceCard
-              selected={state.privacy_mode === "hosted_allowed"}
-              title="Allow a hosted model"
-              tag={<Chip label="Sends text out" color="warning" size="small" sx={{ borderRadius: 999 }} />}
-              description="Can give better answers on some tasks. Text from your papers and findings is sent to the provider you choose."
-              onClick={() => setPrivacy("hosted_allowed")}
-            />
+            <Tooltip title="Hosted models are not available in this release.">
+              <Box sx={{ flex: "1 0 0" }}>
+                <ChoiceCard
+                  selected={false}
+                  disabled
+                  title="Allow a hosted model"
+                  tag={<Chip label="Sends text out" color="warning" size="small" sx={{ borderRadius: 999 }} />}
+                  description="Can give better answers on some tasks. Text from your papers and findings is sent to the provider you choose."
+                  onClick={() => {}}
+                />
+              </Box>
+            </Tooltip>
           </Stack>
 
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
             <Typography sx={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary", mb: 1 }}>
               YOUR PROJECT
             </Typography>
-            <SummaryRow label="Name" value={state.title.trim()} />
-            <SummaryRow label="Aim" value={state.aim.trim()} />
-            <SummaryRow label="Setting" value={settingLabel} />
-            <SummaryRow label="Modules" value={modulesLabel} />
-            <SummaryRow label="Privacy" value={state.privacy_mode === "local_only" ? "Local only" : "Allow a hosted model"} />
+            <SummaryRow label="Name" value={state.title.trim()} onEdit={() => router.push("/setup/step-2")} />
+            <SummaryRow label="Aim" value={state.aim.trim()} onEdit={() => router.push("/setup/step-2")} />
+            <SummaryRow label="Setting" value={settingLabel} onEdit={() => router.push("/setup/step-3")} />
+            <SummaryRow label="Modules" value={modulesLabel} onEdit={() => router.push("/setup/step-3")} />
+            <SummaryRow
+              label="Privacy"
+              value={state.privacy_mode === "local_only" ? "Local only" : "Allow a hosted model"}
+              onEdit={() => {
+                document.getElementById("setup-privacy-choices")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
           </Paper>
 
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 1 }}>
@@ -123,12 +132,14 @@ export default function SetupStep4Page() {
 
 function ChoiceCard({
   selected,
+  disabled,
   title,
   tag,
   description,
   onClick,
 }: {
   selected: boolean;
+  disabled?: boolean;
   title: string;
   tag: ReactNode;
   description: string;
@@ -137,14 +148,17 @@ function ChoiceCard({
   return (
     <Paper
       variant="outlined"
-      onClick={onClick}
+      onClick={disabled ? undefined : onClick}
+      id={title === "Local only" ? "setup-privacy-choices" : undefined}
       sx={{
         p: 2.5,
         borderRadius: 2,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         borderWidth: selected ? 1.5 : 0.5,
         borderColor: selected ? "primary.main" : "divider",
         flex: "1 0 0",
+        opacity: disabled ? 0.5 : 1,
+        height: "100%",
       }}
     >
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
@@ -173,7 +187,7 @@ function ChoiceCard({
   );
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function SummaryRow({ label, value, onEdit }: { label: string; value: string; onEdit: () => void }) {
   return (
     <Stack
       direction="row"
@@ -187,10 +201,9 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
       <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
         {value || "—"}
       </Typography>
-      <Button variant="text" sx={{ textTransform: "none", color: "secondary.main" }}>
+      <Button variant="text" onClick={onEdit} sx={{ textTransform: "none", color: "secondary.main" }}>
         Edit
       </Button>
     </Stack>
   );
 }
-

@@ -7,7 +7,6 @@ import {
   AppBar,
   Box,
   Chip,
-  Collapse,
   Drawer,
   IconButton,
   Toolbar,
@@ -17,29 +16,16 @@ import {
   useTheme,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
 import { AskPeggyDrawer, ASK_PEGGY_DRAWER_W } from "@/components/AskPeggyDrawer";
-import {
-  MAIN_NAV,
-  groupsToExpand,
-  isNavChildActive,
-  isNavItemActive,
-  type NavGroupItem,
-  type NavItem,
-} from "@/lib/navigation";
+import { MAIN_NAV, isNavItemActive, type NavItem } from "@/lib/navigation";
 
 const SIDEBAR_W = 264;
 const MOBILE_HEADER_H = 56;
-const TABBED_SECTION_HREFS = new Set(["/study-design", "/results"]);
 const DESKTOP_RIGHT_GUTTER = 16;
-
-function sidebarAutoExpand(pathname: string): string[] {
-  return groupsToExpand(pathname).filter((href) => !TABBED_SECTION_HREFS.has(href));
-}
 
 function NavLinkRow({
   href,
@@ -126,137 +112,20 @@ function NavLinkRow({
   );
 }
 
-function NavGroupRow({
-  item,
-  pathname,
-  expanded,
-  onToggle,
-  onNavigate,
-}: {
-  item: NavGroupItem;
-  pathname: string;
-  expanded: boolean;
-  onToggle: () => void;
-  onNavigate?: () => void;
-}) {
-  const groupActive = isNavItemActive(pathname, item);
-  const hubExact = pathname === item.href;
-
-  return (
-    <Box>
-      <Box sx={{ display: "flex", alignItems: "stretch" }}>
-        <Box
-          component={Link}
-          href={item.href}
-          onClick={onNavigate}
-          sx={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            gap: 1.5,
-            px: 1.5,
-            py: 1,
-            borderRadius: 1,
-            textDecoration: "none",
-            fontSize: "0.875rem",
-            fontWeight: groupActive ? 500 : 400,
-            color: groupActive ? "primary.main" : "text.secondary",
-            bgcolor: hubExact ? alpha(peggyColors.primary, 0.05) : "transparent",
-            "&:hover": {
-              bgcolor: hubExact ? alpha(peggyColors.primary, 0.05) : alpha(peggyColors.muted, 0.4),
-              color: "text.primary",
-            },
-          }}
-        >
-          <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7 }}>
-            {item.num}
-          </Typography>
-          <Typography component="span">{item.label}</Typography>
-        </Box>
-        <IconButton
-          size="small"
-          aria-label={expanded ? "Collapse section" : "Expand section"}
-          onClick={(e) => {
-            e.preventDefault();
-            onToggle();
-          }}
-          sx={{
-            color: groupActive ? "primary.main" : "text.secondary",
-            transform: expanded ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 150ms ease",
-          }}
-        >
-          <ExpandMoreIcon fontSize="small" />
-        </IconButton>
-      </Box>
-      <Collapse in={expanded}>
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, pb: 0.5 }}>
-          {item.children.map((child) => (
-            <NavLinkRow
-              key={child.href}
-              href={child.href}
-              label={child.label}
-              active={isNavChildActive(pathname, child.href)}
-              onNavigate={onNavigate}
-              indent
-              disabled={child.disabled}
-            />
-          ))}
-        </Box>
-      </Collapse>
-    </Box>
-  );
-}
-
 function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: () => void }) {
-  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => new Set(sidebarAutoExpand(pathname)));
-
-  useEffect(() => {
-    const auto = sidebarAutoExpand(pathname);
-    if (auto.length === 0) return;
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      auto.forEach((href) => next.add(href));
-      return next;
-    });
-  }, [pathname]);
-
-  const toggleGroup = (href: string) => {
-    setExpandedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(href)) next.delete(href);
-      else next.add(href);
-      return next;
-    });
-  };
-
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 0.5 }}>
-      {MAIN_NAV.map((item: NavItem) => {
-        if (item.kind === "link") {
-          return (
-            <NavLinkRow
-              key={item.href}
-              href={item.href}
-              label={item.label}
-              num={item.num}
-              active={isNavItemActive(pathname, item)}
-              onNavigate={onNavigate}
-              disabled={item.disabled}
-            />
-          );
-        }
-        return (
-          <NavGroupRow
-            key={item.href}
-            item={item}
-            pathname={pathname}
-            expanded={expandedGroups.has(item.href)}
-            onToggle={() => toggleGroup(item.href)}
-            onNavigate={onNavigate}
-          />
-        );
-      })}
+      {MAIN_NAV.map((item: NavItem) => (
+        <NavLinkRow
+          key={item.href}
+          href={item.href}
+          label={item.label}
+          num={item.num}
+          active={isNavItemActive(pathname, item)}
+          onNavigate={onNavigate}
+          disabled={item.kind === "link" ? item.disabled : undefined}
+        />
+      ))}
     </Box>
   );
 }

@@ -1,14 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Box,
   Button,
   Chip,
-  Divider,
-  LinearProgress,
   Paper,
   Stack,
   Table,
@@ -19,20 +18,13 @@ import {
   Typography,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
-import { addObjectiveTask, normalizeObjectives, toggleObjectiveTask } from "@/lib/objectives";
-import { addProjectTask, countOrphanObjectiveLinks, toggleProjectTask } from "@/lib/studyDesign";
+import { normalizeObjectives } from "@/lib/objectives";
 import { useAuthSession } from "@/lib/authContext";
 import { isAuthOptional } from "@/lib/localMode";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
-import {
-  buildObjectiveProgress,
-  buildProjectProgress,
-  countLiterature,
-  countOwnFindings,
-  toggleObjectiveStatus,
-} from "@/lib/projectProgress";
-import { llmHealthHint } from "@/lib/llmHealthHint";
+import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
+import { countLiterature } from "@/lib/projectProgress";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
@@ -45,9 +37,7 @@ export function DashboardPage() {
   const { activeWorkspace, refetch } = useWorkspace();
   const { studyDesign } = useStudyDesign(activeWorkspace?.id);
   const { ready: authReady, userId } = useAuthSession();
-  const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
-  const [togglingObjectiveId, setTogglingObjectiveId] = useState<string | null>(null);
 
   const health = useQuery({
     queryKey: queryKeys.health,
@@ -61,96 +51,13 @@ export function DashboardPage() {
     queryFn: () => peggyApi.listCorpus(undefined, activeWorkspace?.id),
     enabled: authReady && !!userId && !!activeWorkspace?.id,
   });
-  const gapHistory = useQuery({
-    queryKey: ["gap-history", activeWorkspace?.id],
-    queryFn: () => peggyApi.gapAnalysisHistory(activeWorkspace!.id),
-    enabled: authReady && !!activeWorkspace?.id,
-  });
-  const validateAimHistory = useQuery({
-    queryKey: ["validate-aim-history", activeWorkspace?.id],
-    queryFn: () => peggyApi.validateAimHistory(activeWorkspace!.id),
-    enabled: authReady && !!activeWorkspace?.id,
-  });
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
   const papers = corpus.data?.papers ?? [];
   const literatureCount = countLiterature(papers);
-  const ownCount = countOwnFindings(papers);
-  const progress = buildProjectProgress({
-    workspace: activeWorkspace,
-    studyDesign,
-    literatureCount,
-    ownFindingsCount: ownCount,
-    hasGapAnalysis: (gapHistory.data?.length ?? 0) > 0,
-    hasValidateAim: (validateAimHistory.data?.length ?? 0) > 0,
-  });
-  const objectiveProgress = buildObjectiveProgress(activeWorkspace, studyDesign);
-  const orphanLinkCount = countOrphanObjectiveLinks(studyDesign, activeWorkspace?.objectives, activeWorkspace?.aim);
-  const projectTasks = studyDesign.projectTasks ?? [];
-
-  const toggleObjectiveMutation = useMutation({
-    mutationFn: async ({ objectiveId, done }: { objectiveId: string; done: boolean }) => {
-      if (!activeWorkspace) throw new Error("No project selected");
-      const objectives = toggleObjectiveStatus(normalizeObjectives(activeWorkspace.objectives), objectiveId, done);
-      return peggyApi.updateWorkspace(activeWorkspace.id, { objectives });
-    },
-    onMutate: ({ objectiveId }) => setTogglingObjectiveId(objectiveId),
-    onSuccess: () => {
-      void refetch();
-      if (userId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      }
-    },
-    onSettled: () => setTogglingObjectiveId(null),
-  });
-
-  const taskMutation = useMutation({
-    mutationFn: async (
-      patch:
-        | { kind: "objective-task-toggle"; objectiveId: string; taskId: string; done: boolean }
-        | { kind: "objective-task-add"; objectiveId: string; text: string }
-        | { kind: "project-task-toggle"; taskId: string; done: boolean }
-        | { kind: "project-task-add"; text: string }
-    ) => {
-      if (!activeWorkspace) throw new Error("No project selected");
-      if (patch.kind === "objective-task-toggle") {
-        const objectives = toggleObjectiveTask(
-          normalizeObjectives(activeWorkspace.objectives),
-          patch.objectiveId,
-          patch.taskId,
-          patch.done
-        );
-        return peggyApi.updateWorkspace(activeWorkspace.id, { objectives });
-      }
-      if (patch.kind === "objective-task-add") {
-        const objectives = addObjectiveTask(
-          normalizeObjectives(activeWorkspace.objectives),
-          patch.objectiveId,
-          patch.text
-        );
-        return peggyApi.updateWorkspace(activeWorkspace.id, { objectives });
-      }
-      if (patch.kind === "project-task-toggle") {
-        const nextTasks = toggleProjectTask(projectTasks, patch.taskId, patch.done);
-        return peggyApi.patchStudyDesign(activeWorkspace.id, { projectTasks: nextTasks });
-      }
-      const nextTasks = addProjectTask(projectTasks, patch.text);
-      return peggyApi.patchStudyDesign(activeWorkspace.id, { projectTasks: nextTasks });
-    },
-    onSuccess: () => {
-      void refetch();
-      if (userId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      }
-      if (activeWorkspace?.id) {
-        void queryClient.invalidateQueries({ queryKey: ["study-design", activeWorkspace.id] });
-      }
-    },
-  });
 
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
   const embeddingsOk = health.data?.embeddings === "sentence-transformers";
-  const setupHint = llmHealthHint(health.data);
   const serviceDown = !!health.data && (!health.data.qdrant || !llmReady || !embeddingsOk);
 
   const samples = studyDesign.samples ?? {};
@@ -195,11 +102,16 @@ export function DashboardPage() {
         {workspaceTitle}
       </Typography>
 
-      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 3 }}>
+      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 3 }} useFlexGap>
         {isAuthOptional() ? <StatusChip label="Your data stays on this computer" tone="neutral" /> : null}
         <Typography variant="body2" color="text.secondary">
           {samples.studyType ? String(samples.studyType) : "Human-subjects study"}
         </Typography>
+        {activeWorkspace ? (
+          <Button size="small" variant="outlined" onClick={() => setEditOpen(true)} sx={{ textTransform: "none" }}>
+            Project details
+          </Button>
+        ) : null}
       </Stack>
 
       <WorkspaceEditDialog
@@ -242,14 +154,11 @@ export function DashboardPage() {
                 : "Check that your objectives still match the methods and analysis steps you have written."}
             </Typography>
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Button variant="contained" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/study-design/methods-plan")}>
-                Review links
-              </Button>
-              <Button variant="outlined" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/validate/aim")}>
+              <Button variant="contained" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/validate/aim")}>
                 Edit objectives
               </Button>
               <DisabledTooltipButton title="Finish your methods plan first">
-                <Button variant="contained" disabled sx={{ textTransform: "none" }}>
+                <Button variant="outlined" disabled sx={{ textTransform: "none" }}>
                   Start ethics
                 </Button>
               </DisabledTooltipButton>
@@ -269,25 +178,25 @@ export function DashboardPage() {
         </Paper>
       </Stack>
 
-      <Paper variant="outlined" sx={{ mt: 3, borderRadius: 2 }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>
-          <Typography fontWeight={600}>Objectives</Typography>
-          <Button variant="outlined" sx={{ textTransform: "none" }} onClick={() => setEditOpen(true)}>
-            Add objective
-          </Button>
-        </Stack>
-        <Divider />
-        <ObjectivesTable
-          rows={objectiveProgress.rows.filter((r) => !r.isAim)}
-          objectives={objectivesNormalized}
-          changedObjectiveIds={new Set(changedObjectiveIds)}
-        />
-      </Paper>
+      {activeWorkspace ? (
+        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, mt: 3 }}>
+          <Typography sx={sectionEyebrowSx}>GITHUB</Typography>
+          <WorkspaceGithubSection workspace={activeWorkspace} onUpdated={refetch} />
+        </Paper>
+      ) : null}
     </Box>
   );
 }
 
 const sectionEyebrowSx = { ...eyebrowSx, mb: 1.5, color: "secondary.main" };
+
+type FlowStep = {
+  state: "done" | "current" | "upcoming";
+  label: string;
+  note: string;
+  href: string;
+  number?: string;
+};
 
 function FlowRow({ objectives, studyDesign }: { objectives: ReturnType<typeof normalizeObjectives>; studyDesign: any }) {
   const aimDone = objectives.length > 0;
@@ -303,19 +212,31 @@ function FlowRow({ objectives, studyDesign }: { objectives: ReturnType<typeof no
     studyDesign.proposal && (studyDesign.proposal?.generatedAt || studyDesign.proposal?.lastResult),
   ].filter(Boolean).length;
 
-  const steps = [
-    { state: "done" as const, label: "Idea or gap", note: aimDone ? "Idea entered" : "Not started" },
-    { state: "current" as const, label: "Aim and objectives", note: `${aimDraftCount} drafted`, number: "2" },
-    { state: "upcoming" as const, label: "Design", note: `${designSectionsDone} of ${designSectionsTotal} sections`, number: "3" },
-    { state: "upcoming" as const, label: "Ethics and admin", note: "Not started", number: "4" },
-    { state: "upcoming" as const, label: "Results", note: "Not started", number: "5" },
+  const steps: FlowStep[] = [
+    { state: "done", label: "Idea or gap", note: aimDone ? "Idea entered" : "Not started", href: "/validate/gap-analysis", number: "1" },
+    {
+      state: "current",
+      label: "Aim and objectives",
+      note: `${aimDraftCount} drafted`,
+      number: "2",
+      href: "/validate/aim",
+    },
+    {
+      state: "upcoming",
+      label: "Design",
+      note: `${designSectionsDone} of ${designSectionsTotal} sections`,
+      number: "3",
+      href: "/study-design/samples",
+    },
+    { state: "upcoming", label: "Ethics and admin", note: "Not started", number: "4", href: "/study-design/ethics" },
+    { state: "upcoming", label: "Results", note: "Not started", number: "5", href: "/results/findings" },
   ];
 
   return (
     <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ pt: 1 }}>
       {steps.map((s, idx) => (
         <Stack key={s.label} direction="row" alignItems="center" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
-          <FlowMarker state={s.state} number={s.number ?? String(idx + 1)} />
+          <FlowMarker state={s.state} number={s.number ?? String(idx + 1)} href={s.href} label={s.label} />
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="body2" fontWeight={600} noWrap>
               {s.label}
@@ -331,64 +252,83 @@ function FlowRow({ objectives, studyDesign }: { objectives: ReturnType<typeof no
   );
 }
 
-function FlowMarker({ state, number }: { state: "done" | "current" | "upcoming"; number: string }) {
+function FlowMarker({
+  state,
+  number,
+  href,
+  label,
+}: {
+  state: "done" | "current" | "upcoming";
+  number: string;
+  href: string;
+  label: string;
+}) {
+  const baseSx = {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    display: "grid",
+    placeItems: "center",
+    fontSize: 14,
+    fontWeight: 600,
+    textDecoration: "none",
+    flexShrink: 0,
+    transition: "transform 120ms ease, box-shadow 120ms ease",
+    "&:hover": { transform: "scale(1.06)", boxShadow: 1 },
+  };
+
+  const content = state === "done" ? "✓" : number;
+  const ariaLabel = `Go to ${label}`;
+
   if (state === "done") {
     return (
       <Box
+        component={Link}
+        href={href}
+        aria-label={ariaLabel}
         sx={{
-          width: 32,
-          height: 32,
-          borderRadius: 999,
+          ...baseSx,
           bgcolor: "primary.main",
           color: "primary.contrastText",
-          display: "grid",
-          placeItems: "center",
-          fontSize: 14,
           fontWeight: 700,
         }}
       >
-        ✓
+        {content}
       </Box>
     );
   }
   if (state === "current") {
     return (
       <Box
+        component={Link}
+        href={href}
+        aria-label={ariaLabel}
         sx={{
-          width: 32,
-          height: 32,
-          borderRadius: 999,
+          ...baseSx,
           border: "1.5px solid",
           borderColor: "primary.main",
           bgcolor: "background.paper",
           color: "primary.main",
-          display: "grid",
-          placeItems: "center",
-          fontSize: 14,
-          fontWeight: 600,
         }}
       >
-        {number}
+        {content}
       </Box>
     );
   }
   return (
     <Box
+      component={Link}
+      href={href}
+      aria-label={ariaLabel}
       sx={{
-        width: 32,
-        height: 32,
-        borderRadius: 999,
+        ...baseSx,
         bgcolor: "background.default",
         border: "0.5px solid",
         borderColor: "divider",
         color: "text.secondary",
-        display: "grid",
-        placeItems: "center",
-        fontSize: 14,
-        fontWeight: 600,
       }}
     >
-      {number}
+      {content}
     </Box>
   );
 }
@@ -396,7 +336,6 @@ function FlowMarker({ state, number }: { state: "done" | "current" | "upcoming";
 function ExposureByDesignMatrix() {
   const cols = ["Cohort", "Cross-sec.", "Trial", "Review"];
   const rows = ["Environmental", "Psychosocial", "Diet", "Microbiome"];
-  // Until exposure extractions exist, render the exact dashboard structure with zeros.
   return (
     <Table size="small" sx={{ "& td, & th": { borderBottom: "none", px: 0.5 } }}>
       <TableHead>
@@ -431,84 +370,6 @@ function ExposureByDesignMatrix() {
             ))}
           </TableRow>
         ))}
-      </TableBody>
-    </Table>
-  );
-}
-
-function statusLabel(status: string) {
-  if (status === "defined") return "Defined";
-  if (status === "revised") return "Revised";
-  if (status === "dropped") return "Dropped";
-  return "Draft";
-}
-
-function statusTone(status: string): "default" | "success" | "warning" {
-  if (status === "defined") return "success";
-  if (status === "revised") return "warning";
-  return "default";
-}
-
-function progressForStatus(status: string): number {
-  if (status === "defined") return 0.6;
-  if (status === "revised") return 0.3;
-  return 0.1;
-}
-
-function ObjectivesTable({
-  rows,
-  objectives,
-  changedObjectiveIds,
-}: {
-  rows: ReturnType<typeof buildObjectiveProgress>["rows"];
-  objectives: ReturnType<typeof normalizeObjectives>;
-  changedObjectiveIds: Set<string>;
-}) {
-  return (
-    <Table size="small" sx={{ "& td": { borderBottom: "0.5px solid", borderColor: "divider" } }}>
-      <TableBody>
-        {rows.map((r) => {
-          const idx = objectives.findIndex((o) => o.id === r.id);
-          const n = idx >= 0 ? String(idx + 1).padStart(2, "0") : "—";
-          const changed = changedObjectiveIds.has(r.id);
-          const pct = progressForStatus(r.status);
-          return (
-            <TableRow key={r.id}>
-              <TableCell sx={{ width: 40 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {n}
-                </Typography>
-              </TableCell>
-              <TableCell>
-                <Typography variant="body2" fontWeight={600}>
-                  {r.text}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {r.methodsSteps} methods, {r.analysisSteps} analysis, {r.findings} findings
-                </Typography>
-              </TableCell>
-              <TableCell sx={{ width: 220 }}>
-                <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                  {changed ? <Chip label="objective changed" size="small" color="warning" /> : null}
-                  <Chip label={statusLabel(r.status)} size="small" color={statusTone(r.status)} variant="outlined" />
-                  <Box sx={{ width: 80 }}>
-                    <LinearProgress
-                      variant="determinate"
-                      value={pct * 100}
-                      sx={{ height: 4, borderRadius: 999, bgcolor: "background.default" }}
-                    />
-                  </Box>
-                  <Typography variant="caption" color="text.secondary" sx={{ width: 36, textAlign: "right" }}>
-                    {Math.round(pct * 100)}%
-                  </Typography>
-                  <Button variant="text" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/validate/aim")}>
-                    Edit
-                  </Button>
-                </Stack>
-              </TableCell>
-            </TableRow>
-          );
-        })}
       </TableBody>
     </Table>
   );

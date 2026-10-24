@@ -18,10 +18,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
+import { downloadJson } from "@/lib/downloadJson";
 import { normalizeObjectives } from "@/lib/objectives";
 import { objectivesForForm, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 import type { StudyDesignData } from "@/lib/studyDesign";
-import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
 
 type WorkspaceEditDialogProps = {
   open: boolean;
@@ -74,6 +74,17 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
     },
   });
 
+  const exportMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspace) throw new Error("No project selected");
+      return peggyApi.exportWorkspace(workspace.id);
+    },
+    onSuccess: (data) => {
+      const slug = (workspace?.title ?? "project").replace(/[^\w.-]+/g, "-").slice(0, 48);
+      downloadJson(`${slug}-peggy-export.json`, data);
+    },
+  });
+
   const onSubmit = handleSubmit((values) => saveMutation.mutate(values));
 
   return (
@@ -117,12 +128,19 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
                 <ObjectiveListEditor value={field.value} onChange={field.onChange} studyDesign={studyDesign} />
               )}
             />
-            {workspace && <WorkspaceGithubSection workspace={workspace} onUpdated={onSaved} />}
             {saveMutation.isError && <Alert severity="error">{formatApiError(saveMutation.error)}</Alert>}
+            {exportMutation.isError && <Alert severity="error">{formatApiError(exportMutation.error)}</Alert>}
             {errors.root && <Alert severity="error">{errors.root.message}</Alert>}
           </Stack>
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ flexWrap: "wrap", gap: 1, px: 3, pb: 2 }}>
+          <Button
+            onClick={() => exportMutation.mutate()}
+            disabled={exportMutation.isPending}
+            sx={{ mr: "auto", textTransform: "none" }}
+          >
+            {exportMutation.isPending ? "Exporting…" : "Export project JSON"}
+          </Button>
           <Button onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="contained" disabled={saveMutation.isPending}>
             {saveMutation.isPending ? "Saving…" : "Save"}

@@ -58,7 +58,9 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 | `status` | `auto`, `confirmed`, or `corrected` |
 | `model_version` | LLM used for auto extraction |
 
-Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspaces/{id}/extractions`, `GET /extraction-modules`).
+Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspaces/{id}/extractions`, `GET /extraction-modules`). All extraction routes call `assert_workspace_owner` (same as other workspace-scoped reads/writes).
+
+**Project export (no vectors):** `GET /workspaces/{workspace_id}/export` returns JSON (`format: peggy-project-export`, `version: 1`) with workspace row, `study_design`, paper metadata (literature + own findings), all `extractions` rows, and `findings_summary`. Used from the dashboard for supervisor review / backup.
 
 `013_workspace_project_fields.sql` adds Figma-aligned project fields on `workspaces`:
 - `resources JSONB`, `settings JSONB`, `enabled_modules JSONB`
@@ -68,6 +70,42 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 `014_objective_history.sql` creates `objective_history` (audit-ready objective edits), keyed by `(workspace_id, objective_id)` over time.
 
 `015_papers_journal.sql` adds `papers.journal` for the Literature table.
+
+## Entity relationships (Postgres / SQLite)
+
+```mermaid
+erDiagram
+  workspaces ||--o{ papers : contains
+  workspaces ||--|| study_design : has
+  workspaces ||--o{ extractions : scopes
+  workspaces ||--o| findings_summaries_by_workspace : summarizes
+  papers ||--o{ extractions : yields
+  workspaces {
+    uuid id PK
+    uuid user_id FK
+    jsonb objectives
+    jsonb project_tasks
+  }
+  papers {
+    bigint id PK
+    uuid workspace_id FK
+    uuid user_id FK
+    text source_type
+  }
+  extractions {
+    bigint id PK
+    bigint paper_id FK
+    uuid workspace_id FK
+    text module
+    text field
+    text status
+  }
+  study_design {
+    uuid workspace_id PK
+    jsonb methodsPlan
+    jsonb objective_links
+  }
+```
 
 **Backfill:** papers ingested before `010` have `workspace_id` NULL and will not appear in project-scoped lists until re-ingested or updated:
 

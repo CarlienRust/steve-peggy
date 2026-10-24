@@ -6,13 +6,17 @@ import {
   Button,
   Checkbox,
   CircularProgress,
+  FormControl,
   FormControlLabel,
+  InputLabel,
   List,
   ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Typography,
 } from "@mui/material";
@@ -53,19 +57,19 @@ export function ProjectContextImport({
   const [importError, setImportError] = useState<string | null>(null);
 
   const findingsQuery = useQuery({
-    queryKey: queryKeys.corpus("own_findings"),
-    queryFn: () => peggyApi.listCorpus("own_findings"),
-    enabled: sections.includes("findings"),
+    queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("own_findings", activeWorkspace?.id),
+    enabled: sections.includes("findings") && !!activeWorkspace?.id,
   });
   const datasetsQuery = useQuery({
-    queryKey: queryKeys.corpus("sample_datasets"),
-    queryFn: () => peggyApi.listCorpus("sample_datasets"),
-    enabled: sections.includes("datasets"),
+    queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
+    enabled: sections.includes("datasets") && !!activeWorkspace?.id,
   });
 
   const findings = findingsQuery.data?.papers ?? [];
   const datasets = datasetsQuery.data?.papers ?? [];
-  const corpusSections = sections.filter((s) => s === "findings" || s === "datasets");
+  const selectedFindingIds = [...selectedPaperIds].filter((id) => findings.some((p) => p.id === id));
 
   const toggleSection = (id: ProjectContextSection) => {
     setSelected((prev) => {
@@ -106,7 +110,7 @@ export function ProjectContextImport({
 
       if (selectedPaperIds.size > 0) {
         for (const id of selectedPaperIds) {
-          if (selected.has("findings")) {
+          if (sections.includes("findings")) {
             const paper = findings.find((p) => p.id === id);
             if (paper?.id) {
               const res = await peggyApi.getPaperText(paper.id);
@@ -135,8 +139,8 @@ export function ProjectContextImport({
     }
   };
 
-  const renderPaperList = (papers: PaperRecord[], label: ProjectContextSection) => {
-    if (!selected.has(label)) return null;
+  const renderDatasetList = (papers: PaperRecord[]) => {
+    if (!selected.has("datasets")) return null;
     if (papers.length === 0) return null;
     return (
       <List dense disablePadding sx={{ mt: 1 }}>
@@ -147,7 +151,7 @@ export function ProjectContextImport({
                 <ListItemIcon sx={{ minWidth: 36 }}>
                   <Checkbox checked={selectedPaperIds.has(p.id)} tabIndex={-1} disableRipple />
                 </ListItemIcon>
-                <ListItemText primary={p.title || "Untitled"} secondary={p.year || label} />
+                <ListItemText primary={p.title || "Untitled"} secondary={p.year || "Sample dataset"} />
               </ListItemButton>
             </ListItem>
           ) : null
@@ -155,6 +159,11 @@ export function ProjectContextImport({
       </List>
     );
   };
+
+  const canImport =
+    hasStudyDesignContent ||
+    selectedFindingIds.length > 0 ||
+    (selected.has("datasets") && [...selectedPaperIds].some((id) => datasets.some((p) => p.id === id)));
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
@@ -176,10 +185,43 @@ export function ProjectContextImport({
             />
           ))}
         {sections.includes("findings") && findings.length > 0 && (
-          <FormControlLabel
-            control={<Checkbox checked={selected.has("findings")} onChange={() => toggleSection("findings")} />}
-            label={`${SECTION_LABELS.findings} (${findings.length})`}
-          />
+          <FormControl fullWidth size="small" sx={{ mt: 1, mb: 1 }}>
+            <InputLabel id="import-findings-label">{SECTION_LABELS.findings}</InputLabel>
+            <Select
+              labelId="import-findings-label"
+              label={SECTION_LABELS.findings}
+              multiple
+              value={findings.filter((p) => p.id != null && selectedPaperIds.has(p.id)).map((p) => p.id!)}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const ids = (typeof raw === "string" ? raw.split(",") : raw).map((v) => Number(v));
+                setSelectedPaperIds((prev) => {
+                  const next = new Set(prev);
+                  for (const p of findings) {
+                    if (p.id != null) next.delete(p.id);
+                  }
+                  for (const id of ids) {
+                    if (Number.isFinite(id)) next.add(id);
+                  }
+                  return next;
+                });
+              }}
+              renderValue={(selectedIds) => {
+                const titles = findings
+                  .filter((p) => p.id != null && (selectedIds as number[]).includes(p.id))
+                  .map((p) => p.title || "Untitled");
+                return titles.join(", ") || "Choose findings…";
+              }}
+            >
+              {findings.map((p) =>
+                p.id != null ? (
+                  <MenuItem key={p.id} value={p.id}>
+                    {p.title || "Untitled"}
+                  </MenuItem>
+                ) : null
+              )}
+            </Select>
+          </FormControl>
         )}
         {sections.includes("datasets") && datasets.length > 0 && (
           <FormControlLabel
@@ -189,14 +231,13 @@ export function ProjectContextImport({
         )}
       </Stack>
 
-      {renderPaperList(findings, "findings")}
-      {renderPaperList(datasets, "datasets")}
+      {renderDatasetList(datasets)}
 
       <Button
         variant="outlined"
         size="small"
         sx={{ mt: 2 }}
-        disabled={importing || (!hasStudyDesignContent && selectedPaperIds.size === 0)}
+        disabled={importing || !canImport}
         onClick={() => void importSelected()}
       >
         {importing ? <CircularProgress size={20} /> : "Import selected into text"}
@@ -206,12 +247,11 @@ export function ProjectContextImport({
           {importError}
         </Alert>
       )}
-      {corpusSections.every((s) => (s === "findings" ? findings.length === 0 : datasets.length === 0)) &&
-        !hasStudyDesignContent && (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Fill in Study Design sections or add findings to import content here.
-          </Typography>
-        )}
+      {!canImport && (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          Fill in Study Design sections or add findings to import content here.
+        </Typography>
+      )}
     </Paper>
   );
 }

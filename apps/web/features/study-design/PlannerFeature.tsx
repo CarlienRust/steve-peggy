@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Box,
@@ -14,13 +13,16 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { PlanStepsEditor } from "@/features/study-design/PlanStepsEditor";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { StatusChip } from "@/components/StatusChip";
 import { normalizeObjectives } from "@/lib/objectives";
 import type { PlanStep } from "@/lib/studyDesign";
-import { peggyApi, formatApiError } from "@/lib/api";
+import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
+import { useAuthSession } from "@/lib/authContext";
+import { objectivesForForm, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
@@ -41,6 +43,16 @@ const MODULE_LABELS: Record<string, string> = {
   diet: "Diet",
 };
 
+const EVIDENCE_MODULES: Array<{ id: string; title: string; required?: boolean }> = [
+  { id: "core", title: "Core", required: true },
+  { id: "outcomes", title: "Outcomes" },
+  { id: "exposure", title: "Exposure" },
+  { id: "microbiome", title: "Microbiome" },
+  { id: "diet", title: "Diet" },
+];
+
+type EditableProjectField = "aim" | "objectives" | "cohort" | "modules" | "outcomes" | "exposures" | "covariates";
+
 function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
@@ -55,38 +67,56 @@ function asStringList(value: unknown): string[] {
 function SummaryRow({
   label,
   value,
+  editing,
   onEdit,
+  onCancel,
+  editPanel,
 }: {
   label: string;
   value: string;
+  editing?: boolean;
   onEdit: () => void;
+  onCancel: () => void;
+  editPanel?: ReactNode;
 }) {
   return (
-    <Stack
-      direction="row"
-      spacing={2}
-      alignItems="center"
-      sx={{ py: 1, px: 1, borderBottom: `0.5px solid ${peggyColors.border}`, width: "100%" }}
-    >
-      <Typography fontWeight={500} sx={{ width: 140, flexShrink: 0 }}>
-        {label}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
-        {value}
-      </Typography>
-      <Button variant="text" onClick={onEdit} sx={{ textTransform: "none", color: peggyColors.accent, flexShrink: 0 }}>
-        Edit
-      </Button>
-    </Stack>
+    <Box sx={{ borderBottom: `0.5px solid ${peggyColors.border}`, width: "100%" }}>
+      <Stack direction="row" spacing={2} alignItems="center" sx={{ py: 1, px: 1 }}>
+        <Typography fontWeight={500} sx={{ width: 140, flexShrink: 0 }}>
+          {label}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
+          {value}
+        </Typography>
+        <Button
+          variant="text"
+          onClick={editing ? onCancel : onEdit}
+          sx={{ textTransform: "none", color: peggyColors.accent, flexShrink: 0 }}
+        >
+          {editing ? "Cancel" : "Edit"}
+        </Button>
+      </Stack>
+      {editing && editPanel ? <Box sx={{ px: 1, pb: 2, pl: { xs: 1, sm: 19 } }}>{editPanel}</Box> : null}
+    </Box>
   );
 }
 
 export function PlannerFeature({ section }: PlannerFeatureProps) {
-  const router = useRouter();
-  const { activeWorkspace } = useWorkspace();
+  const queryClient = useQueryClient();
+  const { userId } = useAuthSession();
+  const { activeWorkspace, refetch: refetchWorkspace } = useWorkspace();
   const { studyDesign, saveSection, commitSection, isSectionDirty, savingSection } = useStudyDesign(
     activeWorkspace?.id
   );
+  const [editingField, setEditingField] = useState<EditableProjectField | null>(null);
+  const [draftAim, setDraftAim] = useState("");
+  const [draftObjectives, setDraftObjectives] = useState<WorkspaceFormValues["objectives"]>([]);
+  const [draftExpectedN, setDraftExpectedN] = useState("");
+  const [draftSetting, setDraftSetting] = useState("");
+  const [draftModules, setDraftModules] = useState<string[]>(["core"]);
+  const [draftOutcomes, setDraftOutcomes] = useState("");
+  const [draftStudyType, setDraftStudyType] = useState("");
+  const [draftCovariates, setDraftCovariates] = useState("");
   const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
   const plan = studyDesign[planKey] ?? {};
   const samples = studyDesign.samples ?? {};
@@ -103,6 +133,59 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [covariates, setCovariates] = useState(plan.covariates ?? "");
   const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
+
+  const workspaceSave = useMutation({
+    mutationFn: (body: Parameters<typeof peggyApi.updateWorkspace>[1]) => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      return peggyApi.updateWorkspace(activeWorkspace.id, body);
+    },
+    onSuccess: () => {
+      void refetchWorkspace();
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      }
+      setEditingField(null);
+    },
+  });
+
+  const openProjectEdit = (field: EditableProjectField) => {
+    if (!activeWorkspace) return;
+    if (field === "aim") setDraftAim(activeWorkspace.aim ?? "");
+    if (field === "objectives") setDraftObjectives(objectivesForForm(activeWorkspace.objectives));
+    if (field === "cohort") {
+      setDraftExpectedN(samples.expectedN ?? "");
+      setDraftSetting(samples.setting ?? "");
+    }
+    if (field === "modules") {
+      const enabled = new Set(activeWorkspace.enabled_modules ?? ["core"]);
+      enabled.add("core");
+      setDraftModules(Array.from(enabled));
+    }
+    if (field === "outcomes") {
+      const endpoints = asStringList(methodsPlan.lastResult?.endpoints);
+      setDraftOutcomes(
+        outcomeTypes.trim() ||
+          (endpoints.length ? endpoints.join(", ") : "") ||
+          (samples.dataTypes?.length ? samples.dataTypes.join(", ") : "")
+      );
+    }
+    if (field === "exposures") setDraftStudyType(samples.studyType ?? "");
+    if (field === "covariates") setDraftCovariates(covariates);
+    setEditingField(field);
+  };
+
+  const cancelProjectEdit = () => setEditingField(null);
+
+  const toggleDraftModule = (id: string) => {
+    if (id === "core") return;
+    setDraftModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      next.add("core");
+      return Array.from(next);
+    });
+  };
 
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
 
@@ -230,7 +313,33 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
             <SummaryRow
               label="Aim"
               value={activeWorkspace.aim?.trim() || "Not set"}
-              onEdit={() => router.push("/validate/aim")}
+              editing={editingField === "aim"}
+              onEdit={() => openProjectEdit("aim")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Aim"
+                    multiline
+                    minRows={2}
+                    value={draftAim}
+                    onChange={(e) => setDraftAim(e.target.value)}
+                    fullWidth
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={workspaceSave.isPending}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() => workspaceSave.mutate({ aim: draftAim.trim() })}
+                  >
+                    {workspaceSave.isPending ? "Saving…" : "Save aim"}
+                  </Button>
+                  {workspaceSave.isError && editingField === "aim" && (
+                    <Alert severity="error">{formatApiError(workspaceSave.error)}</Alert>
+                  )}
+                </Stack>
+              }
             />
             <SummaryRow
               label="Objectives"
@@ -239,17 +348,104 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                   ? `${objectives.length} drafted.${changedStepCount ? ` ${changedStepCount} linked step${changedStepCount === 1 ? "" : "s"} flag an objective change.` : ""}`
                   : "None drafted."
               }
-              onEdit={() => router.push("/validate/aim")}
+              editing={editingField === "objectives"}
+              onEdit={() => openProjectEdit("objectives")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <ObjectiveListEditor
+                    value={draftObjectives}
+                    onChange={setDraftObjectives}
+                    studyDesign={studyDesign}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={workspaceSave.isPending}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() =>
+                      workspaceSave.mutate({
+                        objectives: normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
+                      })
+                    }
+                  >
+                    {workspaceSave.isPending ? "Saving…" : "Save objectives"}
+                  </Button>
+                </Stack>
+              }
             />
             <SummaryRow
               label="Cohort"
               value={cohortBits.join(", ") || "Not set"}
-              onEdit={() => router.push("/study-design/samples")}
+              editing={editingField === "cohort"}
+              onEdit={() => openProjectEdit("cohort")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Planned participants (N)"
+                    value={draftExpectedN}
+                    onChange={(e) => setDraftExpectedN(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Setting"
+                    value={draftSetting}
+                    onChange={(e) => setDraftSetting(e.target.value)}
+                    fullWidth
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={savingSection === "samples"}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() =>
+                      void commitSection("samples", {
+                        ...samples,
+                        expectedN: draftExpectedN.trim(),
+                        setting: draftSetting.trim(),
+                      }).then(() => setEditingField(null))
+                    }
+                  >
+                    {savingSection === "samples" ? "Saving…" : "Save cohort"}
+                  </Button>
+                </Stack>
+              }
             />
             <SummaryRow
               label="Evidence modules"
               value={modules.length ? `${modules.join(", ")}.` : "Core."}
-              onEdit={() => router.push("/setup/step-3")}
+              editing={editingField === "modules"}
+              onEdit={() => openProjectEdit("modules")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <Stack direction="row" flexWrap="wrap" gap={1}>
+                    {EVIDENCE_MODULES.map((mod) => {
+                      const on = draftModules.includes(mod.id);
+                      return (
+                        <Chip
+                          key={mod.id}
+                          label={mod.title}
+                          onClick={mod.required ? undefined : () => toggleDraftModule(mod.id)}
+                          color={on ? "primary" : "default"}
+                          variant={on ? "filled" : "outlined"}
+                          sx={{ cursor: mod.required ? "default" : "pointer" }}
+                        />
+                      );
+                    })}
+                  </Stack>
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={workspaceSave.isPending}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() => workspaceSave.mutate({ enabled_modules: draftModules })}
+                  >
+                    {workspaceSave.isPending ? "Saving…" : "Save modules"}
+                  </Button>
+                </Stack>
+              }
             />
           </>
         ) : (
@@ -265,17 +461,96 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                       ? samples.dataTypes.join(", ")
                       : "Not set"
               }
-              onEdit={() => router.push("/study-design/methods-plan")}
+              editing={editingField === "outcomes"}
+              onEdit={() => openProjectEdit("outcomes")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Outcome types"
+                    value={draftOutcomes}
+                    onChange={(e) => setDraftOutcomes(e.target.value)}
+                    fullWidth
+                    helperText="Comma-separated outcomes for analysis planning."
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={savingSection === planKey}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() => {
+                      setOutcomeTypes(draftOutcomes);
+                      void commitSection(planKey, { ...sectionFields, outcomeTypes: draftOutcomes }).then(() =>
+                        setEditingField(null)
+                      );
+                    }}
+                  >
+                    {savingSection === planKey ? "Saving…" : "Save outcomes"}
+                  </Button>
+                </Stack>
+              }
             />
             <SummaryRow
               label="Exposures"
               value={modules.includes("Exposure") ? "From your exposure module." : samples.studyType || "Not set"}
-              onEdit={() => router.push("/study-design/samples")}
+              editing={editingField === "exposures"}
+              onEdit={() => openProjectEdit("exposures")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Study type / exposure"
+                    value={draftStudyType}
+                    onChange={(e) => setDraftStudyType(e.target.value)}
+                    fullWidth
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={savingSection === "samples"}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() =>
+                      void commitSection("samples", {
+                        ...samples,
+                        studyType: draftStudyType.trim(),
+                      }).then(() => setEditingField(null))
+                    }
+                  >
+                    {savingSection === "samples" ? "Saving…" : "Save exposure"}
+                  </Button>
+                </Stack>
+              }
             />
             <SummaryRow
               label="Covariates"
               value={covariates.trim() || "Not set"}
-              onEdit={() => setAdvancedOpen(true)}
+              editing={editingField === "covariates"}
+              onEdit={() => openProjectEdit("covariates")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <TextField
+                    label="Covariates"
+                    value={draftCovariates}
+                    onChange={(e) => setDraftCovariates(e.target.value)}
+                    fullWidth
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={savingSection === planKey}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() => {
+                      setCovariates(draftCovariates);
+                      void commitSection(planKey, { ...sectionFields, covariates: draftCovariates }).then(() =>
+                        setEditingField(null)
+                      );
+                    }}
+                  >
+                    {savingSection === planKey ? "Saving…" : "Save covariates"}
+                  </Button>
+                </Stack>
+              }
             />
             <SummaryRow
               label="Objectives"
@@ -284,7 +559,31 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                   ? `${objectives.length} drafted.${unlinkedAnalysis ? ` ${unlinkedAnalysis} have no analysis step yet.` : ""}`
                   : "None drafted."
               }
-              onEdit={() => router.push("/validate/aim")}
+              editing={editingField === "objectives"}
+              onEdit={() => openProjectEdit("objectives")}
+              onCancel={cancelProjectEdit}
+              editPanel={
+                <Stack spacing={1.5}>
+                  <ObjectiveListEditor
+                    value={draftObjectives}
+                    onChange={setDraftObjectives}
+                    studyDesign={studyDesign}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    disabled={workspaceSave.isPending}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                    onClick={() =>
+                      workspaceSave.mutate({
+                        objectives: normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
+                      })
+                    }
+                  >
+                    {workspaceSave.isPending ? "Saving…" : "Save objectives"}
+                  </Button>
+                </Stack>
+              }
             />
           </>
         )}

@@ -398,11 +398,10 @@ export function ChatFeature() {
         </Stack>
       </Paper>
 
-      {(mode === "compare" || mode === "gap_analysis") && (
-        <ProjectContextImport
-          onImport={(text) => setQuery((prev) => (prev.trim() ? `${prev.trim()}\n\n---\n\n${text}` : text))}
-        />
-      )}
+      <ProjectContextImport
+        sections={["samples", "methods", "analysis", "findings"]}
+        onImport={(text) => setQuery((prev) => (prev.trim() ? `${prev.trim()}\n\n---\n\n${text}` : text))}
+      />
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <TextField

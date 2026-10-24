@@ -22,6 +22,7 @@ import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { StatusChip } from "@/components/StatusChip";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
+import { downloadProposalDocx, downloadTextFile, proposalToMarkdown } from "@/lib/proposalExport";
 
 function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
   if (!a && !b) return true;
@@ -157,6 +158,33 @@ export function ProposalFeature() {
           <Alert severity="warning">Update Samples to de-identified before generating a proposal.</Alert>
         )}
         {generate.isError && <Alert severity="error">{formatApiError(generate.error)}</Alert>}
+
+        {hasSavedResult && savedBody && (
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ textTransform: "none" }}
+              onClick={() =>
+                downloadTextFile(
+                  `${(activeWorkspace.title ?? "proposal").replace(/[^\w.-]+/g, "-").slice(0, 48)}-proposal.md`,
+                  proposalToMarkdown(savedBody, userNotes),
+                  "text/markdown;charset=utf-8"
+                )
+              }
+            >
+              Export Markdown
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              sx={{ textTransform: "none" }}
+              onClick={() => void downloadProposalDocx(activeWorkspace.title ?? "proposal", savedBody, userNotes)}
+            >
+              Export Word
+            </Button>
+          </Stack>
+        )}
 
         {displayBody && (
           <WorkflowOutputPanel

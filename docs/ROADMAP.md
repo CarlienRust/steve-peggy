@@ -62,7 +62,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Feedback | API only | No review UI |
 | Evidence extractions (schema + storage) | Done | Migration `012`; modules `core` + `outcomes`; API only — review UI in Phase 2C |
 | Extraction job (background) | Done | `POST /workflows/extract`, batch size 2, `scripts/benchmark-extraction.py` |
-| Evidence review screen | Not started | Phase 2C |
+| Evidence review screen | Done | Inline panel on `/validate/literature`; legacy extraction-review redirects |
+| Extraction benchmark (50 papers) | Partial | Script + gold layout in `test_pdfs/benchmark/`; record accuracy after pilot run |
+| Project JSON export | Done | `GET /workspaces/{id}/export`; Dashboard **Export project JSON** |
 | OCR for scanned PDFs | Not started | |
 | Reactive agent loop | Done | `POST /agent/run` + `/stream`; Auto mode in UI — [AGENT.md](AGENT.md) |
 
@@ -76,8 +78,9 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Dashboard project progress | Done | Per-objective roadmap + project setup stages + task checklists |
 | Section hubs | Done | `/validate`, `/study-design`, `/results` overview pages (no blind redirect) |
 | Objective-linked roadmap | Done | Stable objective IDs, plan steps + finding tags, manual done, delete confirm, orphan warning |
-| Validate aim and objectives | Done | `/validate/aim` — checklist + literature check |
-| Study design proposal | Done | `/study-design/proposal` — 1–2 page draft |
+| Gap analysis (Figma) | Done | Quick scan card, coverage matrix, open gaps list — `/validate/gap-analysis` |
+| Validate aim and objectives (Figma) | Done | `/validate/aim` — criteria checklist, suggestion apply, history |
+| Study design proposal | Done | `/study-design/proposal` — draft + Export Markdown / Word (saved result) |
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
 | Ethics renewal reminders | Planned | Notify before `expiryDate` on study design |
 | Dashboard demo placeholders | Partial |
@@ -88,7 +91,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Item | Status |
 |------|--------|
 | Supabase Auth | Done locally — [AUTH.md](AUTH.md); magic link + password |
-| Supabase Postgres | Done when `DATABASE_URL` set — [DATABASE.md](DATABASE.md); migrations through `009` |
+| Supabase Postgres | Done when `DATABASE_URL` set — [DATABASE.md](DATABASE.md); migrations through `015` |
 | Vercel deploy | `vercel.json` ready |
 | Inngest | Stub — `jobs/inngest_events.py` |
 | Upstash Redis | Optional PubMed rate limit |

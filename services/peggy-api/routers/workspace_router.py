@@ -309,6 +309,52 @@ async def workspace_coverage(
     return result
 
 
+def _paper_export_row(paper: dict) -> dict:
+    keys = (
+        "id",
+        "title",
+        "authors",
+        "year",
+        "journal",
+        "doi",
+        "pmid",
+        "source_type",
+        "screening_status",
+        "ingested_at",
+        "workspace_id",
+    )
+    return {k: paper[k] for k in keys if paper.get(k) is not None}
+
+
+@router.get("/{workspace_id}/export")
+async def export_workspace(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    """JSON bundle for supervisors / backup (no vector payloads)."""
+    from datetime import datetime, timezone
+
+    from core.workspace_guard import assert_workspace_owner
+
+    ws = await assert_workspace_owner(user.id, workspace_id)
+    study = await catalog.get_study_design(user.id, workspace_id) or {}
+    literature = await catalog.list_papers(user.id, "literature", workspace_id)
+    own_findings = await catalog.list_papers(user.id, "own_findings", workspace_id)
+    extractions = await catalog.list_extractions(user.id, workspace_id)
+    findings_summary = await catalog.get_findings_summary(user.id, workspace_id)
+
+    return {
+        "format": "peggy-project-export",
+        "version": 1,
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "workspace": ws,
+        "study_design": study,
+        "papers": {
+            "literature": [_paper_export_row(p) for p in literature],
+            "own_findings": [_paper_export_row(p) for p in own_findings],
+        },
+        "extractions": extractions,
+        "findings_summary": findings_summary,
+    }
+
+
 @router.patch("/{workspace_id}/study-design")
 async def patch_study_design(
     workspace_id: str,

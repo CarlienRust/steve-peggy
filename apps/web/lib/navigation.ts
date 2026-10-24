@@ -18,7 +18,10 @@ export type NavGroupItem = {
   kind: "group";
   num: string;
   label: string;
+  /** Sidebar link — first tab in the section. */
   href: string;
+  /** Hub route for section landing pages (e.g. `/validate`). */
+  sectionHref: string;
   children: NavChild[];
 };
 
@@ -30,7 +33,8 @@ export const MAIN_NAV: NavItem[] = [
     kind: "group",
     num: "02",
     label: "Validate",
-    href: "/validate",
+    href: "/validate/gap-analysis",
+    sectionHref: "/validate",
     children: [
       {
         label: "Gap analysis",
@@ -56,7 +60,8 @@ export const MAIN_NAV: NavItem[] = [
     kind: "group",
     num: "03",
     label: "Study design",
-    href: "/study-design",
+    href: "/study-design/samples",
+    sectionHref: "/study-design",
     children: [
       {
         label: "Samples & datasets",
@@ -100,7 +105,8 @@ export const MAIN_NAV: NavItem[] = [
     kind: "group",
     num: "04",
     label: "Results",
-    href: "/results",
+    href: "/results/findings",
+    sectionHref: "/results",
     children: [
       {
         label: "Upload and summary",
@@ -127,18 +133,19 @@ export function isNavItemActive(pathname: string, item: NavItem): boolean {
   if (item.kind === "link") {
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   }
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  return item.children.some((child) => isNavChildActive(pathname, child.href));
 }
 
 export function groupsToExpand(pathname: string): string[] {
   return MAIN_NAV.filter(
-    (item): item is NavGroupItem =>
-      item.kind === "group" && (pathname === item.href || pathname.startsWith(`${item.href}/`))
+    (item): item is NavGroupItem => item.kind === "group" && isNavItemActive(pathname, item)
   ).map((item) => item.href);
 }
 
 export function getNavGroup(href: string): NavGroupItem | undefined {
-  const item = MAIN_NAV.find((n) => n.kind === "group" && n.href === href);
+  const item = MAIN_NAV.find(
+    (n) => n.kind === "group" && (n.sectionHref === href || n.href === href)
+  );
   return item?.kind === "group" ? item : undefined;
 }
 

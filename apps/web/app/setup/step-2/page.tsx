@@ -68,7 +68,7 @@ export default function SetupStep2Page() {
             : "Enter your aim and objectives. Peggy checks them against the literature."
       }
       step={2}
-      backHref="/setup/step-1"
+      showBackButton={false}
     >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Stack spacing={2}>

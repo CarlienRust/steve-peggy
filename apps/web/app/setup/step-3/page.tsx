@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Chip, Paper, Stack, Switch, TextField, Typography } from "@mui/material";
+import { Button, Chip, FormControl, InputLabel, MenuItem, Paper, Select, Stack, Switch, TextField, Typography } from "@mui/material";
+import { SETUP_COUNTRY_REGIONS, SETUP_SETTING_TYPES } from "@/lib/setupSettings";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import { SetupShell } from "@/components/setup/SetupShell";
@@ -73,7 +74,7 @@ export default function SetupStep3Page() {
       title="Setting and modules"
       subtitle="Peggy only extracts the fields your modules need. You can change this later."
       step={3}
-      backHref="/setup/step-2"
+      showBackButton={false}
     >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Stack spacing={2.5}>
@@ -82,13 +83,42 @@ export default function SetupStep3Page() {
               SETTING
             </Typography>
             <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-              <TextField
-                label="COUNTRY OR REGION"
-                value={countryOrRegion}
-                onChange={(e) => setCountryOrRegion(e.target.value)}
-                fullWidth
-              />
-              <TextField label="SETTING TYPE" value={settingType} onChange={(e) => setSettingType(e.target.value)} fullWidth />
+              <FormControl fullWidth>
+                <InputLabel id="setup-country-label">Country or region</InputLabel>
+                <Select
+                  labelId="setup-country-label"
+                  label="Country or region"
+                  value={countryOrRegion || ""}
+                  onChange={(e) => setCountryOrRegion(String(e.target.value))}
+                >
+                  <MenuItem value="">
+                    <em>Select…</em>
+                  </MenuItem>
+                  {SETUP_COUNTRY_REGIONS.map((r) => (
+                    <MenuItem key={r} value={r}>
+                      {r}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth>
+                <InputLabel id="setup-setting-label">Setting type</InputLabel>
+                <Select
+                  labelId="setup-setting-label"
+                  label="Setting type"
+                  value={settingType || ""}
+                  onChange={(e) => setSettingType(String(e.target.value))}
+                >
+                  <MenuItem value="">
+                    <em>e.g. Urban community</em>
+                  </MenuItem>
+                  {SETUP_SETTING_TYPES.map((s) => (
+                    <MenuItem key={s} value={s}>
+                      {s}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
             </Stack>
             <TextField
               label="POPULATION"

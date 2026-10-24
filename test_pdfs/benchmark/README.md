@@ -33,10 +33,22 @@ From repo root with API venv active and papers ingested into a project:
 python scripts/benchmark-extraction.py --workspace-id YOUR_PROJECT_UUID
 ```
 
-Single paper (local SQLite):
+Single paper:
 
 ```bash
 python scripts/benchmark-extraction.py --paper-id 1 --workspace-id YOUR_PROJECT_UUID
 ```
 
+Requires API running, papers ingested with PDFs, and gold files under `gold/`. Accuracy is not computed in CI until gold set is populated.
+
 Set accuracy target before comparing models (see [docs/LAUNCH.md](../../docs/LAUNCH.md)).
+
+## Recording results
+
+After a run, note in this file or in your pilot notes:
+
+| Date | Module | Papers | Field accuracy | Notes |
+|------|--------|--------|----------------|-------|
+| (pending) | outcomes | — | — | Run when API + ingested benchmark PDFs are ready |
+
+Target for Jan launch: pre-declared accuracy on the pilot module (see launch plan). Re-run after prompt or model changes.

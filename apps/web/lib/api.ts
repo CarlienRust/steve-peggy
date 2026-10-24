@@ -726,6 +726,18 @@ export const peggyApi = {
   deleteWorkspace: (id: string) =>
     apiFetch<{ status: string; id: string }>(`/workspaces/${id}`, { method: "DELETE" }),
 
+  exportWorkspace: (workspaceId: string) =>
+    apiFetch<{
+      format: string;
+      version: number;
+      exported_at: string;
+      workspace: Workspace;
+      study_design: Record<string, unknown>;
+      papers: { literature: PaperRecord[]; own_findings: PaperRecord[] };
+      extractions: unknown[];
+      findings_summary: Record<string, unknown> | null;
+    }>(`/workspaces/${workspaceId}/export`),
+
   getStudyDesign: (workspaceId: string) =>
     apiFetch<{ study_design: import("@/lib/studyDesign").StudyDesignData }>(
       `/workspaces/${workspaceId}/study-design`
