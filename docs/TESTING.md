@@ -59,7 +59,7 @@ CI today: `npm run build` only (see `.github/workflows/test.yml`).
 ## CI (GitHub Actions)
 
 - **api job:** `pytest -v` (no Qdrant container — mocked/live-skip tests)
-- **web job:** `npm ci && npm run build`
+- **web job:** Node 22, `npm ci`, `npm audit --omit=dev --audit-level=high`, `npm run build`
 - **supabase-keepalive:** [`.github/workflows/supabase-keepalive.yml`](../.github/workflows/supabase-keepalive.yml) — weekly Supabase ping; test manually via **Actions → Supabase keep-alive → Run workflow**
 
 ## Smoke scripts (manual)
