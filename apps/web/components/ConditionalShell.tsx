@@ -3,19 +3,25 @@
 import { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/components/AppShell";
+import { HomeAppShell } from "@/components/HomeAppShell";
 import { WorkspaceProvider } from "@/lib/workspaceContext";
 
-// Routes that should render without the project shell/sidebar.
-// Sidebar should only appear once inside a specific project workspace.
-const NO_SHELL_PREFIXES = ["/login", "/auth/", "/onboarding", "/setup"];
+const NO_SHELL_PREFIXES = ["/login", "/auth/", "/onboarding"];
 
 export function ConditionalShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
-  const isPublic =
+  const isHomeShell =
     pathname === "/" ||
-    NO_SHELL_PREFIXES.some((p) => pathname.startsWith(p));
-  if (isPublic) {
+    pathname === "/projects" ||
+    pathname === "/ask" ||
+    pathname === "/help" ||
+    pathname === "/useful-links" ||
+    pathname.startsWith("/setup");
+  if (NO_SHELL_PREFIXES.some((p) => pathname.startsWith(p))) {
     return <>{children}</>;
+  }
+  if (isHomeShell) {
+    return <HomeAppShell>{children}</HomeAppShell>;
   }
   return (
     <WorkspaceProvider>

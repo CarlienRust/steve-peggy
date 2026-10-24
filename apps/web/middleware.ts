@@ -49,21 +49,24 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  if (path === "/projects") {
-    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
-  }
-
   const profileComplete = user?.user_metadata?.profile_complete === true;
   const activeWorkspaceId = request.cookies.get(ACTIVE_WORKSPACE_COOKIE)?.value;
   const needsWorkspace = WORKSPACE_ROUTES.some((p) => path === p || path.startsWith(`${p}/`));
-  const isSetupRoute =
+  const isHubRoute =
     path === PROJECTS_HOME ||
+    path === "/projects" ||
+    path === "/ask" ||
+    path === "/help" ||
+    path === "/useful-links" ||
+    path.startsWith("/setup/");
+  const isSetupRoute =
+    isHubRoute ||
     path === "/onboarding" ||
     path === "/login" ||
     path.startsWith("/login/") ||
     path.startsWith("/auth/");
 
-  if (!user && (needsWorkspace || path === PROJECTS_HOME)) {
+  if (!user && (needsWorkspace || isHubRoute)) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("next", path);
@@ -86,7 +89,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && profileComplete && needsWorkspace && !activeWorkspaceId) {
-    return NextResponse.redirect(new URL(PROJECTS_HOME, request.url));
+    return NextResponse.redirect(new URL("/projects", request.url));
   }
 
   if (user && path === "/login") {

@@ -125,6 +125,40 @@ export const MAIN_NAV: NavItem[] = [
   { kind: "link", num: "05", label: "Ask Peggy", href: "/chat" },
 ];
 
+export type HomeNavItem = {
+  num: string;
+  label: string;
+  href: string;
+  tooltip?: string;
+};
+
+/** Main sidebar (home shell) — no active project. */
+export const HOME_NAV: HomeNavItem[] = [
+  { num: "01", label: "Home", href: "/", tooltip: "Welcome and quick access to your projects" },
+  { num: "02", label: "Project hub", href: "/projects", tooltip: "All projects and new project wizard" },
+  { num: "03", label: "Ask Peggy", href: "/ask", tooltip: "General research help; optional project for literature" },
+  { num: "04", label: "Useful links", href: "/useful-links", tooltip: "Curated external tools and databases" },
+];
+
+/** Hover hints for project sidebar top-level links (keyed by href). */
+export const PROJECT_NAV_TOOLTIPS: Record<string, string> = {
+  "/dashboard": "Objectives, setup flow, and project overview",
+  "/validate/gap-analysis": "Gap scan, literature, and aim checks",
+  "/study-design/samples": "Samples, ethics, methods, analysis, and proposal",
+  "/analysis-tool": "Analysis tool (coming soon)",
+  "/results/findings": "Findings upload and comparison to literature",
+  "/chat": "Chat grounded in this project’s papers and findings",
+};
+
+export function isHomeNavActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  if (href === "/projects") return pathname === "/projects" || pathname.startsWith("/setup");
+  if (href === "/ask") return pathname === "/ask";
+  if (href === "/useful-links") return pathname === "/useful-links";
+  if (href === "/help") return pathname === "/help";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function isNavChildActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }

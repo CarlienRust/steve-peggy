@@ -185,7 +185,7 @@ export function EthicsFeature() {
         </Typography>
         <EthicsApprovalSection
           ethics={ethics}
-          onSave={(patch) => saveSection("ethics", patch)}
+          onSave={(patch) => void commitSection("ethics", patch)}
           papers={letterPapers}
           onUploadClick={() => fileInputRef.current?.click()}
         />
@@ -486,8 +486,13 @@ export function EthicsFeature() {
       <StudyDesignSaveBar
         dirty={dirty}
         saving={savingSection === "ethics"}
-        note="Approval-letter PDFs stay in your corpus. Save links them here and does not replace the fields you type."
-        onSave={() => commitSection("ethics", { linkedDocuments: linkedDocumentsFromPapers(letterPapers) })}
+        note="Approval fields save when you update them above. Save here for your committee question and document links."
+        onSave={() =>
+          commitSection("ethics", {
+            notes: ethics.notes,
+            linkedDocuments: linkedDocumentsFromPapers(letterPapers),
+          })
+        }
       />
     </Stack>
   );

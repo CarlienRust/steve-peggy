@@ -10,6 +10,7 @@ import {
   Drawer,
   IconButton,
   Toolbar,
+  Tooltip,
   Typography,
   alpha,
   useMediaQuery,
@@ -21,7 +22,7 @@ import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
 import { AskPeggyDrawer, ASK_PEGGY_DRAWER_W } from "@/components/AskPeggyDrawer";
-import { MAIN_NAV, isNavItemActive, type NavItem } from "@/lib/navigation";
+import { MAIN_NAV, PROJECT_NAV_TOOLTIPS, isNavItemActive, type NavItem } from "@/lib/navigation";
 
 const SIDEBAR_W = 264;
 const MOBILE_HEADER_H = 56;
@@ -36,6 +37,7 @@ function NavLinkRow({
   indent = false,
   badge,
   disabled = false,
+  tooltip,
 }: {
   href: string;
   label: string;
@@ -45,6 +47,7 @@ function NavLinkRow({
   indent?: boolean;
   badge?: string;
   disabled?: boolean;
+  tooltip?: string;
 }) {
   const sx = {
     display: "flex",
@@ -89,13 +92,8 @@ function NavLinkRow({
     );
   }
 
-  return (
-    <Box
-      component={Link}
-      href={href}
-      onClick={onNavigate}
-      sx={sx}
-    >
+  const row = (
+    <Box component={Link} href={href} onClick={onNavigate} sx={sx}>
       {num && (
         <Typography component="span" sx={{ ...monoSx, fontSize: 12, opacity: 0.7, minWidth: 18 }}>
           {num}
@@ -109,6 +107,13 @@ function NavLinkRow({
         <Chip label={badge} size="small" variant="outlined" sx={{ ...monoSx, fontSize: 9, height: 18 }} />
       )}
     </Box>
+  );
+
+  if (!tooltip) return row;
+  return (
+    <Tooltip title={tooltip} placement="right" enterDelay={400}>
+      {row}
+    </Tooltip>
   );
 }
 
@@ -124,6 +129,7 @@ function SidebarNav({ pathname, onNavigate }: { pathname: string; onNavigate?: (
           active={isNavItemActive(pathname, item)}
           onNavigate={onNavigate}
           disabled={item.kind === "link" ? item.disabled : undefined}
+          tooltip={PROJECT_NAV_TOOLTIPS[item.href]}
         />
       ))}
     </Box>
@@ -145,7 +151,7 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
         <PeggyBrandLockup variant="sidebar" />
       </Box>
       <SidebarNav pathname={pathname} onNavigate={onNavigate} />
-      <ResearcherProfile />
+      <ResearcherProfile variant="project" />
     </Box>
   );
 }
@@ -192,9 +198,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <PeggyBrandLockup variant="compact" />
               </Box>
               <Box sx={{ flex: 1 }} />
-              <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
-                <ChatBubbleOutlineIcon />
-              </IconButton>
+              <Tooltip title="Open Ask Peggy side panel">
+                <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
+                  <ChatBubbleOutlineIcon />
+                </IconButton>
+              </Tooltip>
             </Toolbar>
           </AppBar>
           <Drawer
@@ -250,21 +258,23 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Box>
 
       {!isMobile ? (
-        <IconButton
-          aria-label="Ask Peggy"
-          onClick={() => setAskOpen(true)}
-          sx={{
-            position: "fixed",
-            right: 16,
-            bottom: 16,
-            zIndex: 1300,
-            bgcolor: "background.paper",
-            border: `0.5px solid ${peggyColors.border}`,
-            "&:hover": { bgcolor: "background.paper" },
-          }}
-        >
-          <ChatBubbleOutlineIcon />
-        </IconButton>
+        <Tooltip title="Ask Peggy about this project">
+          <IconButton
+            aria-label="Ask Peggy"
+            onClick={() => setAskOpen(true)}
+            sx={{
+              position: "fixed",
+              right: 16,
+              bottom: 16,
+              zIndex: 1300,
+              bgcolor: "background.paper",
+              border: `0.5px solid ${peggyColors.border}`,
+              "&:hover": { bgcolor: "background.paper" },
+            }}
+          >
+            <ChatBubbleOutlineIcon />
+          </IconButton>
+        </Tooltip>
       ) : null}
 
       <AskPeggyDrawer open={askOpen} onClose={() => setAskOpen(false)} />

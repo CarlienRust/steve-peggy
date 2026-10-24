@@ -134,14 +134,19 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 
 | Route | Nav | Purpose |
 |-------|-----|---------|
-| `/` | — | Project hub (pick workspace). Welcome block: Setup + profile. New projects: **+ New project** in Your projects, or the Setup wizard |
-| `/setup` | — | New-project landing + link to Setup check |
+| `/` | Home (main sidebar) | Welcome + your projects list (inside **HomeAppShell**) |
+| `/projects` | Project hub | Dedicated project list and **+ New project** |
+| `/ask` | Ask Peggy (main sidebar) | General help chat; optional project picker for literature-grounded answers |
+| `/useful-links` | Useful links | Curated external resources by category |
+| `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
+| `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
+| `/setup/step-*` | — | New-project wizard (uses HomeAppShell) |
 | `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON** (`GET /workspaces/{id}/export`) |
 | `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
-| `/validate/aim` | 02 · Aim and objectives | Edit aim/objectives in place, save to workspace, literature check, criteria + suggestion apply |
+| `/validate/aim` | 02 · Aim and objectives | Read/edit aim and objectives separately (**Save aim** / **Save objectives**), literature check, criteria + suggestion apply |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
@@ -155,7 +160,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 05 · Comparison | Finding vs field |
-| `/chat` | Ask Peggy | Conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
+| `/chat` | Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.
@@ -175,7 +180,7 @@ Migration: `009_objective_links.sql` adds the `objective_links` column. See [DAT
 
 - **Dashboard** — `buildObjectiveProgress()` shows each objective with manual done status, counts of linked methods/analysis steps and findings, and links to the relevant screens. `buildProjectProgress()` drives the project setup roadmap (next step, possible next steps, full timeline). Sidebar nav remains the primary way to open Validate, Study Design, Results, and Ask Peggy.
 - **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`. When objective text changes, linked steps and finding links receive derived flags (`objectiveChanged`, `objectiveChangedObjectiveIds`) to surface “Objective changed” in the UI.
-- **Welcome Setup** — `PeggySetupDialog` on the project hub explains hosted vs localhost setup.
+- **Help** — `/help` (linked above Log out in the sidebar) summarizes navigation and core workflows. Sidebar nav links show hover tooltips where useful.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).

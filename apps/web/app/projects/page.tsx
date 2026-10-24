@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
+import { ProjectHubPage } from "@/components/ProjectHubPage";
 
-/** Legacy URL — project hub now lives at `/`. */
-export default function ProjectsRedirectPage() {
-  redirect("/");
+export default function ProjectHubRoute() {
+  return <ProjectHubPage />;
 }

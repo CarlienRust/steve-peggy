@@ -1,81 +1,55 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import {
   Box,
   Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Stack,
-  TextField,
+  ListItemIcon,
+  Menu,
+  MenuItem,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LogoutIcon from "@mui/icons-material/Logout";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
-import { eyebrowSx, monoSx } from "@/theme/peggyTheme";
+import { monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/authContext";
 import { isAuthOptional } from "@/lib/localMode";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { StatusChip } from "@/components/StatusChip";
-import {
-  formatDisplayName,
-  normalizeResearchRole,
-  normalizeTitle,
-  saveActiveWorkspaceId,
-  type ResearchRole,
-  type ResearcherProfile,
-} from "@/lib/userProfile";
-import { ProfileNameFields } from "@/components/ProfileNameFields";
-import { ResearchRoleField } from "@/components/ResearchRoleField";
+import { saveActiveWorkspaceId } from "@/lib/userProfile";
 
-export function ResearcherProfile() {
+export type SidebarProfileVariant = "project" | "home";
+
+type ResearcherProfileProps = {
+  variant?: SidebarProfileVariant;
+};
+
+/** Opens beside the sidebar row (to the right), not below it. */
+const profileMenuPlacement = {
+  anchorOrigin: { vertical: "center" as const, horizontal: "right" as const },
+  transformOrigin: { vertical: "center" as const, horizontal: "left" as const },
+  slotProps: { paper: { sx: { ml: 0.75 } } },
+};
+
+export function ResearcherProfile({ variant = "project" }: ResearcherProfileProps) {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { ready, userId } = useAuthSession();
   const { data: profile, isLoading } = useQuery({
     queryKey: queryKeys.profile(userId ?? undefined),
     queryFn: () => peggyApi.getProfileOptional(),
-    enabled: ready && !!userId,
+    enabled: ready && !!userId && !isAuthOptional(),
     retry: false,
   });
 
-  const [editOpen, setEditOpen] = useState(false);
-  const [draft, setDraft] = useState<Partial<ResearcherProfile>>({});
-
-  const saveMutation = useMutation({
-    mutationFn: () =>
-      peggyApi.upsertProfile({
-        title: draft.title ?? "",
-        name: draft.name ?? "",
-        surname: draft.surname ?? "",
-        email: draft.email ?? "",
-        research_focus: draft.research_focus ?? "",
-        research_type: draft.research_type ?? "Researcher",
-      }),
-    onSuccess: () => {
-      if (userId) {
-        void queryClient.invalidateQueries({ queryKey: queryKeys.profile(userId) });
-      }
-      setEditOpen(false);
-    },
-  });
-
-  const openEdit = () => {
-    if (profile) {
-      setDraft({
-        ...profile,
-        title: normalizeTitle(profile.title),
-        research_type: normalizeResearchRole(profile.research_type),
-      });
-    }
-    setEditOpen(true);
-  };
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   const logout = async () => {
     saveActiveWorkspaceId(null);
@@ -90,26 +64,74 @@ export function ResearcherProfile() {
   };
 
   const displayName = profile?.display_name ?? "Researcher";
-  const preview = formatDisplayName(draft.title ?? "", draft.name ?? "", draft.surname ?? "");
+  const showSwitchProject = variant === "project";
 
   if (isAuthOptional()) {
     return (
       <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-          <Typography sx={eyebrowSx}>Local researcher</Typography>
-          <StatusChip label="Local only" tone="neutral" />
-        </Box>
-        <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>SQLite</Typography>
         <Button
           fullWidth
-          size="small"
-          variant="text"
-          startIcon={<SwapHorizIcon fontSize="small" />}
-          onClick={switchProject}
-          sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+          sx={{
+            textTransform: "none",
+            justifyContent: "space-between",
+            color: "text.primary",
+            py: 1,
+            px: 1,
+          }}
         >
-          Switch project
+          <Box sx={{ textAlign: "left", minWidth: 0 }}>
+            <Typography fontWeight={500} noWrap>
+              Local researcher
+            </Typography>
+            <Typography sx={{ ...monoSx, fontSize: 11, color: "text.secondary" }} noWrap>
+              SQLite · solo mode
+            </Typography>
+          </Box>
+          <ChevronRightIcon fontSize="small" color="action" />
         </Button>
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          {...profileMenuPlacement}
+        >
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              router.push("/setup/checks");
+            }}
+          >
+            <ListItemIcon>
+              <SettingsOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            Settings
+          </MenuItem>
+        </Menu>
+        <Tooltip title="Tips for navigation, validate, and chat">
+          <Button
+            fullWidth
+            size="small"
+            variant="text"
+            startIcon={<HelpOutlineIcon fontSize="small" />}
+            onClick={() => router.push("/help")}
+            sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+          >
+            Help
+          </Button>
+        </Tooltip>
+        {showSwitchProject ? (
+          <Button
+            fullWidth
+            size="small"
+            variant="text"
+            startIcon={<SwapHorizIcon fontSize="small" />}
+            onClick={switchProject}
+            sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+          >
+            Switch project
+          </Button>
+        ) : null}
       </Box>
     );
   }
@@ -117,43 +139,89 @@ export function ResearcherProfile() {
   return (
     <>
       <Box sx={{ mt: "auto", pt: 3, borderTop: 1, borderColor: "divider" }}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box sx={{ minWidth: 0 }}>
-            <Typography sx={eyebrowSx} noWrap>
-              {isLoading ? "…" : displayName}
-            </Typography>
-            {profile && (
-              <>
-                <Typography sx={{ ...monoSx, fontSize: 11, mt: 0.5, color: "text.secondary" }}>
-                  {profile.research_type}
-                </Typography>
-                <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }} noWrap>
-                  {profile.email}
-                </Typography>
-                {profile.research_focus && (
-                  <Typography sx={{ fontSize: 10, color: "text.secondary", mt: 0.5 }} noWrap>
-                    {profile.research_focus}
-                  </Typography>
-                )}
-              </>
-            )}
-          </Box>
-          {profile && (
-            <Button size="small" onClick={openEdit} sx={{ minWidth: 0, p: 0.5 }} aria-label="Edit profile">
-              <EditOutlinedIcon fontSize="small" />
-            </Button>
-          )}
-        </Stack>
         <Button
           fullWidth
-          size="small"
-          variant="text"
-          startIcon={<SwapHorizIcon fontSize="small" />}
-          onClick={switchProject}
-          sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+          sx={{
+            textTransform: "none",
+            justifyContent: "space-between",
+            color: "text.primary",
+            py: 1,
+            px: 1,
+          }}
         >
-          Switch project
+          <Box sx={{ textAlign: "left", minWidth: 0 }}>
+            <Typography fontWeight={500} noWrap>
+              {isLoading ? "…" : displayName}
+            </Typography>
+            {profile?.email ? (
+              <Typography sx={{ fontSize: 11, color: "text.secondary" }} noWrap>
+                {profile.email}
+              </Typography>
+            ) : null}
+          </Box>
+          <ChevronRightIcon fontSize="small" color="action" />
         </Button>
+        {!profile && !isLoading ? (
+          <StatusChip label="Profile incomplete" tone="warning" sx={{ mt: 1 }} />
+        ) : null}
+
+        <Menu
+          anchorEl={menuAnchor}
+          open={Boolean(menuAnchor)}
+          onClose={() => setMenuAnchor(null)}
+          {...profileMenuPlacement}
+        >
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              router.push(profile ? "/onboarding?update=1" : "/onboarding");
+            }}
+          >
+            <ListItemIcon>
+              <PersonOutlineIcon fontSize="small" />
+            </ListItemIcon>
+            Update profile
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              router.push("/setup/checks");
+            }}
+          >
+            <ListItemIcon>
+              <SettingsOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            Settings
+          </MenuItem>
+        </Menu>
+
+        {showSwitchProject ? (
+          <Tooltip title="Return to Home and pick another project">
+            <Button
+              fullWidth
+              size="small"
+              variant="text"
+              startIcon={<SwapHorizIcon fontSize="small" />}
+              onClick={switchProject}
+              sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+            >
+              Switch project
+            </Button>
+          </Tooltip>
+        ) : null}
+        <Tooltip title="Tips for navigation, validate, and chat">
+          <Button
+            fullWidth
+            size="small"
+            variant="text"
+            startIcon={<HelpOutlineIcon fontSize="small" />}
+            onClick={() => router.push("/help")}
+            sx={{ mt: 1.5, textTransform: "none", fontSize: "0.8125rem", justifyContent: "flex-start" }}
+          >
+            Help
+          </Button>
+        </Tooltip>
         <Button
           fullWidth
           size="small"
@@ -165,50 +233,6 @@ export function ResearcherProfile() {
           Log out
         </Button>
       </Box>
-
-      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Edit profile</DialogTitle>
-        <Box
-          component="form"
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            saveMutation.mutate();
-          }}
-        >
-          <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <ProfileNameFields
-                title={draft.title ?? "Dr"}
-                name={draft.name ?? ""}
-                surname={draft.surname ?? ""}
-                onTitleChange={(t) => setDraft((d) => ({ ...d, title: t }))}
-                onNameChange={(n) => setDraft((d) => ({ ...d, name: n }))}
-                onSurnameChange={(s) => setDraft((d) => ({ ...d, surname: s }))}
-              />
-              <TextField label="Email" value={draft.email ?? ""} fullWidth disabled />
-              <ResearchRoleField
-                value={normalizeResearchRole(draft.research_type ?? "Researcher")}
-                onChange={(role) => setDraft((d) => ({ ...d, research_type: role }))}
-              />
-              <TextField
-                label="Research focus"
-                value={draft.research_focus ?? ""}
-                onChange={(e) => setDraft((d) => ({ ...d, research_focus: e.target.value }))}
-                fullWidth
-              />
-              <Typography variant="caption" color="text.secondary">
-                Display name: {preview || "—"}
-              </Typography>
-            </Stack>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setEditOpen(false)}>Cancel</Button>
-            <Button type="submit" variant="contained" disabled={saveMutation.isPending}>
-              Save
-            </Button>
-          </DialogActions>
-        </Box>
-      </Dialog>
     </>
   );
 }

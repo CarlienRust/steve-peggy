@@ -838,6 +838,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       <StudyDesignSaveBar
         dirty={isSectionDirty(planKey)}
         saving={savingSection === planKey}
+        note="Fields in From your project save on their own. Save here for your plan text, steps, and advanced options."
         onSave={() => commitSection(planKey, sectionFields)}
       />
     </Stack>

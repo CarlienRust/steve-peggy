@@ -9,11 +9,15 @@ import {
   Button,
   CircularProgress,
   Collapse,
+  IconButton,
   Paper,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import type { WorkspaceObjective } from "@/lib/objectives";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
@@ -89,6 +93,14 @@ function buildCriteria(
   ];
 }
 
+function objectivesPayloadEqual(a: WorkspaceObjective[], b: WorkspaceObjective[]): boolean {
+  const norm = (list: WorkspaceObjective[]) =>
+    normalizeObjectives(list)
+      .filter((o) => o.text.trim())
+      .map((o) => ({ text: o.text.trim(), status: o.status, id: o.id }));
+  return JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+}
+
 export function ValidateAimFeature() {
   const router = useRouter();
   const { activeWorkspace, refetch: refetchWorkspace } = useWorkspace();
@@ -100,6 +112,8 @@ export function ValidateAimFeature() {
   const [mode, setMode] = useState<"review" | "help">("review");
   const [draftAim, setDraftAim] = useState("");
   const [draftObjectives, setDraftObjectives] = useState<WorkspaceObjective[]>([]);
+  const [editingAim, setEditingAim] = useState(false);
+  const [editingObjectives, setEditingObjectives] = useState(false);
 
   useEffect(() => {
     if (!activeWorkspace) return;
@@ -127,28 +141,55 @@ export function ValidateAimFeature() {
 
   const aim = draftAim.trim();
   const objectives = draftObjectives.filter((o) => o.text.trim());
+  const savedAim = (activeWorkspace?.aim ?? "").trim();
+  const savedObjectives = normalizeObjectives(activeWorkspace?.objectives).filter((o) => o.text.trim());
+  const aimDirty = !!activeWorkspace && draftAim.trim() !== savedAim;
+  const objectivesDirty =
+    !!activeWorkspace && !objectivesPayloadEqual(draftObjectives, activeWorkspace.objectives ?? []);
+  const workspaceDirty = aimDirty || objectivesDirty;
+  const hasSavedAimOrObjectives = !!savedAim || savedObjectives.length > 0;
 
-  const saveWorkspace = useMutation({
+  const invalidateWorkspace = async () => {
+    await refetchWorkspace();
+    if (userId) {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+    }
+  };
+
+  const saveAim = useMutation({
+    mutationFn: async () => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      return peggyApi.updateWorkspace(activeWorkspace.id, { aim: draftAim.trim() });
+    },
+    onSuccess: async () => {
+      await invalidateWorkspace();
+      setEditingAim(false);
+    },
+  });
+
+  const saveObjectives = useMutation({
     mutationFn: async () => {
       if (!activeWorkspace) throw new Error("No project selected");
       const objectivesToSave = normalizeObjectives(draftObjectives).filter((o) => o.text.trim());
-      return peggyApi.updateWorkspace(activeWorkspace.id, {
-        aim: draftAim.trim(),
-        objectives: objectivesToSave,
-      });
+      return peggyApi.updateWorkspace(activeWorkspace.id, { objectives: objectivesToSave });
     },
     onSuccess: async () => {
-      await refetchWorkspace();
-      if (userId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      }
+      await invalidateWorkspace();
+      setEditingObjectives(false);
     },
   });
   const literatureCount = literature.data?.count ?? 0;
   const literaturePapers = (papersSummary.data?.papers ?? []).filter((p) => p.source_type === "literature");
   const fullTextCount = literaturePapers.filter((p) => (p.extraction_count ?? 0) > 0).length;
 
-  const canRun = (!!aim || objectives.length > 0) && literatureCount > 0 && !!activeWorkspace?.id;
+  const checkTooltip = workspaceDirty
+    ? "Save your aim and objectives before running a literature check."
+    : !hasSavedAimOrObjectives
+      ? "Add and save an aim or at least one objective first."
+      : literatureCount === 0
+        ? "Add literature to this project first."
+        : "";
+  const canRun = !workspaceDirty && hasSavedAimOrObjectives && literatureCount > 0 && !!activeWorkspace?.id;
 
   const check = useMutation({
     mutationFn: () => peggyApi.validateAim(activeWorkspace!.id),
@@ -276,62 +317,171 @@ export function ValidateAimFeature() {
       ) : null}
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary", mb: 1 }}>AIM</Typography>
-        <TextField
-          value={draftAim}
-          onChange={(e) => setDraftAim(e.target.value)}
-          fullWidth
-          multiline
-          minRows={3}
-          placeholder="Overall aim of this research project"
-        />
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>AIM</Typography>
+          {!editingAim ? (
+            <Tooltip title="Edit aim text">
+              <IconButton
+                size="small"
+                aria-label="Edit aim"
+                onClick={() => {
+                  setDraftAim(activeWorkspace?.aim ?? "");
+                  setEditingAim(true);
+                }}
+              >
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </Stack>
+        {editingAim ? (
+          <>
+            <TextField
+              value={draftAim}
+              onChange={(e) => setDraftAim(e.target.value)}
+              fullWidth
+              multiline
+              minRows={3}
+              placeholder="Overall aim of this research project"
+            />
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
+              <Button
+                variant="contained"
+                disabled={!activeWorkspace || !aimDirty || saveAim.isPending}
+                onClick={() => saveAim.mutate()}
+                sx={{ textTransform: "none" }}
+              >
+                {saveAim.isPending ? "Saving…" : "Save aim"}
+              </Button>
+              <Button
+                variant="text"
+                onClick={() => {
+                  setDraftAim(activeWorkspace?.aim ?? "");
+                  setEditingAim(false);
+                }}
+                sx={{ textTransform: "none" }}
+              >
+                Cancel
+              </Button>
+              {saveAim.isError ? (
+                <Typography variant="caption" color="error">
+                  {formatApiError(saveAim.error)}
+                </Typography>
+              ) : null}
+            </Stack>
+          </>
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+            {savedAim || "Not set yet. Use edit to add your aim."}
+          </Typography>
+        )}
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary", mb: 0.5 }}>
-          OBJECTIVES
-        </Typography>
-        <Typography fontWeight={600} sx={{ mb: 0.5 }}>
-          Objectives and status
-        </Typography>
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" sx={{ mb: 0.5 }}>
+          <Box>
+            <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>
+              OBJECTIVES
+            </Typography>
+            <Typography fontWeight={600} sx={{ mt: 0.5 }}>
+              Objectives and status
+            </Typography>
+          </Box>
+          {!editingObjectives ? (
+            <Tooltip title="Edit objectives list">
+              <IconButton
+                size="small"
+                aria-label="Edit objectives"
+                onClick={() => {
+                  setDraftObjectives(normalizeObjectives(activeWorkspace?.objectives));
+                  setEditingObjectives(true);
+                }}
+              >
+                <EditOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          ) : null}
+        </Stack>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
           Objectives can change. Peggy keeps a history and flags work linked to a changed objective.
         </Typography>
 
-        <ObjectiveListEditor value={draftObjectives} onChange={setDraftObjectives} studyDesign={studyDesign} />
-
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
-          <Button
-            variant="contained"
-            disabled={!activeWorkspace || saveWorkspace.isPending}
-            onClick={() => saveWorkspace.mutate()}
-            sx={{ textTransform: "none" }}
-          >
-            {saveWorkspace.isPending ? "Saving…" : "Save aim and objectives"}
-          </Button>
-          {saveWorkspace.isError ? (
-            <Typography variant="caption" color="error">
-              {formatApiError(saveWorkspace.error)}
-            </Typography>
-          ) : null}
-          <Typography variant="caption" color="text.secondary">
-            Dropped objectives stay in the history.
+        {editingObjectives ? (
+          <ObjectiveListEditor value={draftObjectives} onChange={setDraftObjectives} studyDesign={studyDesign} />
+        ) : savedObjectives.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">
+            No objectives saved yet. Use edit to add objectives.
           </Typography>
-        </Stack>
+        ) : (
+          <Stack spacing={1}>
+            {savedObjectives.map((obj, index) => (
+              <Stack key={obj.id} direction="row" spacing={1} alignItems="flex-start">
+                <Typography variant="body2" fontWeight={600} sx={{ minWidth: 28 }}>
+                  {index + 1}.
+                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                    {obj.text}
+                  </Typography>
+                  <StatusChip
+                    tone={obj.status === "done" ? "accent" : "neutral"}
+                    label={obj.status === "done" ? "Complete" : "Open"}
+                    sx={{ mt: 0.5 }}
+                  />
+                </Box>
+              </Stack>
+            ))}
+          </Stack>
+        )}
+
+        {editingObjectives ? (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
+            <Button
+              variant="contained"
+              disabled={!activeWorkspace || !objectivesDirty || saveObjectives.isPending}
+              onClick={() => saveObjectives.mutate()}
+              sx={{ textTransform: "none" }}
+            >
+              {saveObjectives.isPending ? "Saving…" : "Save objectives"}
+            </Button>
+            <Button
+              variant="text"
+              onClick={() => {
+                setDraftObjectives(normalizeObjectives(activeWorkspace?.objectives));
+                setEditingObjectives(false);
+              }}
+              sx={{ textTransform: "none" }}
+            >
+              Cancel
+            </Button>
+            {saveObjectives.isError ? (
+              <Typography variant="caption" color="error">
+                {formatApiError(saveObjectives.error)}
+              </Typography>
+            ) : null}
+            <Typography variant="caption" color="text.secondary">
+              Dropped objectives stay in the history.
+            </Typography>
+          </Stack>
+        ) : null}
       </Paper>
 
       <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
-        <Button
-          variant="contained"
-          disabled={!canRun || check.isPending}
-          onClick={() => {
-            setReplayRunId(null);
-            check.mutate();
-          }}
-          sx={{ textTransform: "none" }}
-        >
-          {check.isPending ? <CircularProgress size={20} color="inherit" /> : "Check against literature"}
-        </Button>
+        <DisabledTooltipButton title={checkTooltip}>
+          <span>
+            <Button
+              variant="contained"
+              disabled={!canRun || check.isPending}
+              onClick={() => {
+                setReplayRunId(null);
+                check.mutate();
+              }}
+              sx={{ textTransform: "none" }}
+            >
+              {check.isPending ? <CircularProgress size={20} color="inherit" /> : "Check against literature"}
+            </Button>
+          </span>
+        </DisabledTooltipButton>
         <Button variant="text" sx={{ textTransform: "none", color: "text.secondary" }} onClick={() => setShowEarlier((v) => !v)}>
           Earlier checks ({historyQuery.data?.length ?? 0})
         </Button>
@@ -465,7 +615,14 @@ export function ValidateAimFeature() {
                 >
                   {applySuggestion.isPending ? "Applying…" : "Use suggestion"}
                 </Button>
-                <Button variant="outlined" sx={{ textTransform: "none" }} onClick={() => router.push("/dashboard")}>
+                <Button
+                  variant="outlined"
+                  sx={{ textTransform: "none" }}
+                  onClick={() => {
+                    setDraftObjectives(normalizeObjectives(activeWorkspace?.objectives));
+                    setEditingObjectives(true);
+                  }}
+                >
                   Edit first
                 </Button>
                 <Button variant="text" sx={{ textTransform: "none", color: "text.secondary" }} onClick={() => setDismissSuggestion(true)}>

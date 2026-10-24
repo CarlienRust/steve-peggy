@@ -4,16 +4,21 @@ import CloseIcon from "@mui/icons-material/Close";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
 import { Box, Drawer, IconButton, Typography } from "@mui/material";
 import { ChatFeature } from "@/features/chat/ChatFeature";
+import { HomeAskPeggyFeature } from "@/features/chat/HomeAskPeggyFeature";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 export const ASK_PEGGY_DRAWER_W = 400;
 
+export type AskPeggyDrawerVariant = "project" | "home";
+
 export function AskPeggyDrawer({
   open,
   onClose,
+  variant = "project",
 }: {
   open: boolean;
   onClose: () => void;
+  variant?: AskPeggyDrawerVariant;
 }) {
   return (
     <Drawer
@@ -42,12 +47,14 @@ export function AskPeggyDrawer({
           Context
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-          Uses this project and page.
+          {variant === "home"
+            ? "General help. Optionally pick a project for literature context."
+            : "Uses this project and page."}
         </Typography>
       </Box>
 
-      <Box sx={{ px: 2, pb: 2 }}>
-        <ChatFeature />
+      <Box sx={{ px: 2, pb: 2, overflow: "auto" }}>
+        {variant === "home" ? <HomeAskPeggyFeature embedded /> : <ChatFeature />}
       </Box>
     </Drawer>
   );

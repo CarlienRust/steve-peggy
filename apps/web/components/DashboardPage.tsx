@@ -8,8 +8,10 @@ import {
   Box,
   Button,
   Chip,
+  IconButton,
   Paper,
   Stack,
+  Tooltip,
   Table,
   TableBody,
   TableCell,
@@ -17,6 +19,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { normalizeObjectives } from "@/lib/objectives";
 import { useAuthSession } from "@/lib/authContext";
@@ -95,23 +98,27 @@ export function DashboardPage() {
       <LocalDevBanner />
       <Typography sx={{ ...eyebrowSx, mb: 2 }}>PROJECT</Typography>
 
-      <Typography
-        variant="h1"
-        sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em", mb: 1 }}
-      >
-        {workspaceTitle}
-      </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+        <Typography
+          variant="h1"
+          sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}
+        >
+          {workspaceTitle}
+        </Typography>
+        {activeWorkspace ? (
+          <Tooltip title="Edit project details, export JSON, and settings">
+            <IconButton size="small" aria-label="Edit project details" onClick={() => setEditOpen(true)}>
+              <EditOutlinedIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ) : null}
+      </Stack>
 
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 3 }} useFlexGap>
         {isAuthOptional() ? <StatusChip label="Your data stays on this computer" tone="neutral" /> : null}
         <Typography variant="body2" color="text.secondary">
           {samples.studyType ? String(samples.studyType) : "Human-subjects study"}
         </Typography>
-        {activeWorkspace ? (
-          <Button size="small" variant="outlined" onClick={() => setEditOpen(true)} sx={{ textTransform: "none" }}>
-            Project details
-          </Button>
-        ) : null}
       </Stack>
 
       <WorkspaceEditDialog

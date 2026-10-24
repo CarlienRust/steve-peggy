@@ -81,7 +81,8 @@ export default function SetupChecksPage() {
       eyebrow="SETUP"
       title="Setup check"
       subtitle="Peggy runs on your computer. Fix anything marked red or amber, then recheck."
-      backHref="/setup"
+      backHref="/"
+      showBackButton
     >
       {isLoading ? (
         <Box sx={{ display: "grid", placeItems: "center", minHeight: 240 }}>

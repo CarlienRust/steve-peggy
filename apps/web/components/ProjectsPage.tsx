@@ -1,7 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
-import Link from "next/link";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -18,24 +17,21 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import LogoutIcon from "@mui/icons-material/Logout";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { createClient } from "@/lib/supabase/client";
-import { loadActiveWorkspaceId, saveActiveWorkspaceId } from "@/lib/userProfile";
-import { isAuthOptional } from "@/lib/localMode";
+import { saveActiveWorkspaceId } from "@/lib/userProfile";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
-import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
+/** Home route (`/`): welcome copy plus your project list (inside HomeAppShell). */
 export function ProjectsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -44,12 +40,6 @@ export function ProjectsPage() {
     queryKey: queryKeys.workspaces(userId ?? undefined),
     queryFn: () => peggyApi.listWorkspaces(),
     enabled: ready && !!userId,
-  });
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: queryKeys.profile(userId ?? undefined),
-    queryFn: () => peggyApi.getProfileOptional(),
-    enabled: ready && !!userId,
-    retry: false,
   });
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -82,21 +72,13 @@ export function ProjectsPage() {
     router.push("/dashboard");
   };
 
-  const logout = async () => {
-    saveActiveWorkspaceId(null);
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/login");
-  };
-
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     createMutation.mutate();
   };
 
   const workspaces = data?.workspaces ?? [];
-  const hasProfile = !!profile;
-  const pageLoading = !ready || isLoading || profileLoading;
+  const pageLoading = !ready || isLoading;
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => peggyApi.deleteWorkspace(id),
@@ -125,211 +107,173 @@ export function ProjectsPage() {
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "background.default",
-      }}
-    >
-      <Box
-        component="header"
-        sx={{
-          flexShrink: 0,
-          borderBottom: 1,
-          borderColor: "divider",
-          bgcolor: "background.paper",
-          px: { xs: 2.5, sm: 3, md: 4 },
-          py: 2,
-        }}
-      >
-        <Box
-          sx={{
-            width: "100%",
-            maxWidth: 1200,
-            mx: "auto",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 2,
-          }}
-        >
-          <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit" }}>
-            <PeggyBrandLockup variant="sidebar" />
-          </Box>
-          <Stack direction="row" spacing={1} alignItems="center">
-            {!isAuthOptional() && (
-              <Button size="small" startIcon={<LogoutIcon />} onClick={logout} sx={{ textTransform: "none", flexShrink: 0 }}>
-                Log out
-              </Button>
-            )}
-          </Stack>
+    <Box>
+      <LocalDevBanner />
+
+      {pageLoading ? (
+        <Box sx={{ display: "grid", placeItems: "center", minHeight: "40vh" }}>
+          <CircularProgress />
         </Box>
-      </Box>
-
-      <Box
-        component="main"
-        sx={{
-          flex: 1,
-          width: "100%",
-          maxWidth: 1200,
-          mx: "auto",
-          px: { xs: 2.5, sm: 3, md: 4 },
-          py: { xs: 3, sm: 4, md: 5 },
-        }}
-      >
-        <LocalDevBanner />
-
-        {pageLoading ? (
-          <Box sx={{ display: "grid", placeItems: "center", minHeight: "40vh" }}>
-            <CircularProgress />
+      ) : (
+        <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ maxWidth: 960, mb: 4 }}>
+            <PeggyWelcomeHub />
           </Box>
-        ) : (
-          <Box sx={{ minWidth: 0 }}>
-            <Box sx={{ maxWidth: 960, mb: 4 }}>
-              <PeggyWelcomeHub hasProfile={hasProfile} />
-            </Box>
 
-            {workspaces.length > 0 ? (
-              <>
-                <Box sx={{ display: "flex", gap: 2, alignItems: "flex-start", justifyContent: "space-between", mb: 3 }}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={eyebrowSx}>PROJECTS</Typography>
-                    <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em" sx={{ mb: 1 }}>
-                      Your projects
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, maxWidth: 720 }}>
-                      Each project keeps its own papers, findings and plans. Nothing is shared between projects.
-                    </Typography>
-                  </Box>
-                  <Button variant="contained" onClick={() => router.push("/setup/step-1")} sx={{ textTransform: "none", flexShrink: 0 }}>
-                    + New project
-                  </Button>
+          {workspaces.length > 0 ? (
+            <>
+              <Box
+                id="projects"
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  alignItems: "flex-start",
+                  justifyContent: "space-between",
+                  mb: 3,
+                  scrollMarginTop: 24,
+                }}
+              >
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography sx={eyebrowSx}>PROJECTS</Typography>
+                  <Typography variant="h4" fontWeight={600} letterSpacing="-0.02em" sx={{ mb: 1 }}>
+                    Your projects
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, maxWidth: 720 }}>
+                    Each project keeps its own papers, findings and plans. Nothing is shared between projects.
+                  </Typography>
                 </Box>
+                <Button
+                  variant="contained"
+                  onClick={() => router.push("/setup/step-1")}
+                  sx={{ textTransform: "none", flexShrink: 0 }}
+                >
+                  + New project
+                </Button>
+              </Box>
 
-                {loadError && (
-                  <Alert severity="error" sx={{ mb: 2 }}>
-                    Could not load projects. If this persists, check API CORS includes this site on Render.
-                  </Alert>
-                )}
+              {loadError && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  Could not load projects. If this persists, check API CORS includes this site on Render.
+                </Alert>
+              )}
+              {error && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                  {error}
+                </Alert>
+              )}
 
-                <Stack spacing={2}>
-                  {workspaces.map((ws) => (
-                    <Paper
-                      key={ws.id}
-                      onClick={() => openProject(ws.id)}
-                      sx={{
-                        p: 2.5,
-                        border: 1,
-                        borderColor: "divider",
-                        cursor: "pointer",
-                        "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
-                      }}
-                    >
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
-                        <Box sx={{ minWidth: 0, flex: 1 }}>
-                          <Typography fontWeight={600} noWrap>
-                            {ws.title}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {ws.privacy_mode === "hosted_allowed" ? "Hosted allowed" : "Local only"}
-                            {ws.last_opened_at ? ` · Last opened ${new Date(ws.last_opened_at).toLocaleDateString()}` : ""}
-                          </Typography>
-                        </Box>
-                        <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} onClick={(e) => e.stopPropagation()}>
-                          <IconButton size="small" aria-label="Open project" onClick={() => openProject(ws.id)}>
-                            <OpenInNewIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" aria-label="Rename project" onClick={() => openRename(ws.id, ws.title)}>
-                            <EditOutlinedIcon fontSize="small" />
-                          </IconButton>
-                          <IconButton size="small" aria-label="Delete project" onClick={() => setDeleteId(ws.id)}>
-                            <DeleteOutlineIcon fontSize="small" />
-                          </IconButton>
-                        </Stack>
-                      </Stack>
-                      {ws.aim && (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                          {ws.aim}
+              <Stack spacing={2}>
+                {workspaces.map((ws) => (
+                  <Paper
+                    key={ws.id}
+                    onClick={() => openProject(ws.id)}
+                    sx={{
+                      p: 2.5,
+                      border: 1,
+                      borderColor: "divider",
+                      cursor: "pointer",
+                      "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
+                    }}
+                  >
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
+                      <Box sx={{ minWidth: 0, flex: 1 }}>
+                        <Typography fontWeight={600} noWrap>
+                          {ws.title}
                         </Typography>
-                      )}
-                    </Paper>
-                  ))}
-                </Stack>
-              </>
-            ) : null}
-
-            {!workspaces.length && loadError && (
-              <Alert severity="error">
-                Could not load projects. If this persists, check API CORS includes this site on Render.
-              </Alert>
-            )}
-          </Box>
-        )}
-
-        <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{workspaces.length === 0 ? "Create your first project" : "New research project"}</DialogTitle>
-          <Box component="form" onSubmit={onSubmit}>
-            <DialogContent>
-              <Stack spacing={2} sx={{ pt: 1 }}>
-                <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
-                <TextField label="Aim" value={aim} onChange={(e) => setAim(e.target.value)} fullWidth multiline minRows={2} />
-                <ObjectiveListEditor
-                  value={objectives}
-                  onChange={setObjectives}
-                />
-                {error && <Alert severity="error">{error}</Alert>}
+                        <Typography variant="caption" color="text.secondary">
+                          {ws.privacy_mode === "hosted_allowed" ? "Hosted allowed" : "Local only"}
+                          {ws.last_opened_at ? ` · Last opened ${new Date(ws.last_opened_at).toLocaleDateString()}` : ""}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} onClick={(e) => e.stopPropagation()}>
+                        <IconButton size="small" aria-label="Open project" onClick={() => openProject(ws.id)}>
+                          <OpenInNewIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" aria-label="Rename project" onClick={() => openRename(ws.id, ws.title)}>
+                          <EditOutlinedIcon fontSize="small" />
+                        </IconButton>
+                        <IconButton size="small" aria-label="Delete project" onClick={() => setDeleteId(ws.id)}>
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    </Stack>
+                    {ws.aim && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
+                        {ws.aim}
+                      </Typography>
+                    )}
+                  </Paper>
+                ))}
               </Stack>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-              <Button type="submit" variant="contained" disabled={createMutation.isPending}>
-                {createMutation.isPending ? "Creating…" : "Create & open"}
-              </Button>
-            </DialogActions>
-          </Box>
-        </Dialog>
+            </>
+          ) : null}
 
-        <ConfirmDialog
-          open={!!deleteId}
-          title="Delete project?"
-          body="This removes the project and its linked data."
-          confirmLabel={deleteMutation.isPending ? "Deleting…" : "Delete"}
-          destructive
-          onCancel={() => setDeleteId(null)}
-          onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
-        />
+          {!workspaces.length && loadError && (
+            <Alert severity="error">
+              Could not load projects. If this persists, check API CORS includes this site on Render.
+            </Alert>
+          )}
+        </Box>
+      )}
 
-        <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
-          <DialogTitle>Rename project</DialogTitle>
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{workspaces.length === 0 ? "Create your first project" : "New research project"}</DialogTitle>
+        <Box component="form" onSubmit={onSubmit}>
           <DialogContent>
             <Stack spacing={2} sx={{ pt: 1 }}>
-              <TextField
-                label="Project title"
-                value={renameTitle}
-                onChange={(e) => setRenameTitle(e.target.value)}
-                required
-                fullWidth
-              />
-              {renameMutation.isError && <Alert severity="error">{formatApiError(renameMutation.error)}</Alert>}
+              <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
+              <TextField label="Aim" value={aim} onChange={(e) => setAim(e.target.value)} fullWidth multiline minRows={2} />
+              <ObjectiveListEditor value={objectives} onChange={setObjectives} />
+              {error && <Alert severity="error">{error}</Alert>}
             </Stack>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button variant="outlined" onClick={() => setRenameOpen(false)} sx={{ textTransform: "none" }}>
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => renameId && renameMutation.mutate({ id: renameId, title: renameTitle.trim() })}
-              disabled={!renameTitle.trim() || renameMutation.isPending}
-              sx={{ textTransform: "none" }}
-            >
-              {renameMutation.isPending ? "Saving…" : "Save"}
+          <DialogActions>
+            <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button type="submit" variant="contained" disabled={createMutation.isPending}>
+              {createMutation.isPending ? "Creating…" : "Create & open"}
             </Button>
           </DialogActions>
-        </Dialog>
-      </Box>
+        </Box>
+      </Dialog>
+
+      <ConfirmDialog
+        open={!!deleteId}
+        title="Delete project?"
+        body="This removes the project and its linked data."
+        confirmLabel={deleteMutation.isPending ? "Deleting…" : "Delete"}
+        destructive
+        onCancel={() => setDeleteId(null)}
+        onConfirm={() => deleteId && deleteMutation.mutate(deleteId)}
+      />
+
+      <Dialog open={renameOpen} onClose={() => setRenameOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Rename project</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Project title"
+              value={renameTitle}
+              onChange={(e) => setRenameTitle(e.target.value)}
+              required
+              fullWidth
+            />
+            {renameMutation.isError && <Alert severity="error">{formatApiError(renameMutation.error)}</Alert>}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="outlined" onClick={() => setRenameOpen(false)} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => renameId && renameMutation.mutate({ id: renameId, title: renameTitle.trim() })}
+            disabled={!renameTitle.trim() || renameMutation.isPending}
+            sx={{ textTransform: "none" }}
+          >
+            {renameMutation.isPending ? "Saving…" : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

@@ -17,6 +17,7 @@ import {
   Stack,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from "@mui/material";
 import { countObjectiveLinkUsage, type StudyDesignData } from "@/lib/studyDesign";
@@ -111,16 +112,24 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
                 minRows={1}
                 disabled={disabled}
               />
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={obj.status === "done"}
-                    onChange={(e) => updateAt(index, { status: e.target.checked ? "done" : "open" })}
-                    disabled={disabled}
-                  />
+              <Tooltip
+                title={
+                  obj.status === "done"
+                    ? "Mark as open when this objective still needs work."
+                    : "Mark complete when you are done with this objective (manual only)."
                 }
-                label={obj.status === "done" ? "Complete" : "Open"}
-              />
+              >
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={obj.status === "done"}
+                      onChange={(e) => updateAt(index, { status: e.target.checked ? "done" : "open" })}
+                      disabled={disabled}
+                    />
+                  }
+                  label={obj.status === "done" ? "Complete" : "Open"}
+                />
+              </Tooltip>
             </Stack>
             <IconButton
               size="small"
