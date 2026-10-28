@@ -52,6 +52,7 @@ function OnboardingForm() {
       surname: "",
       research_focus: "",
       research_type: "Researcher",
+      orcid: "",
     },
   });
 
@@ -73,6 +74,7 @@ function OnboardingForm() {
             surname: profile.surname,
             research_focus: profile.research_focus ?? "",
             research_type: normalizeResearchRole(profile.research_type),
+            orcid: profile.orcid ?? "",
           });
         } catch {
           if (isUpdate) {
@@ -111,6 +113,7 @@ function OnboardingForm() {
           surname: profile.surname,
           research_focus: profile.research_focus ?? "",
           research_type: normalizeResearchRole(profile.research_type),
+          orcid: profile.orcid ?? "",
         });
         setLoading(false);
         return;
@@ -128,6 +131,7 @@ function OnboardingForm() {
         surname: meta.surname ?? "",
         research_focus: meta.research_focus ?? "",
         research_type: meta.research_type ? normalizeResearchRole(String(meta.research_type)) : "Researcher",
+        orcid: "",
       });
 
       setLoading(false);
@@ -145,6 +149,7 @@ function OnboardingForm() {
         email: email.trim() || "dev@local",
         research_focus: values.research_focus,
         research_type: values.research_type,
+        orcid: values.orcid ?? "",
       });
 
       if (isAuthOptional()) {
@@ -216,6 +221,21 @@ function OnboardingForm() {
                   required
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
+                  fullWidth
+                />
+              )}
+            />
+            <Controller
+              name="orcid"
+              control={control}
+              render={({ field, fieldState }) => (
+                <TextField
+                  {...field}
+                  id="orcid"
+                  label="ORCID iD (optional)"
+                  placeholder="0000-0002-1825-0097"
+                  error={!!fieldState.error}
+                  helperText={fieldState.error?.message ?? "Your ORCID profile identifier"}
                   fullWidth
                 />
               )}

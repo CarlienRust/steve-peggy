@@ -90,6 +90,7 @@ export function CorpusManagement() {
   useEffect(() => {
     const q = searchParams.get("q");
     if (q) setSearch(q);
+    if (searchParams.get("add") === "1") setIngestOpen(true);
     const raw = searchParams.get("paperId");
     if (raw) {
       const n = Number(raw);

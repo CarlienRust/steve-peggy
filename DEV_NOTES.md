@@ -73,6 +73,55 @@ ISSUES (2026-03-24 batch 7 — done):
 - Useful links: Canva, BioRender, Figma, GraphPad (Figures & design group)
 - Removed unused `PeggySetupDialog`, `ProjectProgressPanel`; `/workspaces` redirects to `/projects`
 
+## Batch 8 (DEV_NOTES 76–111) — partial
+
+**Done (local, not pushed unless requested):**
+- Project sidebar **Outputs** (`/outputs`) between Results and Ask Peggy
+- Profile **ORCID** field (migration `017_profile_orcid.sql`, onboarding/edit)
+- **Validate aim** 400: `normalize_limitations()` on workflow responses
+- **Analysis plan** 413: `MAX_STUDY_PLAN_LEN` (default 20k) for plan paste
+- **Analysis/methods plan UI**: structured `WorkflowResults` (not raw JSON)
+- **Gap analysis**: topic-focused prompt; aim-only context; literature default; gap CTA opens ingest (`?add=1&q=`)
+- **Findings summary**: load text by `paper_id` (HTML/PDF uploads); View shows extracted text
+- **Comparison**: corpus search limited to `literature` (not other findings sets)
+
+## Batch 9 (lines 88–93) — done locally
+
+- **Earlier scans:** delete one / clear all; layout + word-wrap
+- **Add papers from gap:** ingest citations from scan (`POST /ingest/citations`)
+- **Add to objectives:** prefilled draft + open objective editor via query params
+- **Proposal preview:** structured sections (`WorkflowResults` proposal mode)
+- **Outputs:** conference abstract generator with min words
+- **Proposal / abstract preview:** `normalizeWorkflowBody` unwraps `raw` and string JSON so sections render
+
+
 FUTURE:
-VALIDATE: Gap analysis, Literature search and extraction
-In Project SIDEBAR, between Results and Ask Peggy: Add "Outputs" to help create and manage figures, diagrams, tables for results or posters for conferences. 
+
+**Still open:**
+- GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
+- Literature **extraction job** 500 (needs API logs)
+- Comparison vs **live internet** (not in corpus yet)
+- 503 login / workspace 500 errors (runtime)
+
+ERRORS (may be fixed for validate-aim / analysis-plan; retest):
+[Error] Failed to load resource: the server responded with a status of 503 (Service Unavailable) (login, line 0)
+[Error] Failed to load resource: the server responded with a status of 400 (Bad Request) (validate-aim, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
+[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
+[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
+[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
+
+Security: Want to transition back to using quandrant and render api. Info used in Peggy shouldn't compromise user data or research data. All documentation should be safely behind the auth wall.
+
+Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
+
+
+
+

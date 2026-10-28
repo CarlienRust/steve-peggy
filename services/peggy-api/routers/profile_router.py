@@ -19,6 +19,7 @@ class ProfileUpdate(BaseModel):
     email: str = Field(..., min_length=3, max_length=256)
     research_focus: str = Field(default="", max_length=512)
     research_type: str = Field(default="Researcher")
+    orcid: str = Field(default="", max_length=64)
 
 
 @router.get("")
@@ -57,6 +58,7 @@ async def upsert_profile(body: ProfileUpdate, user: AuthUser = Depends(get_curre
                 "research_focus": body.research_focus.strip(),
                 "research_type": body.research_type,
                 "display_name": display_name,
+                "orcid": body.orcid.strip(),
             },
         )
     except Exception as exc:

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 
 from core.llm.provider import get_llm
 from core.rag import prompts
+from core.rag.limitation_utils import normalize_limitations
 from core.store import catalog, qdrant_store
 
 
@@ -87,13 +88,19 @@ async def run_gap_analysis(
     abstracts_only: bool = False,
 ) -> dict:
     from core.ingest.discovery import discover_literature
-    from core.project_context import load_project_context
 
-    st = source_types or ["literature", "own_findings"]
+    st = source_types or ["literature"]
     workspace_aim = None
+    project_context = ""
     if workspace_id:
         ws = await catalog.get_workspace(user_id, workspace_id)
         workspace_aim = (ws or {}).get("aim") or None
+        aim = ((ws or {}).get("aim") or "").strip()
+        if aim:
+            project_context = (
+                f"Research aim (field context only; gaps should reflect the literature on the topic, "
+                f"not whether this specific study's methods are already planned): {aim}"
+            )
 
     if abstracts_only:
         disc = await discover_literature(
@@ -109,7 +116,6 @@ async def run_gap_analysis(
         evidence_basis = "full_text"
 
     distinct_papers = len({s.get("pmid") or s.get("title") for s in sources})
-    project_context = await load_project_context(user_id, workspace_id)
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -170,7 +176,7 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
     saved = await catalog.save_workflow_run(
         user_id=user_id,
@@ -195,7 +201,7 @@ async def run_compare(
 ) -> dict:
     from core.project_context import load_project_context
 
-    st = source_types or ["literature", "own_findings", "sample_datasets"]
+    st = source_types or ["literature"]
     sources = qdrant_store.search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id)
     project_context = await load_project_context(user_id, workspace_id)
     llm = get_llm()
@@ -209,7 +215,7 @@ async def run_compare(
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
 
 
@@ -230,7 +236,7 @@ async def run_future_design(
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
 
 
@@ -249,7 +255,7 @@ async def run_manuscript_framing(results_summary: str, source_types: list[str] |
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
 
 
@@ -286,7 +292,7 @@ async def run_ethics_guidance(
         json_mode=True,
     )
     body = _parse_json(raw)
-    limitations = body.get("limitations") or []
+    limitations = normalize_limitations(body.get("limitations"))
     limitations.append("Verify all deadlines and forms on the official SU FMHS ethics website.")
     await catalog.patch_study_design(
         user_id,
@@ -337,7 +343,7 @@ async def run_methods_plan(
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
 
 
@@ -395,7 +401,7 @@ async def run_analysis_plan(
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
 
 
@@ -437,8 +443,13 @@ async def run_proposal(
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": body.get("limitations") or _default_limitations(sources),
+        "limitations": _limitations_from_body(body, sources),
     }
+
+
+def _limitations_from_body(body: dict, sources: list[dict]) -> list[str]:
+    lim = normalize_limitations(body.get("limitations"))
+    return lim if lim else _default_limitations(sources)
 
 
 def _default_limitations(sources: list[dict]) -> list[str]:
@@ -467,8 +478,17 @@ async def run_findings_summary(user_id: str, workspace_id: str) -> dict:
     docs: list[tuple[str, str]] = []
     for paper in papers:
         title = paper.get("title") or "Untitled"
+        paper_id = paper.get("id")
         try:
-            text = qdrant_store.get_document_text(title, source_type="own_findings", user_id=user_id)
+            if paper_id is not None:
+                text = qdrant_store.get_paper_text(
+                    paper_id=int(paper_id),
+                    source_type="own_findings",
+                    user_id=user_id,
+                    title=title,
+                )
+            else:
+                text = qdrant_store.get_document_text(title, source_type="own_findings", user_id=user_id)
         except Exception:
             text = ""
         if text and text.strip():
@@ -508,3 +528,32 @@ async def run_findings_summary(user_id: str, workspace_id: str) -> dict:
         points = _excerpt_points(docs)
 
     return await catalog.save_findings_summary(user_id, workspace_id, summary, points, len(docs))
+
+
+async def run_conference_abstract(
+    user_id: str,
+    workspace_id: str,
+    min_words: int = 250,
+) -> dict:
+    ws, sd = await _load_workspace_context(user_id, workspace_id)
+    ctx = _workspace_context(ws, sd)
+    findings = await catalog.get_findings_summary(user_id, workspace_id) or {}
+    summary = str(findings.get("summary") or "").strip()
+    raw_points = findings.get("points") or []
+    points = [str(p).strip() for p in raw_points if str(p).strip()] if isinstance(raw_points, list) else []
+    query = ws.get("aim") or ws.get("title") or "research results"
+    sources = qdrant_store.search(query, source_types=["literature", "own_findings"], user_id=user_id, workspace_id=workspace_id)
+    target = max(100, min(int(min_words), 600))
+    llm = get_llm()
+    raw = await llm.complete(
+        prompts.build_system_prompt(),
+        prompts.conference_abstract_prompt(ctx, summary, points, target),
+        json_mode=True,
+    )
+    body = _parse_json(raw)
+    return {
+        "body": body,
+        "sources": sources,
+        "confidence": _confidence(sources),
+        "limitations": _limitations_from_body(body, sources),
+    }

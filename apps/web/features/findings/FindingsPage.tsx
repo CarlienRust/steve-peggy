@@ -391,6 +391,7 @@ export function FindingsPage() {
             linkOptions={linkOptions}
             onSaveFindingLinks={saveFindingLinks}
             onDeletePaper={onDeletePaper}
+            viewUploadedText
           />
         </Box>
       </Paper>

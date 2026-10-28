@@ -88,7 +88,11 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /chat` | Single-shot Ask Peggy — `mode`: chat \| gap_analysis \| compare (auto uses intent routing if called directly) |
 | `POST /workflows/gap-analysis` | Structured gaps (optional `workspace_id` saves history) |
 | `GET /workflows/gap-analysis/history` | Gap runs for a workspace |
+| `DELETE /workflows/gap-analysis/history` | Clear all gap runs for a workspace |
 | `GET /workflows/gap-analysis/{id}` | Replay a saved gap run |
+| `DELETE /workflows/gap-analysis/{id}` | Delete one saved gap run |
+| `POST /ingest/citations` | Queue PubMed ingest from workflow source citations (gap scan papers) |
+| `POST /workflows/conference-abstract` | Draft abstract (intro, methods, results, conclusion) with `min_words` |
 | `POST /workflows/validate-aim` | Check project aim/objectives against literature |
 | `GET /workflows/validate-aim/history` | Validate-aim runs for a workspace |
 | `GET /workflows/validate-aim/{id}` | Replay a saved validate-aim run |
@@ -159,8 +163,9 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
-| `/results/comparison` | 05 · Comparison | Finding vs field |
-| `/chat` | Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
+| `/results/comparison` | 04 · Comparison | Finding vs ingested literature (not other findings sets) |
+| `/outputs` | 05 · Outputs | Conference abstract draft (min words); links to findings and design tools |
+| `/chat` | 06 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.

@@ -9,6 +9,7 @@ from core.limits import enforce_text_length, enforce_user_rate
 from core.rag.workflows import (
     run_analysis_plan,
     run_compare,
+    run_conference_abstract,
     run_ethics_guidance,
     run_findings_summary,
     run_future_design,
@@ -19,6 +20,7 @@ from core.rag.workflows import (
     run_validate_aim,
 )
 from core.store import catalog
+from core.rag.limitation_utils import normalize_limitations
 from schemas.responses import GapAnalysisRunDetail, GapAnalysisRunSummary, SourceCitation, WorkflowResponse
 
 router = APIRouter(prefix="/workflows", tags=["workflows"])
@@ -63,6 +65,11 @@ class ValidateAimRequest(BaseModel):
     workspace_id: str
 
 
+class ConferenceAbstractRequest(BaseModel):
+    workspace_id: str
+    min_words: int = Field(default=250, ge=100, le=600)
+
+
 class ExtractRequest(BaseModel):
     workspace_id: str
     paper_ids: list[int] = Field(default_factory=list)
@@ -87,7 +94,7 @@ def _wrap(result: dict) -> WorkflowResponse:
         body=result["body"],
         sources=[SourceCitation(**s) for s in result["sources"]],
         confidence=result["confidence"],
-        limitations=result["limitations"],
+        limitations=normalize_limitations(result.get("limitations")),
     )
 
 
@@ -131,6 +138,18 @@ async def gap_analysis_history(
     ]
 
 
+@router.delete("/gap-analysis/history")
+async def clear_gap_analysis_history(
+    workspace_id: str = Query(...),
+    user: AuthUser = Depends(get_current_user),
+):
+    ws = await catalog.get_workspace(user.id, workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    deleted = await catalog.delete_workflow_runs(user.id, workspace_id, "gap_analysis")
+    return {"deleted": deleted}
+
+
 @router.get("/gap-analysis/{run_id}", response_model=GapAnalysisRunDetail)
 async def gap_analysis_run(run_id: str, user: AuthUser = Depends(get_current_user)):
     row = await catalog.get_workflow_run(user.id, run_id)
@@ -145,8 +164,28 @@ async def gap_analysis_run(run_id: str, user: AuthUser = Depends(get_current_use
         body=row.get("body") or {},
         sources=[SourceCitation(**s) for s in row.get("sources") or []],
         confidence=row.get("confidence") or "low",
-        limitations=row.get("limitations") or [],
+        limitations=normalize_limitations(row.get("limitations")),
     )
+
+
+@router.delete("/gap-analysis/{run_id}")
+async def delete_gap_analysis_run(run_id: str, user: AuthUser = Depends(get_current_user)):
+    row = await catalog.get_workflow_run(user.id, run_id)
+    if not row or row.get("workflow_type") != "gap_analysis":
+        raise HTTPException(404, "Gap analysis run not found")
+    ok = await catalog.delete_workflow_run(user.id, run_id)
+    if not ok:
+        raise HTTPException(404, "Gap analysis run not found")
+    return {"deleted": True}
+
+
+@router.post("/conference-abstract", response_model=WorkflowResponse)
+async def conference_abstract(body: ConferenceAbstractRequest, user: AuthUser = Depends(get_current_user)):
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    return _wrap(await run_conference_abstract(user.id, body.workspace_id, body.min_words))
 
 
 @router.post("/compare", response_model=WorkflowResponse)
@@ -197,7 +236,7 @@ async def ethics_guidance(body: EthicsGuidanceRequest, user: AuthUser = Depends(
 @router.post("/study-design/methods-plan", response_model=WorkflowResponse)
 async def methods_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_current_user)):
     if body.user_plan:
-        enforce_text_length(body.user_plan, label="Methods plan")
+        enforce_text_length(body.user_plan, max_len=config.MAX_STUDY_PLAN_LEN, label="Methods plan")
     if body.budget:
         enforce_text_length(body.budget, max_len=512, label="Budget")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
@@ -220,7 +259,7 @@ async def methods_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_curr
 @router.post("/study-design/analysis-plan", response_model=WorkflowResponse)
 async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_current_user)):
     if body.user_plan:
-        enforce_text_length(body.user_plan, label="Analysis plan")
+        enforce_text_length(body.user_plan, max_len=config.MAX_STUDY_PLAN_LEN, label="Analysis plan")
     if body.budget:
         enforce_text_length(body.budget, max_len=512, label="Budget")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
@@ -307,7 +346,7 @@ async def validate_aim_run(run_id: str, user: AuthUser = Depends(get_current_use
         body=row.get("body") or {},
         sources=[SourceCitation(**s) for s in row.get("sources") or []],
         confidence=row.get("confidence") or "low",
-        limitations=row.get("limitations") or [],
+        limitations=normalize_limitations(row.get("limitations")),
     )
 
 

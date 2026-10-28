@@ -39,7 +39,7 @@ export function CompareFeature() {
     mutationFn: (f: string) =>
       peggyApi.compare(f, {
         workspaceId: activeWorkspace?.id,
-        sourceTypes: ["literature", "own_findings", "sample_datasets"],
+        sourceTypes: ["literature"],
       }),
   });
 

@@ -73,6 +73,7 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `OLLAMA_MODEL` | No | `llama3.2` | Also stored on `extractions.model_version` |
 | `EXTRACTION_BATCH_SIZE` | No | `2` | Papers processed concurrently per extraction job |
 | `MAX_EXTRACTION_TEXT_LEN` | No | `12000` | Truncate paper text sent to LLM |
+| `MAX_STUDY_PLAN_LEN` | No | `20000` | Max chars for methods/analysis plan paste on `/workflows/methods-plan` and `/workflows/analysis-plan` |
 | `EXTRACTION_MODULES` | No | `core,outcomes` | Default modules for `/workflows/extract` |
 | `CORS_ORIGINS` | Render | `http://localhost:3000` | Comma-separated origins, **no spaces** |
 | `NCBI_EMAIL` | **Yes** (PubMed) | — | Your email |

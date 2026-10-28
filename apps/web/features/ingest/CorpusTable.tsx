@@ -24,7 +24,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ObjectiveLinkSelect, type LinkTargetOption } from "@/components/ObjectiveLinkSelect";
 import { peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
 import { findingLinkForPaper, type FindingLink } from "@/lib/studyDesign";
@@ -55,6 +55,8 @@ type CorpusTableProps = {
   linkOptions?: LinkTargetOption[];
   onSaveFindingLinks?: (paperId: number, objectiveIds: string[]) => void | Promise<void>;
   onDeletePaper?: (paperId: number) => void | Promise<void>;
+  /** When true, View shows ingested document text (findings uploads). */
+  viewUploadedText?: boolean;
 };
 
 export function CorpusTable({
@@ -65,6 +67,7 @@ export function CorpusTable({
   linkOptions,
   onSaveFindingLinks,
   onDeletePaper,
+  viewUploadedText = false,
 }: CorpusTableProps) {
   const [viewPaper, setViewPaper] = useState<PaperRecord | null>(null);
   const [editPaper, setEditPaper] = useState<PaperRecord | null>(null);
@@ -84,6 +87,12 @@ export function CorpusTable({
       queryClient.invalidateQueries({ queryKey: ["corpus"] });
       setEditPaper(null);
     },
+  });
+
+  const viewTextQuery = useQuery({
+    queryKey: ["paper-text", viewPaper?.id],
+    queryFn: () => peggyApi.getPaperText(viewPaper!.id!),
+    enabled: viewUploadedText && !!viewPaper?.id,
   });
 
   const deleteMut = useMutation({
@@ -217,17 +226,45 @@ export function CorpusTable({
         </Table>
       </Paper>
 
-      <Dialog open={!!viewPaper} onClose={() => setViewPaper(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Item details</DialogTitle>
+      <Dialog open={!!viewPaper} onClose={() => setViewPaper(null)} maxWidth="md" fullWidth>
+        <DialogTitle>{viewUploadedText ? "Uploaded finding" : "Item details"}</DialogTitle>
         <DialogContent>
           {viewPaper && (
             <Stack spacing={1.5} sx={{ pt: 1 }}>
               <Field label="Title" value={viewPaper.title} />
-              <Field label="Authors" value={viewPaper.authors} />
-              <Field label="Year" value={viewPaper.year} />
-              <Field label="PMID" value={viewPaper.pmid} />
-              <Field label="DOI" value={viewPaper.doi} />
+              {!viewUploadedText ? (
+                <>
+                  <Field label="Authors" value={viewPaper.authors} />
+                  <Field label="Year" value={viewPaper.year} />
+                  <Field label="PMID" value={viewPaper.pmid} />
+                  <Field label="DOI" value={viewPaper.doi} />
+                </>
+              ) : null}
               <Field label="Ingested" value={formatDate(viewPaper.ingested_at)} />
+              {viewUploadedText && viewPaper.id ? (
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Extracted text
+                  </Typography>
+                  {viewTextQuery.isLoading ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Loading…
+                    </Typography>
+                  ) : viewTextQuery.isError ? (
+                    <Typography variant="body2" color="error">
+                      Could not load document text.
+                    </Typography>
+                  ) : (
+                    <Typography
+                      variant="body2"
+                      component="pre"
+                      sx={{ whiteSpace: "pre-wrap", m: 0, maxHeight: 360, overflow: "auto" }}
+                    >
+                      {viewTextQuery.data?.text?.trim() || "(No extracted text — re-upload or add a narrative.)"}
+                    </Typography>
+                  )}
+                </Box>
+              ) : null}
             </Stack>
           )}
         </DialogContent>

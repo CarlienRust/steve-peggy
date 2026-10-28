@@ -527,8 +527,8 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
         researcher_id = existing["researcher_id"] if existing else fields["researcher_id"]
         row = await conn.fetchrow(
             """INSERT INTO researcher_profiles
-               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name)
-               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9)
+               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name, orcid)
+               VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8, $9, $10)
                ON CONFLICT (user_id) DO UPDATE SET
                  title = EXCLUDED.title,
                  name = EXCLUDED.name,
@@ -537,6 +537,7 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
                  research_focus = EXCLUDED.research_focus,
                  research_type = EXCLUDED.research_type,
                  display_name = EXCLUDED.display_name,
+                 orcid = EXCLUDED.orcid,
                  updated_at = NOW()
                RETURNING *""",
             user_id,
@@ -548,6 +549,7 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
             fields["research_focus"],
             fields["research_type"],
             fields["display_name"],
+            fields.get("orcid", ""),
         )
     return _row_to_dict(row)
 
@@ -869,6 +871,33 @@ async def get_workflow_run(user_id: str, run_id: str) -> dict | None:
             user_id,
         )
     return _workflow_run_row(row) if row else None
+
+
+async def delete_workflow_run(user_id: str, run_id: str) -> bool:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM workflow_runs WHERE id = $1::uuid AND user_id = $2::uuid",
+            run_id,
+            user_id,
+        )
+    return result.endswith("1")
+
+
+async def delete_workflow_runs(user_id: str, workspace_id: str, workflow_type: str) -> int:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """DELETE FROM workflow_runs
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid AND workflow_type = $3""",
+            user_id,
+            workspace_id,
+            workflow_type,
+        )
+    try:
+        return int(result.split()[-1])
+    except (ValueError, IndexError):
+        return 0
 
 
 async def upsert_github_connection(

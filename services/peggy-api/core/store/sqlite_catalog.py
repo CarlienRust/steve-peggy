@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS researcher_profiles (
     research_focus TEXT NOT NULL DEFAULT '',
     research_type TEXT NOT NULL DEFAULT 'Researcher',
     display_name TEXT NOT NULL,
+    orcid TEXT NOT NULL DEFAULT '',
     created_at TEXT,
     updated_at TEXT
 );
@@ -172,6 +173,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_papers_screening_status(db)
         await _migrate_findings_summaries_by_workspace(db)
         await _migrate_extractions(db)
+        await _migrate_profile_orcid(db)
         await db.commit()
 
 
@@ -339,6 +341,14 @@ async def _migrate_extractions(db: aiosqlite.Connection) -> None:
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_extractions_workspace_paper ON extractions (workspace_id, paper_id)"
     )
+
+
+async def _migrate_profile_orcid(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE researcher_profiles ADD COLUMN orcid TEXT NOT NULL DEFAULT ''")
+        await db.commit()
+    except Exception:
+        pass
 
 
 def _parse_study_design(d: dict) -> dict:
@@ -796,12 +806,12 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
             researcher_id = existing["researcher_id"]
         await db.execute(
             """INSERT INTO researcher_profiles
-               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               (user_id, researcher_id, title, name, surname, email, research_focus, research_type, display_name, orcid, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(user_id) DO UPDATE SET
                  title=excluded.title, name=excluded.name, surname=excluded.surname, email=excluded.email,
                  research_focus=excluded.research_focus, research_type=excluded.research_type,
-                 display_name=excluded.display_name, updated_at=excluded.updated_at""",
+                 display_name=excluded.display_name, orcid=excluded.orcid, updated_at=excluded.updated_at""",
             (
                 user_id,
                 researcher_id,
@@ -812,6 +822,7 @@ async def upsert_profile(user_id: str, fields: dict) -> dict:
                 fields["research_focus"],
                 fields["research_type"],
                 fields["display_name"],
+                fields.get("orcid", ""),
                 now,
                 now,
             ),
@@ -1105,6 +1116,27 @@ async def get_workflow_run(user_id: str, run_id: str) -> dict | None:
         )
         row = await cur.fetchone()
     return _workflow_row(row) if row else None
+
+
+async def delete_workflow_run(user_id: str, run_id: str) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            "DELETE FROM workflow_runs WHERE id = ? AND user_id = ?",
+            (run_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def delete_workflow_runs(user_id: str, workspace_id: str, workflow_type: str) -> int:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            """DELETE FROM workflow_runs
+               WHERE user_id = ? AND workspace_id = ? AND workflow_type = ?""",
+            (user_id, workspace_id, workflow_type),
+        )
+        await db.commit()
+        return cur.rowcount
 
 
 async def upsert_github_connection(

@@ -207,6 +207,14 @@ async def get_workflow_run(user_id: str, run_id: str) -> dict | None:
     return await _backend().get_workflow_run(user_id, run_id)
 
 
+async def delete_workflow_run(user_id: str, run_id: str) -> bool:
+    return await _backend().delete_workflow_run(user_id, run_id)
+
+
+async def delete_workflow_runs(user_id: str, workspace_id: str, workflow_type: str) -> int:
+    return await _backend().delete_workflow_runs(user_id, workspace_id, workflow_type)
+
+
 async def upsert_github_connection(user_id: str, access_token: str, token_scope: str, github_username: str) -> dict:
     return await _backend().upsert_github_connection(user_id, access_token, token_scope, github_username)
 

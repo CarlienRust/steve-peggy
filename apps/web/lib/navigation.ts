@@ -117,12 +117,18 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Comparison",
         href: "/results/comparison",
-        description: "Your finding against ingested literature — agreement and discrepancies.",
+        description: "Your finding against ingested literature and published evidence.",
         ready: true,
       },
     ],
   },
-  { kind: "link", num: "05", label: "Ask Peggy", href: "/chat" },
+  {
+    kind: "link",
+    num: "05",
+    label: "Outputs",
+    href: "/outputs",
+  },
+  { kind: "link", num: "06", label: "Ask Peggy", href: "/chat" },
 ];
 
 export type HomeNavItem = {
@@ -147,6 +153,7 @@ export const PROJECT_NAV_TOOLTIPS: Record<string, string> = {
   "/study-design/samples": "Samples, ethics, methods, analysis, and proposal",
   "/analysis-tool": "Analysis tool (coming soon)",
   "/results/findings": "Findings upload and comparison to literature",
+  "/outputs": "Figures, tables, and poster drafts from your results",
   "/chat": "Chat grounded in this project’s papers and findings",
 };
 

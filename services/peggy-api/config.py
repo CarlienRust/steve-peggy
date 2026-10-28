@@ -65,6 +65,7 @@ DISCOVER_FETCH_PER_SOURCE = int(os.getenv("DISCOVER_FETCH_PER_SOURCE", "75"))
 OPENALEX_ENABLED = os.getenv("OPENALEX_ENABLED", "true").lower() in ("1", "true", "yes")
 MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_TEXT_QUERY_LEN = int(os.getenv("MAX_TEXT_QUERY_LEN", "4000"))
+MAX_STUDY_PLAN_LEN = int(os.getenv("MAX_STUDY_PLAN_LEN", "20000"))
 MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "5"))
 
 RATE_LIMIT_CHAT_PER_HOUR = int(os.getenv("RATE_LIMIT_CHAT_PER_HOUR", "30"))

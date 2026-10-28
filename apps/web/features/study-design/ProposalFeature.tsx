@@ -23,6 +23,7 @@ import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { StatusChip } from "@/components/StatusChip";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
 import { downloadProposalDocx, downloadTextFile, proposalToMarkdown } from "@/lib/proposalExport";
+import { hasProposalSections, normalizeWorkflowBody } from "@/lib/normalizeWorkflowBody";
 
 function resultsEqual(a: Record<string, unknown> | undefined, b: Record<string, unknown> | undefined): boolean {
   if (!a && !b) return true;
@@ -48,8 +49,8 @@ export function ProposalFeature() {
     mutationFn: () => peggyApi.studyProposal(activeWorkspace!.id, proposal.focusNotes ?? ""),
   });
 
-  const pendingBody = generate.data?.body as Record<string, unknown> | undefined;
-  const savedBody = proposal.lastResult;
+  const pendingBody = normalizeWorkflowBody(generate.data?.body as Record<string, unknown> | undefined);
+  const savedBody = normalizeWorkflowBody(proposal.lastResult);
   const displayBody = pendingBody ?? savedBody;
   const hasUnsavedResult = !!pendingBody && !resultsEqual(pendingBody, savedBody);
   const hasSavedResult = !!savedBody;
@@ -158,8 +159,13 @@ export function ProposalFeature() {
           <Alert severity="warning">Update Samples to de-identified before generating a proposal.</Alert>
         )}
         {generate.isError && <Alert severity="error">{formatApiError(generate.error)}</Alert>}
+        {generate.isSuccess && displayBody && !hasProposalSections(displayBody) && (
+          <Alert severity="warning">
+            The model returned no structured proposal. Try Redraft again, or check that the API is running.
+          </Alert>
+        )}
 
-        {hasSavedResult && savedBody && (
+        {hasSavedResult && savedBody && hasProposalSections(savedBody) && (
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button
               variant="outlined"
@@ -186,7 +192,7 @@ export function ProposalFeature() {
           </Stack>
         )}
 
-        {displayBody && (
+        {displayBody && hasProposalSections(displayBody) && (
           <WorkflowOutputPanel
             mode="proposal"
             title="Proposal"

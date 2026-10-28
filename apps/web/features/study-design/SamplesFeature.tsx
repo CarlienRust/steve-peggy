@@ -68,10 +68,6 @@ export function SamplesFeature() {
   const uploadsChanged = linkedDocumentsChanged(samples.linkedDocuments, datasetPapers);
   const dirty = isSectionDirty("samples") || uploadsChanged;
 
-  if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to describe samples and datasets.</Alert>;
-  }
-
   const onPhiBlur = (field: string, text: string) => {
     setFieldWarnings((prev) => ({ ...prev, [field]: phiWarningMessage(detectPhiFlags(text)) }));
   };
@@ -149,6 +145,10 @@ export function SamplesFeature() {
   });
 
   const formatAdded = (iso?: string) => (iso ? String(iso).slice(5, 10).replace("-", " ") : "—");
+
+  if (!activeWorkspace) {
+    return <Alert severity="info">Select a project to describe samples and datasets.</Alert>;
+  }
 
   return (
     <>

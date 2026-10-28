@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Box,
@@ -22,7 +22,7 @@ import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import type { WorkspaceObjective } from "@/lib/objectives";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { normalizeObjectives } from "@/lib/objectives";
+import { newObjective, normalizeObjectives } from "@/lib/objectives";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { StatusChip } from "@/components/StatusChip";
@@ -103,6 +103,7 @@ function objectivesPayloadEqual(a: WorkspaceObjective[], b: WorkspaceObjective[]
 
 export function ValidateAimFeature() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { activeWorkspace, refetch: refetchWorkspace } = useWorkspace();
   const { userId } = useAuthSession();
   const queryClient = useQueryClient();
@@ -120,6 +121,21 @@ export function ValidateAimFeature() {
     setDraftAim(activeWorkspace.aim ?? "");
     setDraftObjectives(normalizeObjectives(activeWorkspace.objectives));
   }, [activeWorkspace?.id, activeWorkspace?.aim, activeWorkspace?.objectives]);
+
+  useEffect(() => {
+    if (searchParams.get("editObjectives") !== "1") return;
+    const raw = searchParams.get("objectiveDraft");
+    if (!raw?.trim()) return;
+    let draft = raw;
+    try {
+      draft = decodeURIComponent(raw);
+    } catch {
+      draft = raw;
+    }
+    setDraftObjectives((prev) => [...normalizeObjectives(prev), newObjective(draft.trim())]);
+    setEditingObjectives(true);
+    router.replace("/validate/aim");
+  }, [searchParams, router]);
 
   const papersSummary = useQuery({
     queryKey: ["workspace-papers-summary", activeWorkspace?.id],

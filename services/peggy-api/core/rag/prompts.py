@@ -99,17 +99,15 @@ def gap_analysis_prompt(
     project_block = ""
     if project_context.strip():
         project_block = f"""
-Current project (study design, methods, analysis plans):
+Optional project context (do not require gaps to match this study's methods or sample):
 {project_context}
-
-Use this project context when judging what we already plan to study and how gaps relate to our cohort, methods, and analysis approach.
 """
-    return f"""Retrieved corpus (peer-reviewed literature and/or our own findings):
+    return f"""Retrieved corpus (peer-reviewed literature):
 {format_context(sources)}
 {project_block}
 Research focus / question: {query}
 
-Identify gaps relative to this focus. When own_findings sources appear, treat them as what we already know; gaps should highlight what literature still lacks or where our work could extend the field.
+Identify field-level gaps relative to this research topic and question: understudied areas, contradictions, and weak methods in the literature. Cite supporting papers from the retrieved sources. Do not redirect the user to run a separate literature search; gaps should name the gap and the evidence papers here.
 
 Evidence mode for this run: {evidence_basis} ({paper_count} distinct papers in retrieval).
 For each gap set evidence_basis to "{evidence_basis}" and paper_count to the number of retrieved papers that support that gap (integer, at least 1 when citing evidence).
@@ -339,6 +337,38 @@ Return JSON only:
 {{
   "discussion_paragraph": "string with inline (Author Year) style refs matching sources",
   "key_citations": ["chunk_id list used"],
+  "limitations": ["string"]
+}}"""
+
+
+def conference_abstract_prompt(
+    project_context: str,
+    findings_summary: str,
+    findings_points: list[str],
+    min_words: int,
+) -> str:
+    points_block = "\n".join(f"- {p}" for p in findings_points[:12]) if findings_points else "(none yet)"
+    return f"""Write a conference abstract for this health research project.
+
+Project context:
+{project_context}
+
+Findings summary so far:
+{findings_summary or "(none uploaded yet)"}
+
+Key finding points:
+{points_block}
+
+Target length: at least {min_words} words in full_text (introduction + methods + results + conclusion combined).
+
+Return JSON only:
+{{
+  "introduction": "string",
+  "methods": "string",
+  "results": "string",
+  "conclusion": "string",
+  "full_text": "single abstract block with labeled sections or flowing prose",
+  "word_count": 0,
   "limitations": ["string"]
 }}"""
 

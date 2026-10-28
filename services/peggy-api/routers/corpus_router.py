@@ -48,8 +48,11 @@ async def get_corpus_item_text(paper_id: int, user: AuthUser = Depends(get_curre
     if not paper:
         raise HTTPException(404, "Paper not found")
     source_type = paper.get("source_type") or "literature"
-    text = qdrant_store.get_document_text(
-        paper.get("title") or "", source_type=source_type, user_id=user.id
+    text = qdrant_store.get_paper_text(
+        paper_id=paper_id,
+        source_type=source_type,
+        user_id=user.id,
+        title=paper.get("title") or "",
     )
     return {"paper_id": paper_id, "title": paper.get("title"), "text": text}
 

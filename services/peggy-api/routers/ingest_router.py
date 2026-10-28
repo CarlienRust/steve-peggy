@@ -9,6 +9,7 @@ import config
 logger = logging.getLogger(__name__)
 from core.auth.deps import AuthUser, get_current_user
 from core.ingest.discovery import discover_literature, discover_suggestions
+from core.ingest.citation_pmids import pmids_from_citations
 from core.ingest.jobs import DuplicateDocumentError, ingest_findings_json, ingest_upload_bytes, run_ingest_job
 from core.limits import (
     cap_discover_results,
@@ -45,6 +46,12 @@ class FindingsIngestRequest(BaseModel):
     workspace_id: Optional[str] = None
 
 
+class CitationIngestRequest(BaseModel):
+    workspace_id: str
+    sources: list[dict] = Field(default_factory=list)
+    fallback_topic: Optional[str] = Field(default=None, max_length=512)
+
+
 @router.post("/pubmed")
 async def ingest_pubmed(
     body: PubMedIngestRequest,
@@ -66,6 +73,50 @@ async def ingest_pubmed(
     job_id = await catalog.create_job(user.id, payload)
     background_tasks.add_task(run_ingest_job, job_id, payload)
     return {"job_id": job_id, "status": "queued"}
+
+
+@router.post("/citations")
+async def ingest_from_citations(
+    body: CitationIngestRequest,
+    background_tasks: BackgroundTasks,
+    user: AuthUser = Depends(get_current_user),
+):
+    """Queue PubMed ingest for PMIDs extracted from gap-analysis (or other) source citations."""
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    pmids = pmids_from_citations(body.sources)
+    if not pmids and body.fallback_topic:
+        from core.ingest.discovery import discover_literature
+
+        disc = await discover_literature(
+            topic=body.fallback_topic.strip(),
+            max_results=15,
+            user_id=user.id,
+            workspace_aim=ws.get("aim"),
+        )
+        for c in disc.get("candidates") or []:
+            if c.get("pmid"):
+                pmids.append(str(c["pmid"]))
+        pmids = list(dict.fromkeys(pmids))
+    if not pmids:
+        raise HTTPException(
+            400,
+            "No PubMed IDs in these sources. Run an abstract-based gap scan or use Discover on the literature page.",
+        )
+    enforce_ingest_batch(pmids, [])
+    await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
+    await enforce_paper_quota(user.id)
+    payload = {
+        "pmids": pmids,
+        "dois": [],
+        "source_type": "literature",
+        "workspace_id": body.workspace_id,
+        "user_id": user.id,
+    }
+    job_id = await catalog.create_job(user.id, payload)
+    background_tasks.add_task(run_ingest_job, job_id, payload)
+    return {"job_id": job_id, "status": "queued", "pmid_count": len(pmids)}
 
 
 @router.get("/jobs/{job_id}")

@@ -11,6 +11,7 @@ const WORKSPACE_ROUTES = [
   "/study-design",
   "/analysis-tool",
   "/results",
+  "/outputs",
   "/gaps",
   "/findings",
   "/compare",

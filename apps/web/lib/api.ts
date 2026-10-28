@@ -100,6 +100,7 @@ export type ResearcherProfile = {
   research_focus: string;
   research_type: string;
   display_name: string;
+  orcid?: string;
 };
 
 export type Workspace = {
@@ -540,6 +541,35 @@ export const peggyApi = {
   gapAnalysisRun: (runId: string) =>
     apiFetch<GapAnalysisRunDetail>(`/workflows/gap-analysis/${encodeURIComponent(runId)}`),
 
+  deleteGapAnalysisRun: (runId: string) =>
+    apiFetch<{ deleted: boolean }>(`/workflows/gap-analysis/${encodeURIComponent(runId)}`, { method: "DELETE" }),
+
+  clearGapAnalysisHistory: (workspaceId: string) =>
+    apiFetch<{ deleted: number }>(
+      `/workflows/gap-analysis/history?workspace_id=${encodeURIComponent(workspaceId)}`,
+      { method: "DELETE" }
+    ),
+
+  ingestFromCitations: (body: {
+    workspaceId: string;
+    sources: SourceCitation[];
+    fallbackTopic?: string;
+  }) =>
+    apiFetch<{ job_id: string; status: string; pmid_count?: number }>("/ingest/citations", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: body.workspaceId,
+        sources: body.sources,
+        fallback_topic: body.fallbackTopic ?? null,
+      }),
+    }),
+
+  conferenceAbstract: (workspaceId: string, minWords: number) =>
+    apiFetch<WorkflowResponse>("/workflows/conference-abstract", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId, min_words: minWords }),
+    }),
+
   validateAim: (workspaceId: string) =>
     apiFetch<WorkflowResponse>("/workflows/validate-aim", {
       method: "POST",
@@ -684,6 +714,7 @@ export const peggyApi = {
     email: string;
     research_focus: string;
     research_type: string;
+    orcid?: string;
   }) => apiFetch<ResearcherProfile>("/profile", { method: "PUT", body: JSON.stringify(body) }),
 
   listWorkspaces: () =>
