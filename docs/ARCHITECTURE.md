@@ -164,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 04 · Comparison | Finding vs ingested literature (not other findings sets) |
-| `/outputs` | 05 · Outputs | Conference abstract draft (min words); links to findings and design tools |
+| `/outputs` | 05 · Outputs | Tabs: Figures (external tools), Tables (manual + HTML import), Abstract (saved versions in `study_design.outputs`) |
 | `/chat` | 06 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
 | `/login` | — | Supabase email magic link |
 

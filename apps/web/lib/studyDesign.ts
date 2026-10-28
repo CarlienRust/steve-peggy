@@ -114,6 +114,31 @@ export type StudyDesignProposal = {
   userNotes?: string;
 };
 
+export type OutputTableDraft = {
+  id: string;
+  title: string;
+  headers: string[];
+  rows: string[][];
+  footnotes?: string;
+  sourcePaperId?: number;
+  sourceLabel?: string;
+  createdAt: string;
+};
+
+export type AbstractDraft = {
+  id: string;
+  label: string;
+  createdAt: string;
+  minWords: number;
+  body: Record<string, unknown>;
+};
+
+export type StudyDesignOutputs = {
+  abstractDrafts?: AbstractDraft[];
+  activeAbstractId?: string;
+  tables?: OutputTableDraft[];
+};
+
 export type ProjectTask = {
   id: string;
   text: string;
@@ -129,6 +154,7 @@ export type StudyDesignData = {
   methodsPlan?: StudyDesignPlan;
   analysisPlan?: StudyDesignPlan;
   proposal?: StudyDesignProposal;
+  outputs?: StudyDesignOutputs;
   objectiveLinks?: StudyDesignObjectiveLinks;
   projectTasks?: ProjectTask[];
 };
@@ -141,6 +167,7 @@ export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   methodsPlan: {},
   analysisPlan: {},
   proposal: {},
+  outputs: {},
   objectiveLinks: { findingLinks: [] },
   projectTasks: [],
 };

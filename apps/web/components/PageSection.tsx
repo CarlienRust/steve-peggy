@@ -13,7 +13,7 @@ export function PageSection({ noPadding, children, sx, ...rest }: PageSectionPro
       sx={{
         ...panelSx,
         ...(noPadding ? { p: 0 } : {}),
-        maxWidth: layoutTokens.contentMaxWidth,
+        maxWidth: "100%",
         ...sx,
       }}
       {...rest}

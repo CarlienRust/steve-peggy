@@ -94,6 +94,12 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Outputs:** conference abstract generator with min words
 - **Proposal / abstract preview:** `normalizeWorkflowBody` unwraps `raw` and string JSON so sections render
 
+## Batch 10 (lines 97–102) — done locally
+
+- **Abstract iterations:** saved versions in `study_design.outputs.abstractDrafts`; generate adds a new version
+- **Outputs tabs:** Figures | Tables | Abstract
+- **Tables:** manual editor + import from HTML in findings uploads
+- **Layout:** project main column `maxWidth: 1200` in AppShell; section panels use full column width
 
 FUTURE:
 
@@ -103,25 +109,6 @@ FUTURE:
 - Comparison vs **live internet** (not in corpus yet)
 - 503 login / workspace 500 errors (runtime)
 
-ERRORS (may be fixed for validate-aim / analysis-plan; retest):
-[Error] Failed to load resource: the server responded with a status of 503 (Service Unavailable) (login, line 0)
-[Error] Failed to load resource: the server responded with a status of 400 (Bad Request) (validate-aim, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (74807fba-9f11-4f90-9dfa-89fb7b70a3ba, line 0)
-[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
-[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
-[Error] Failed to load resource: the server responded with a status of 413 (Request Entity Too Large) (analysis-plan, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
-
 Security: Want to transition back to using quandrant and render api. Info used in Peggy shouldn't compromise user data or research data. All documentation should be safely behind the auth wall.
 
 Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
-
-
-
-
