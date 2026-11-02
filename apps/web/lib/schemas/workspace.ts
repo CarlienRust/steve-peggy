@@ -9,6 +9,7 @@ export const workspaceFormSchema = z.object({
       id: z.string(),
       text: z.string(),
       status: z.enum(["draft", "defined", "revised", "dropped", "open", "done"]),
+      aimId: z.string().optional(),
     })
   ),
 });

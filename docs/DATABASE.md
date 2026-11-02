@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `017_profile_orcid.sql`. `017` adds optional `researcher_profiles.orcid`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `018_workspace_aims.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -42,7 +42,9 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 
 `008_findings_summary.sql` creates **one row per account** in `findings_summaries`. Uploading findings rebuilds `summary`, `points`, and `source_count`.
 
-`009_objective_links.sql` adds `objective_links JSONB` on `study_design` (default `{"findingLinks":[]}`). Workspace `objectives` JSON changes from `string[]` to `{ id, text, status }[]` at read time (no SQL migration on `workspaces`; backward-compatible normalize on catalog read/write).
+`009_objective_links.sql` adds `objective_links JSONB` on `study_design` (default `{"findingLinks":[]}`). Workspace `objectives` JSON is `{ id, text, status, aimId? }[]` at read time. `018_workspace_aims.sql` adds `workspaces.aims` JSONB (`{ id, text, role }[]`). `workspaces.aim` remains the overall-aim text mirror. Settings still mirror `aims` for older rows.
+
+Analysis plan JSON may include `covariateEntries[]` (`description`, `scope` project|aim|objective, `scopeId`) and optional `adhocAnalyses[]` (sensitivity/ad hoc tests). Methods and analysis plans may set `draftStatus` to `completed` when the researcher is happy with the draft. Plan step `objectiveIds` may include `project`, legacy `aim`, aim UUIDs, and objective UUIDs.
 
 `010_papers_workspace.sql` adds `workspace_id` FK on `papers`. Ingest and `/corpus` list filter by `workspace_id` when the active project is set.
 

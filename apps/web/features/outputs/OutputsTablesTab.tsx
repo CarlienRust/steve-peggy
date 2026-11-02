@@ -129,6 +129,16 @@ export function OutputsTablesTab() {
         </Button>
         <Button
           variant="outlined"
+          sx={{ textTransform: "none" }}
+          onClick={() => {
+            setEditing(null);
+            setEditorOpen(true);
+          }}
+        >
+          Paste new table
+        </Button>
+        <Button
+          variant="outlined"
           disabled={importHtml.isPending || !findings.data?.papers?.length}
           sx={{ textTransform: "none" }}
           onClick={() => importHtml.mutate()}
@@ -147,7 +157,7 @@ export function OutputsTablesTab() {
       {tables.length === 0 ? (
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Typography variant="body2" color="text.secondary">
-            No tables yet. Create one manually or import from HTML findings uploads.
+            No tables yet. Create one manually, paste a table, or import from HTML findings uploads.
           </Typography>
         </Paper>
       ) : (

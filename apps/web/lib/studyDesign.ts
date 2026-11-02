@@ -1,4 +1,4 @@
-import { AIM_LINK_ID, normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
+import { AIM_LINK_ID, PROJECT_LINK_ID, normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 
 export type StudyDesignSamples = {
   studyType?: string;
@@ -83,6 +83,21 @@ export type PlanStep = {
   objectiveChangedObjectiveIds?: string[];
 };
 
+export type CovariateEntry = {
+  id: string;
+  description: string;
+  scope: "project" | "aim" | "objective";
+  scopeId?: string;
+};
+
+export type AdhocAnalysis = {
+  id: string;
+  title: string;
+  target: string;
+  notes?: string;
+  linkIds?: string[];
+};
+
 export type StudyDesignPlan = {
   mode?: "review" | "suggest";
   userPlan?: string;
@@ -91,11 +106,15 @@ export type StudyDesignPlan = {
   preferredTools?: string;
   outcomeTypes?: string;
   covariates?: string;
+  covariateEntries?: CovariateEntry[];
+  adhocAnalyses?: AdhocAnalysis[];
   analysisMethod?: string;
   lastResult?: Record<string, unknown>;
   /** Researcher notes; saved with section Save bar, not auto-saved on LLM run */
   userNotes?: string;
   steps?: PlanStep[];
+  /** User marked the current draft as good enough for now */
+  draftStatus?: "draft" | "completed";
 };
 
 export type FindingLink = {
@@ -210,9 +229,10 @@ export function addProjectTask(tasks: ProjectTask[] | undefined, text: string): 
 export function countOrphanObjectiveLinks(
   studyDesign: StudyDesignData,
   objectives: WorkspaceObjective[] | unknown,
-  aim?: string
+  aim?: string,
+  aims?: { id: string }[]
 ): number {
-  const valid = validLinkIds(normalizeObjectives(objectives), aim);
+  const valid = validLinkIds(normalizeObjectives(objectives), aim, aims);
   let orphan = 0;
   const countInvalid = (ids: string[]) => {
     for (const id of ids) {
@@ -268,10 +288,15 @@ function remapObjectiveIds(
 
 export function validLinkIds(
   objectives: { id: string }[],
-  aim?: string
+  aim?: string,
+  aims?: { id: string }[]
 ): Set<string> {
   const ids = new Set(objectives.map((o) => o.id));
+  ids.add(PROJECT_LINK_ID);
   if (aim?.trim()) ids.add(AIM_LINK_ID);
+  for (const a of aims ?? []) {
+    if (a.id) ids.add(a.id);
+  }
   return ids;
 }
 
@@ -288,6 +313,27 @@ export function reconcileObjectiveLinks(
     plan.steps = plan.steps.map((step) => ({
       ...step,
       objectiveIds: remapObjectiveIds(step.objectiveIds ?? [], validIds, reassignMap),
+    }));
+    if (plan.adhocAnalyses) {
+      plan.adhocAnalyses = plan.adhocAnalyses.map((item) => ({
+        ...item,
+        linkIds: remapObjectiveIds(item.linkIds ?? [], validIds, reassignMap),
+      }));
+    }
+    if (plan.covariateEntries) {
+      plan.covariateEntries = plan.covariateEntries.map((item) => {
+        const scopeId = item.scopeId;
+        if (!scopeId || validIds.has(scopeId)) return item;
+        const mapped = reassignMap[scopeId];
+        if (mapped && validIds.has(mapped)) return { ...item, scopeId: mapped };
+        return { ...item, scope: "project" as const, scopeId: undefined };
+      });
+    }
+  }
+  if (design.budget?.lineItems) {
+    design.budget.lineItems = design.budget.lineItems.map((item) => ({
+      ...item,
+      objectiveIds: remapObjectiveIds(item.objectiveIds ?? [], validIds, reassignMap),
     }));
   }
   const links = design.objectiveLinks?.findingLinks ?? [];

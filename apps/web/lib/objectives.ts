@@ -1,4 +1,5 @@
 export const AIM_LINK_ID = "aim";
+export const PROJECT_LINK_ID = "project";
 
 export type ObjectiveTask = {
   id: string;
@@ -13,14 +14,16 @@ export type WorkspaceObjective = {
   text: string;
   status: ObjectiveStatus;
   tasks?: ObjectiveTask[];
+  aimId?: string;
 };
 
-export function newObjective(text: string): WorkspaceObjective {
+export function newObjective(text: string, aimId?: string): WorkspaceObjective {
   return {
     id: crypto.randomUUID(),
     text: text.trim(),
     status: "draft",
     tasks: [],
+    aimId,
   };
 }
 
@@ -69,7 +72,8 @@ export function normalizeObjectives(raw: unknown): WorkspaceObjective[] {
               ? (rawStatus as ObjectiveStatus)
               : "draft";
       const tasks = normalizeTasks((item as WorkspaceObjective).tasks);
-      out.push({ id, text, status, tasks });
+      const aimId = String((item as WorkspaceObjective).aimId ?? "").trim() || undefined;
+      out.push({ id, text, status, tasks, aimId });
     }
   }
   return out;
@@ -79,10 +83,38 @@ export function objectiveTexts(objectives: WorkspaceObjective[] | string[] | und
   return normalizeObjectives(objectives).map((o) => o.text);
 }
 
-export function linkTargetOptions(aim: string | undefined, objectives: WorkspaceObjective[]) {
-  const options: { id: string; label: string }[] = [];
-  if (aim?.trim()) {
-    options.push({ id: AIM_LINK_ID, label: "Aim" });
+export function attachObjectiveAimIds(
+  objectives: WorkspaceObjective[],
+  aims: { id: string; role?: string }[]
+): WorkspaceObjective[] {
+  const valid = new Set(aims.map((a) => a.id));
+  const overall = aims.find((a) => a.role === "overall") ?? aims[0];
+  const defaultId = overall?.id;
+  return normalizeObjectives(objectives).map((o) => ({
+    ...o,
+    aimId: o.aimId && valid.has(o.aimId) ? o.aimId : defaultId,
+  }));
+}
+
+export function linkTargetOptions(
+  aim: string | undefined,
+  objectives: WorkspaceObjective[],
+  aims?: { id: string; text: string; role?: string }[]
+) {
+  const options: { id: string; label: string }[] = [{ id: PROJECT_LINK_ID, label: "Entire project" }];
+  const list = aims ?? [];
+  if (list.length) {
+    const specifics = list.filter((a) => a.role === "specific");
+    for (const a of list) {
+      if (a.role === "overall") {
+        options.push({ id: a.id, label: "Overall aim" });
+      } else {
+        const idx = specifics.findIndex((s) => s.id === a.id);
+        options.push({ id: a.id, label: idx >= 0 ? `Aim ${idx + 1}` : "Aim" });
+      }
+    }
+  } else if (aim?.trim()) {
+    options.push({ id: AIM_LINK_ID, label: "Overall aim" });
   }
   objectives.forEach((obj, index) => {
     options.push({ id: obj.id, label: `Objective ${index + 1}` });
@@ -117,8 +149,21 @@ export function addObjectiveTask(
   );
 }
 
-export function linkTargetLabel(id: string, aim: string | undefined, objectives: WorkspaceObjective[]): string {
-  if (id === AIM_LINK_ID) return "Aim";
+export function linkTargetLabel(
+  id: string,
+  _aim: string | undefined,
+  objectives: WorkspaceObjective[],
+  aims?: { id: string; role?: string }[]
+): string {
+  if (id === PROJECT_LINK_ID) return "Entire project";
+  if (id === AIM_LINK_ID) return "Overall aim";
+  const list = aims ?? [];
+  const aimMatch = list.find((a) => a.id === id);
+  if (aimMatch) {
+    if (aimMatch.role === "overall") return "Overall aim";
+    const idx = list.filter((a) => a.role === "specific").findIndex((a) => a.id === id);
+    return idx >= 0 ? `Aim ${idx + 1}` : "Aim";
+  }
   const obj = objectives.find((o) => o.id === id);
   if (!obj) return id;
   const index = objectives.indexOf(obj);

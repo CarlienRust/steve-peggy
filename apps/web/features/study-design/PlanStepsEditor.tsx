@@ -5,9 +5,10 @@ import { Box, Button, IconButton, Stack, TextField, Typography } from "@mui/mate
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { ObjectiveLinkSelect } from "@/components/ObjectiveLinkSelect";
 import { StatusChip } from "@/components/StatusChip";
-import { AIM_LINK_ID, linkTargetOptions, type WorkspaceObjective } from "@/lib/objectives";
+import { AIM_LINK_ID, PROJECT_LINK_ID, linkTargetLabel, linkTargetOptions, type WorkspaceObjective } from "@/lib/objectives";
+import type { WorkspaceAim } from "@/lib/aims";
 import type { PlanStep } from "@/lib/studyDesign";
-import { peggyColors } from "@/theme/peggyTheme";
+import { peggyColors, textWrapSx } from "@/theme/peggyTheme";
 
 function newStep(): PlanStep {
   return { id: crypto.randomUUID(), title: "", objectiveIds: [] };
@@ -17,18 +18,21 @@ type PlanStepsEditorProps = {
   steps: PlanStep[];
   aim?: string;
   objectives: WorkspaceObjective[];
+  aims?: WorkspaceAim[];
   onChange: (steps: PlanStep[]) => void;
   disabled?: boolean;
 };
 
-function chipLabel(id: string, objectives: WorkspaceObjective[]) {
-  if (id === AIM_LINK_ID) return "Aim";
-  const idx = objectives.findIndex((o) => o.id === id);
-  return idx >= 0 ? `O${idx + 1}` : "Linked";
+function chipLabel(id: string, aim: string | undefined, objectives: WorkspaceObjective[], aims?: WorkspaceAim[]) {
+  if (id === PROJECT_LINK_ID) return "Project";
+  const label = linkTargetLabel(id, aim, objectives, aims);
+  if (label.startsWith("Objective ")) return `O${label.slice("Objective ".length)}`;
+  if (label === "Overall aim") return "Overall";
+  return label;
 }
 
-export function PlanStepsEditor({ steps, aim, objectives, onChange, disabled }: PlanStepsEditorProps) {
-  const options = linkTargetOptions(aim, objectives);
+export function PlanStepsEditor({ steps, aim, objectives, aims, onChange, disabled }: PlanStepsEditorProps) {
+  const options = linkTargetOptions(aim, objectives, aims);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const updateAt = (index: number, patch: Partial<PlanStep>) => {
@@ -54,7 +58,7 @@ export function PlanStepsEditor({ steps, aim, objectives, onChange, disabled }: 
         const links = step.objectiveIds ?? [];
         return (
           <Box key={step.id} sx={{ borderBottom: `0.5px solid ${peggyColors.border}` }}>
-            <Stack direction="row" spacing={2} alignItems="center" sx={{ minHeight: 52, py: 1, px: 1 }}>
+            <Stack direction="row" spacing={2} alignItems="center" sx={{ minHeight: 52, py: 1, px: 1, minWidth: 0, flexWrap: "wrap" }}>
               <Typography sx={{ fontFamily: "var(--font-jetbrains), ui-monospace, monospace", fontSize: 11, color: peggyColors.accent, width: 24, flexShrink: 0 }}>
                 {index + 1}
               </Typography>
@@ -68,16 +72,20 @@ export function PlanStepsEditor({ steps, aim, objectives, onChange, disabled }: 
                   disabled={disabled}
                 />
               ) : (
-                <Typography fontWeight={500} sx={{ flex: 1, minWidth: 0 }}>
+                <Typography fontWeight={500} sx={{ flex: 1, ...textWrapSx }}>
                   {step.title.trim() || "Untitled step"}
                 </Typography>
               )}
-              <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ width: 230, flexShrink: 0, flexWrap: "wrap" }}>
+              <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                 {links.length === 0 ? (
                   <StatusChip tone="neutral" label="Not linked" />
                 ) : (
                   links.map((id) => (
-                    <StatusChip key={id} tone={id === AIM_LINK_ID ? "neutral" : "accent"} label={chipLabel(id, objectives)} />
+                    <StatusChip
+                      key={id}
+                      tone={id === AIM_LINK_ID || id === PROJECT_LINK_ID ? "neutral" : "accent"}
+                      label={chipLabel(id, aim, objectives, aims)}
+                    />
                   ))
                 )}
                 {changed ? (

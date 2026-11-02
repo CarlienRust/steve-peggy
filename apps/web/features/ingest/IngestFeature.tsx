@@ -26,6 +26,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import { ObjectiveLinkSelect } from "@/components/ObjectiveLinkSelect";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { normalizeAims } from "@/lib/aims";
 import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { upsertFindingLink } from "@/lib/studyDesign";
@@ -81,7 +82,11 @@ export function IngestForm({
   const { studyDesign, commitSection } = useStudyDesign(activeWorkspace?.id);
   const linkOptions =
     variant === "findings"
-      ? linkTargetOptions(activeWorkspace?.aim, normalizeObjectives(activeWorkspace?.objectives))
+      ? linkTargetOptions(
+          activeWorkspace?.aim,
+          normalizeObjectives(activeWorkspace?.objectives),
+          activeWorkspace ? normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`) : undefined
+        )
       : [];
 
   const limitsQuery = useQuery({

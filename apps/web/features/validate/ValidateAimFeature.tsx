@@ -12,21 +12,22 @@ import {
   IconButton,
   Paper,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { AimListEditor } from "@/components/AimListEditor";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
+import { aimsEqual, normalizeAims, overallAim, overallAimText, persistableAims, type WorkspaceAim } from "@/lib/aims";
 import type { WorkspaceObjective } from "@/lib/objectives";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { newObjective, normalizeObjectives } from "@/lib/objectives";
+import { attachObjectiveAimIds, newObjective, normalizeObjectives } from "@/lib/objectives";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { StatusChip } from "@/components/StatusChip";
-import { monoSx, peggyColors } from "@/theme/peggyTheme";
+import { monoSx, peggyColors, textWrapSx } from "@/theme/peggyTheme";
 
 type CriterionStatus = "Met" | "Needs work" | "Check" | "Provisional";
 
@@ -111,16 +112,17 @@ export function ValidateAimFeature() {
   const [showEarlier, setShowEarlier] = useState(false);
   const [dismissSuggestion, setDismissSuggestion] = useState(false);
   const [mode, setMode] = useState<"review" | "help">("review");
-  const [draftAim, setDraftAim] = useState("");
+  const [draftAims, setDraftAims] = useState<WorkspaceAim[]>([]);
   const [draftObjectives, setDraftObjectives] = useState<WorkspaceObjective[]>([]);
   const [editingAim, setEditingAim] = useState(false);
   const [editingObjectives, setEditingObjectives] = useState(false);
 
   useEffect(() => {
     if (!activeWorkspace) return;
-    setDraftAim(activeWorkspace.aim ?? "");
-    setDraftObjectives(normalizeObjectives(activeWorkspace.objectives));
-  }, [activeWorkspace?.id, activeWorkspace?.aim, activeWorkspace?.objectives]);
+    const aims = normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`);
+    setDraftAims(aims);
+    setDraftObjectives(attachObjectiveAimIds(normalizeObjectives(activeWorkspace.objectives), aims));
+  }, [activeWorkspace?.id, activeWorkspace?.aim, activeWorkspace?.aims, activeWorkspace?.objectives]);
 
   useEffect(() => {
     if (searchParams.get("editObjectives") !== "1") return;
@@ -155,11 +157,14 @@ export function ValidateAimFeature() {
     enabled: !!activeWorkspace?.id,
   });
 
-  const aim = draftAim.trim();
+  const aim = overallAimText(draftAims);
   const objectives = draftObjectives.filter((o) => o.text.trim());
-  const savedAim = (activeWorkspace?.aim ?? "").trim();
+  const savedAims = activeWorkspace
+    ? normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`)
+    : [];
+  const savedAim = overallAimText(savedAims, activeWorkspace?.aim ?? "");
   const savedObjectives = normalizeObjectives(activeWorkspace?.objectives).filter((o) => o.text.trim());
-  const aimDirty = !!activeWorkspace && draftAim.trim() !== savedAim;
+  const aimDirty = !!activeWorkspace && !aimsEqual(draftAims, savedAims);
   const objectivesDirty =
     !!activeWorkspace && !objectivesPayloadEqual(draftObjectives, activeWorkspace.objectives ?? []);
   const workspaceDirty = aimDirty || objectivesDirty;
@@ -175,7 +180,18 @@ export function ValidateAimFeature() {
   const saveAim = useMutation({
     mutationFn: async () => {
       if (!activeWorkspace) throw new Error("No project selected");
-      return peggyApi.updateWorkspace(activeWorkspace.id, { aim: draftAim.trim() });
+      const aims = persistableAims(draftAims);
+      const overall = overallAim(aims);
+      if (!overall?.text.trim()) throw new Error("Overall aim is required");
+      const overallId = overall.id;
+      const objectivesToKeep = attachObjectiveAimIds(draftObjectives, aims).map((o) =>
+        o.aimId && aims.some((a) => a.id === o.aimId) ? o : { ...o, aimId: overallId }
+      );
+      return peggyApi.updateWorkspace(activeWorkspace.id, {
+        aims,
+        aim: overall.text.trim(),
+        objectives: normalizeObjectives(objectivesToKeep).filter((o) => o.text.trim()),
+      });
     },
     onSuccess: async () => {
       await invalidateWorkspace();
@@ -186,7 +202,11 @@ export function ValidateAimFeature() {
   const saveObjectives = useMutation({
     mutationFn: async () => {
       if (!activeWorkspace) throw new Error("No project selected");
-      const objectivesToSave = normalizeObjectives(draftObjectives).filter((o) => o.text.trim());
+      const aims = normalizeAims(draftAims, activeWorkspace.aim, `${activeWorkspace.id}:overall`);
+      const objectivesToSave = attachObjectiveAimIds(
+        normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
+        aims
+      );
       return peggyApi.updateWorkspace(activeWorkspace.id, { objectives: objectivesToSave });
     },
     onSuccess: async () => {
@@ -270,7 +290,10 @@ export function ValidateAimFeature() {
     mutationFn: async () => {
       if (!activeWorkspace) throw new Error("No project selected");
       const nextAim = suggestedAim || activeWorkspace.aim || "";
-      const existing = normalizeObjectives(activeWorkspace.objectives);
+      const aims = normalizeAims(activeWorkspace.aims, nextAim, `${activeWorkspace.id}:overall`).map((a) =>
+        a.role === "overall" ? { ...a, text: nextAim } : a
+      );
+      const existing = attachObjectiveAimIds(normalizeObjectives(activeWorkspace.objectives), aims);
       const nextObjectives = existing.map((o, idx) => {
         const suggested = suggestedObjectives[idx];
         if (!suggested) return o;
@@ -278,10 +301,11 @@ export function ValidateAimFeature() {
         return { ...o, text: suggested, status: changed ? "revised" : o.status };
       });
       for (let i = existing.length; i < suggestedObjectives.length; i++) {
-        nextObjectives.push({ id: crypto.randomUUID(), text: suggestedObjectives[i], status: "draft" });
+        nextObjectives.push({ id: crypto.randomUUID(), text: suggestedObjectives[i], status: "draft", aimId: overallAim(aims)?.id });
       }
       return peggyApi.updateWorkspace(activeWorkspace.id, {
         aim: nextAim,
+        aims,
         objectives: nextObjectives,
         objective_history_reason: "Applied validate-aim suggestion",
         objective_history_actor: "peggy",
@@ -332,16 +356,18 @@ export function ValidateAimFeature() {
         <Alert severity="info">Ask Peggy in chat to draft or refine your aim. Return here to check against literature.</Alert>
       ) : null}
 
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, overflow: "hidden" }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>AIM</Typography>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>AIMS</Typography>
           {!editingAim ? (
-            <Tooltip title="Edit aim text">
+            <Tooltip title="Edit aims">
               <IconButton
                 size="small"
-                aria-label="Edit aim"
+                aria-label="Edit aims"
                 onClick={() => {
-                  setDraftAim(activeWorkspace?.aim ?? "");
+                  if (activeWorkspace) {
+                    setDraftAims(normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`));
+                  }
                   setEditingAim(true);
                 }}
               >
@@ -350,29 +376,31 @@ export function ValidateAimFeature() {
             </Tooltip>
           ) : null}
         </Stack>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...textWrapSx }}>
+          Overall aim for the project. Add more aims if needed.
+        </Typography>
         {editingAim ? (
           <>
-            <TextField
-              value={draftAim}
-              onChange={(e) => setDraftAim(e.target.value)}
-              fullWidth
-              multiline
-              minRows={3}
-              placeholder="Overall aim of this research project"
+            <AimListEditor
+              value={draftAims}
+              onChange={setDraftAims}
+              linkedObjectiveCount={(aimId) => draftObjectives.filter((o) => o.aimId === aimId).length}
             />
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }} flexWrap="wrap" useFlexGap>
               <Button
                 variant="contained"
-                disabled={!activeWorkspace || !aimDirty || saveAim.isPending}
+                disabled={!activeWorkspace || !aimDirty || saveAim.isPending || !overallAimText(draftAims)}
                 onClick={() => saveAim.mutate()}
                 sx={{ textTransform: "none" }}
               >
-                {saveAim.isPending ? "Saving…" : "Save aim"}
+                {saveAim.isPending ? "Saving…" : "Save aims"}
               </Button>
               <Button
                 variant="text"
                 onClick={() => {
-                  setDraftAim(activeWorkspace?.aim ?? "");
+                  if (activeWorkspace) {
+                    setDraftAims(normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`));
+                  }
                   setEditingAim(false);
                 }}
                 sx={{ textTransform: "none" }}
@@ -380,16 +408,33 @@ export function ValidateAimFeature() {
                 Cancel
               </Button>
               {saveAim.isError ? (
-                <Typography variant="caption" color="error">
+                <Typography variant="caption" color="error" sx={textWrapSx}>
                   {formatApiError(saveAim.error)}
                 </Typography>
               ) : null}
             </Stack>
           </>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
-            {savedAim || "Not set yet. Use edit to add your aim."}
-          </Typography>
+          <Stack spacing={1.5}>
+            {savedAims.filter((a) => a.text.trim()).length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={textWrapSx}>
+                Not set yet. Use edit to add an overall aim (required) and optional specific aims.
+              </Typography>
+            ) : (
+              savedAims
+                .filter((a) => a.text.trim())
+                .map((a) => (
+                  <Box key={a.id} sx={{ minWidth: 0 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {a.role === "overall" ? "Overall aim" : `Aim ${savedAims.filter((x) => x.role === "specific").indexOf(a) + 1}`}
+                    </Typography>
+                    <Typography variant="body2" sx={{ ...textWrapSx, lineHeight: 1.7, whiteSpace: "pre-wrap" }}>
+                      {a.text}
+                    </Typography>
+                  </Box>
+                ))
+            )}
+          </Stack>
         )}
       </Paper>
 
@@ -423,7 +468,12 @@ export function ValidateAimFeature() {
         </Typography>
 
         {editingObjectives ? (
-          <ObjectiveListEditor value={draftObjectives} onChange={setDraftObjectives} studyDesign={studyDesign} />
+          <ObjectiveListEditor
+            value={draftObjectives}
+            onChange={setDraftObjectives}
+            studyDesign={studyDesign}
+            aims={draftAims}
+          />
         ) : savedObjectives.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No objectives saved yet. Use edit to add objectives.
@@ -436,7 +486,7 @@ export function ValidateAimFeature() {
                   {index + 1}.
                 </Typography>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+                  <Typography variant="body2" sx={{ ...textWrapSx, lineHeight: 1.6 }}>
                     {obj.text}
                   </Typography>
                   <StatusChip
@@ -538,7 +588,7 @@ export function ValidateAimFeature() {
             <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary", mb: 1 }}>
               PEGGY&apos;S CHECK
             </Typography>
-            <Typography fontWeight={600} sx={{ mb: 1.5, lineHeight: 1.5 }}>
+            <Typography fontWeight={600} sx={{ mb: 1.5, lineHeight: 1.5, ...textWrapSx }}>
               {typeof body.summary === "string" && body.summary
                 ? body.summary
                 : "Your aim is clear. One objective needs work."}
@@ -576,7 +626,7 @@ export function ValidateAimFeature() {
                         label={row.status}
                       />
                     </Stack>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.6 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, lineHeight: 1.6, ...textWrapSx }}>
                       {row.detail}
                     </Typography>
                   </Box>
@@ -600,7 +650,7 @@ export function ValidateAimFeature() {
               >
                 NOW
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6, ...textWrapSx }}>
                 {objectives[suggestionIndex]?.text ?? "—"}
               </Typography>
               <Box
@@ -618,7 +668,7 @@ export function ValidateAimFeature() {
                 >
                   SUGGESTED
                 </Typography>
-                <Typography variant="body2" sx={{ lineHeight: 1.7 }}>
+                <Typography variant="body2" sx={{ lineHeight: 1.7, ...textWrapSx }}>
                   {suggestedObjectives[suggestionIndex] ?? suggestedAim ?? "—"}
                 </Typography>
               </Box>

@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 AIM_LINK_ID = "aim"
+PROJECT_LINK_ID = "project"
 
 # Objective lifecycle statuses (Figma-aligned)
 OBJECTIVE_STATUSES = ("draft", "defined", "revised", "dropped")
@@ -62,14 +63,34 @@ def normalize_objectives(raw: Any) -> list[dict]:
             entry: dict = {"id": oid, "text": text, "status": status}
             if "tasks" in item:
                 entry["tasks"] = _normalize_tasks(item.get("tasks"))
+            aim_id = str(item.get("aimId") or "").strip()
+            if aim_id:
+                entry["aimId"] = aim_id
             out.append(entry)
     return out
 
 
-def valid_link_ids(objectives: list[dict], aim: str = "") -> set[str]:
+def attach_objective_aim_ids(objectives: list[dict], aims: list[dict]) -> list[dict]:
+    valid = {str(a.get("id")) for a in aims if a.get("id")}
+    overall = next((a for a in aims if a.get("role") == "overall"), aims[0] if aims else None)
+    default_id = str(overall["id"]) if overall and overall.get("id") else ""
+    out: list[dict] = []
+    for obj in objectives:
+        entry = dict(obj)
+        aid = str(entry.get("aimId") or "").strip()
+        entry["aimId"] = aid if aid in valid else default_id
+        out.append(entry)
+    return out
+
+
+def valid_link_ids(objectives: list[dict], aim: str = "", aims: list[dict] | None = None) -> set[str]:
     ids = {str(o["id"]) for o in objectives}
+    ids.add(PROJECT_LINK_ID)
     if (aim or "").strip():
         ids.add(AIM_LINK_ID)
+    for a in aims or []:
+        if a.get("id"):
+            ids.add(str(a["id"]))
     return ids
 
 
@@ -103,7 +124,39 @@ def reconcile_objective_links(
                     valid_ids,
                     reassign_map,
                 )
+        plan_adhoc = plan.get("adhocAnalyses") or []
+        for item in plan_adhoc:
+            if isinstance(item, dict) and "linkIds" in item:
+                item["linkIds"] = _remap_objective_ids(
+                    list(item.get("linkIds") or []),
+                    valid_ids,
+                    reassign_map,
+                )
+        plan_cov = plan.get("covariateEntries") or []
+        for item in plan_cov:
+            if not isinstance(item, dict):
+                continue
+            scope_id = str(item.get("scopeId") or "")
+            if scope_id and scope_id not in valid_ids:
+                mapped = reassign_map.get(scope_id, "")
+                if mapped in valid_ids:
+                    item["scopeId"] = mapped
+                else:
+                    item["scope"] = "project"
+                    item.pop("scopeId", None)
         design[plan_key] = plan
+
+    budget = design.get("budget") or {}
+    line_items = budget.get("lineItems") or []
+    for item in line_items:
+        if isinstance(item, dict) and "objectiveIds" in item:
+            item["objectiveIds"] = _remap_objective_ids(
+                list(item.get("objectiveIds") or []),
+                valid_ids,
+                reassign_map,
+            )
+    budget["lineItems"] = line_items
+    design["budget"] = budget
 
     obj_links = design.get("objectiveLinks") or {}
     finding_links = obj_links.get("findingLinks") or []

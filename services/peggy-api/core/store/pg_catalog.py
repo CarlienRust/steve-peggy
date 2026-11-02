@@ -593,7 +593,9 @@ def _workspace_row(row: asyncpg.Record) -> dict:
         d["study_design"] = normalize_study_design(sd)
     else:
         d["study_design"] = normalize_study_design({})
-    return d
+    from core.aims import hydrate_workspace_aims
+
+    return hydrate_workspace_aims(d)
 
 
 async def list_workspaces(user_id: str) -> list[dict]:
@@ -643,14 +645,15 @@ async def create_workspace(
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """INSERT INTO workspaces (id, user_id, title, aim, objectives, resources, settings, enabled_modules, privacy_mode, last_opened_at)
-               VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9, $10::timestamptz)
+            """INSERT INTO workspaces (id, user_id, title, aim, objectives, aims, resources, settings, enabled_modules, privacy_mode, last_opened_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11::timestamptz)
                RETURNING *""",
             ws_id,
             user_id,
             title,
             aim,
             json.dumps(objectives or []),
+            json.dumps((settings or {}).get("aims") or []),
             json.dumps(resources or {}),
             json.dumps(settings or {}),
             json.dumps(enabled_modules or []),
@@ -669,15 +672,20 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     objectives = fields.get("objectives", existing.get("objectives", []))
     resources = fields.get("resources", existing.get("resources", {}))
     settings = fields.get("settings", existing.get("settings", {}))
+    aims = fields.get("aims")
+    if aims is None:
+        aims = settings.get("aims") if isinstance(settings, dict) else None
+    if aims is None:
+        aims = existing.get("aims") or []
     enabled_modules = fields.get("enabled_modules", existing.get("enabled_modules", []))
     privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
     last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            """UPDATE workspaces SET title = $3, aim = $4, objectives = $5::jsonb,
-               resources = $6::jsonb, settings = $7::jsonb, enabled_modules = $8::jsonb,
-               privacy_mode = $9, last_opened_at = $10::timestamptz, updated_at = NOW()
+            """UPDATE workspaces SET title = $3, aim = $4, objectives = $5::jsonb, aims = $6::jsonb,
+               resources = $7::jsonb, settings = $8::jsonb, enabled_modules = $9::jsonb,
+               privacy_mode = $10, last_opened_at = $11::timestamptz, updated_at = NOW()
                WHERE id = $1::uuid AND user_id = $2::uuid
                RETURNING *""",
             workspace_id,
@@ -685,6 +693,7 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
             title,
             aim,
             json.dumps(objectives),
+            json.dumps(aims),
             json.dumps(resources),
             json.dumps(settings),
             json.dumps(enabled_modules),

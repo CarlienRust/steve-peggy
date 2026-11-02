@@ -320,7 +320,8 @@ Literature context:
 Return JSON only:
 {{
   "strengths": ["string"],
-  "gaps": ["string"],
+  "gaps": ["string with chunk_id where relevant"],
+  "ethics_flags": ["string"],
   "recommendations": ["string"],
   "limitations": ["string"]
 }}"""
@@ -388,12 +389,13 @@ Return JSON only:
 Do not invent results that are not in the documents. If a document is thin, say what it reports and what it does not."""
 
 
-def validate_aim_prompt(aim: str, objectives: list[str], sources: list[dict]) -> str:
+def validate_aim_prompt(aim: str, objectives: list[str], sources: list[dict], aims_block: str = "") -> str:
     obj_block = "\n".join(f"- {o}" for o in objectives) if objectives else "(none listed)"
-    return f"""Project aim:
-{aim or "(not set)"}
+    aims_section = aims_block.strip() or f"Overall aim:\n{aim or '(not set)'}"
+    return f"""Project aims:
+{aims_section}
 
-Objectives:
+Objectives (each may be tied to a specific aim):
 {obj_block}
 
 Retrieved literature:

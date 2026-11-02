@@ -151,16 +151,24 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
     ws = await catalog.get_workspace(user_id, workspace_id)
     if not ws:
         raise ValueError("Workspace not found")
-    aim = (ws.get("aim") or "").strip()
+    from core.aims import normalize_aims, overall_aim_text
     from core.objectives import objective_texts
 
+    aims = ws.get("aims") or normalize_aims(None, legacy_aim=str(ws.get("aim") or ""))
+    aim = overall_aim_text(aims, str(ws.get("aim") or ""))
     objectives = objective_texts(ws.get("objectives"))
     if not aim and not objectives:
-        raise ValueError("Set an aim or at least one objective first")
+        raise ValueError("Set an overall aim or at least one objective first")
+
+    aims_lines = [f"Overall aim: {aim or '(not set)'}"]
+    specifics = [a for a in aims if a.get("role") == "specific" and str(a.get("text") or "").strip()]
+    for i, a in enumerate(specifics, start=1):
+        aims_lines.append(f"Aim {i}: {a.get('text')}")
+    aims_block = "\n".join(aims_lines)
 
     search_query = aim if aim else objectives[0]
-    if objectives:
-        search_query = f"{search_query}\n" + "\n".join(objectives)
+    extra = [str(a.get("text") or "") for a in specifics]
+    search_query = "\n".join([search_query, *extra, *objectives])
 
     sources = qdrant_store.search(
         search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id
@@ -168,7 +176,7 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
-        prompts.validate_aim_prompt(aim, objectives, sources),
+        prompts.validate_aim_prompt(aim, objectives, sources, aims_block=aims_block),
         json_mode=True,
     )
     body = _parse_json(raw)

@@ -1,3 +1,4 @@
+import type { WorkspaceAim } from "@/lib/aims";
 import type { WorkspaceObjective } from "@/lib/objectives";
 
 export type Workspace = {
@@ -5,6 +6,7 @@ export type Workspace = {
   user_id?: string;
   title: string;
   aim: string;
+  aims?: WorkspaceAim[];
   objectives: WorkspaceObjective[];
   resources?: Record<string, unknown>;
   settings?: Record<string, unknown>;

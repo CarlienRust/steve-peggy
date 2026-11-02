@@ -150,13 +150,13 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
-| `/validate/aim` | 02 · Aim and objectives | Read/edit aim and objectives separately (**Save aim** / **Save objectives**), literature check, criteria + suggestion apply |
+| `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
-| `/study-design/methods-plan` | 03 · Methods plan | From-your-project summary, paste/review, steps, similar-studies checklist |
-| `/study-design/analysis-plan` | 03 · Analysis plan | From-your-project summary, objective-linked steps, paste/review, similar-studies checklist |
+| `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
+| `/study-design/analysis-plan` | 03 · Analysis plan | From your project, sensitivity/ad hoc, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
 | `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
@@ -164,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 04 · Comparison | Finding vs ingested literature (not other findings sets) |
-| `/outputs` | 05 · Outputs | Tabs: Figures (external tools), Tables (manual + HTML import), Abstract (saved versions in `study_design.outputs`) |
+| `/outputs` | 05 · Outputs | Tabs: Figures (external tools), Tables (manual, paste TSV/CSV/HTML, HTML import), Abstract (saved versions in `study_design.outputs`) |
 | `/chat` | 06 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
 | `/login` | — | Supabase email magic link |
 

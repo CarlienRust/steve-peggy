@@ -23,6 +23,7 @@ import { CorpusTable } from "@/features/ingest/CorpusTable";
 import { FindingsSummary } from "@/features/findings/FindingsSummary";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
+import { normalizeAims } from "@/lib/aims";
 import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { useStudyDesign } from "@/lib/useStudyDesign";
@@ -61,8 +62,13 @@ export function FindingsPage() {
 
   const objectives = useMemo(() => normalizeObjectives(activeWorkspace?.objectives), [activeWorkspace?.objectives]);
   const linkOptions = useMemo(
-    () => linkTargetOptions(activeWorkspace?.aim, objectives),
-    [activeWorkspace?.aim, objectives]
+    () =>
+      linkTargetOptions(
+        activeWorkspace?.aim,
+        objectives,
+        activeWorkspace ? normalizeAims(activeWorkspace.aims, activeWorkspace.aim, `${activeWorkspace.id}:overall`) : undefined
+      ),
+    [activeWorkspace, objectives]
   );
 
   const findings = useQuery({

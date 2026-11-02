@@ -174,6 +174,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_findings_summaries_by_workspace(db)
         await _migrate_extractions(db)
         await _migrate_profile_orcid(db)
+        await _migrate_workspace_aims(db)
         await db.commit()
 
 
@@ -343,6 +344,13 @@ async def _migrate_extractions(db: aiosqlite.Connection) -> None:
     )
 
 
+async def _migrate_workspace_aims(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE workspaces ADD COLUMN aims TEXT NOT NULL DEFAULT '[]'")
+    except Exception:
+        pass
+
+
 async def _migrate_profile_orcid(db: aiosqlite.Connection) -> None:
     try:
         await db.execute("ALTER TABLE researcher_profiles ADD COLUMN orcid TEXT NOT NULL DEFAULT ''")
@@ -389,7 +397,9 @@ def _workspace_dict(row: aiosqlite.Row | dict) -> dict:
     if not d.get("privacy_mode"):
         d["privacy_mode"] = "local_only"
     d["study_design"] = _parse_study_design(d)
-    return d
+    from core.aims import hydrate_workspace_aims
+
+    return hydrate_workspace_aims(d)
 
 
 def _norm_title(title: str) -> str:
@@ -881,16 +891,17 @@ async def create_workspace(
     objectives_json = json.dumps(objectives or [])
     resources_json = json.dumps(resources or {})
     settings_json = json.dumps(settings or {})
+    aims_json = json.dumps((settings or {}).get("aims") or [])
     modules_json = json.dumps(enabled_modules or [])
     pmode = privacy_mode or "local_only"
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
             """INSERT INTO workspaces (
-                 id, user_id, title, aim, objectives,
+                 id, user_id, title, aim, objectives, aims,
                  resources, settings, enabled_modules, privacy_mode, last_opened_at,
                  created_at, updated_at
-               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (ws_id, user_id, title, aim, objectives_json, resources_json, settings_json, modules_json, pmode, last_opened_at, now, now),
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (ws_id, user_id, title, aim, objectives_json, aims_json, resources_json, settings_json, modules_json, pmode, last_opened_at, now, now),
         )
         await db.commit()
     return await get_workspace(user_id, ws_id)  # type: ignore[return-value]
@@ -905,18 +916,23 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     aim = fields.get("aim", existing["aim"])
     objectives = fields.get("objectives", existing.get("objectives", []))
     objectives_json = json.dumps(objectives)
+    settings_payload = fields.get("settings", existing.get("settings", {}))
+    aims = fields.get("aims", settings_payload.get("aims") if isinstance(settings_payload, dict) else None)
+    if aims is None:
+        aims = existing.get("aims") or []
+    aims_json = json.dumps(aims)
     resources_json = json.dumps(fields.get("resources", existing.get("resources", {})))
-    settings_json = json.dumps(fields.get("settings", existing.get("settings", {})))
+    settings_json = json.dumps(settings_payload)
     modules_json = json.dumps(fields.get("enabled_modules", existing.get("enabled_modules", [])))
     privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
     last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
-            """UPDATE workspaces SET title = ?, aim = ?, objectives = ?,
+            """UPDATE workspaces SET title = ?, aim = ?, objectives = ?, aims = ?,
                resources = ?, settings = ?, enabled_modules = ?, privacy_mode = ?, last_opened_at = ?,
                updated_at = ?
                WHERE id = ? AND user_id = ?""",
-            (title, aim, objectives_json, resources_json, settings_json, modules_json, privacy_mode, last_opened_at, now, workspace_id, user_id),
+            (title, aim, objectives_json, aims_json, resources_json, settings_json, modules_json, privacy_mode, last_opened_at, now, workspace_id, user_id),
         )
         await db.commit()
     return await get_workspace(user_id, workspace_id)

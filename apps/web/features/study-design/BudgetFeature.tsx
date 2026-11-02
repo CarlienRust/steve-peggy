@@ -23,7 +23,8 @@ import type { BudgetLineItem } from "@/lib/studyDesign";
 import { DEFAULT_BUDGET_LINE_ITEMS } from "@/lib/studyDesign";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
 import { ObjectiveLinkSelect } from "@/components/ObjectiveLinkSelect";
-import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
+import { normalizeAims } from "@/lib/aims";
+import { linkTargetLabel, linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
 
 function parseAmount(value: string): number {
@@ -83,22 +84,13 @@ export function BudgetFeature() {
   );
 
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
-  const linkOptions = linkTargetOptions(activeWorkspace?.aim, objectives);
-  const objectiveIndexById = useMemo(() => {
-    const m = new Map<string, number>();
-    objectives.forEach((o, idx) => m.set(o.id, idx + 1));
-    return m;
-  }, [objectives]);
+  const aims = normalizeAims(activeWorkspace?.aims, activeWorkspace?.aim, activeWorkspace ? `${activeWorkspace.id}:overall` : undefined);
+  const linkOptions = linkTargetOptions(activeWorkspace?.aim, objectives, aims);
 
   const objectiveLabels = (ids: string[] | undefined) => {
     const arr = (ids ?? []).filter(Boolean);
     if (arr.length === 0) return "None";
-    const nums = arr
-      .map((id) => objectiveIndexById.get(id))
-      .filter((n): n is number => typeof n === "number")
-      .sort((a, b) => a - b);
-    if (nums.length === 0) return "None";
-    return nums.map((n) => `O${n}`).join(", ");
+    return arr.map((id) => linkTargetLabel(id, activeWorkspace?.aim, objectives, aims)).join(", ");
   };
 
   const openEdit = (row: BudgetLineItem) => {

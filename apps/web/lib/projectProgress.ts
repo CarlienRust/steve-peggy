@@ -1,5 +1,6 @@
 import type { PaperRecord, Workspace } from "@/lib/api";
-import { AIM_LINK_ID, normalizeObjectives, type ObjectiveStatus, type WorkspaceObjective } from "@/lib/objectives";
+import { normalizeAims } from "@/lib/aims";
+import { AIM_LINK_ID, PROJECT_LINK_ID, normalizeObjectives, type ObjectiveStatus, type WorkspaceObjective } from "@/lib/objectives";
 import type { StudyDesignData } from "@/lib/studyDesign";
 
 export type ProgressStage = {
@@ -54,7 +55,8 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
   const analysisPlan = studyDesign.analysisPlan ?? {};
   const proposal = studyDesign.proposal ?? {};
 
-  const aim = workspace?.aim?.trim() ?? "";
+  const aims = workspace ? normalizeAims(workspace.aims, workspace.aim, `${workspace.id}:overall`) : [];
+  const aim = aims.find((a) => a.role === "overall")?.text.trim() || workspace?.aim?.trim() || "";
   const objectives = normalizeObjectives(workspace?.objectives).filter((o) => o.text.trim());
 
   const stages: ProgressStage[] = [
@@ -103,7 +105,12 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
     {
       id: "methods",
       label: "Methods plan",
-      done: !!(methodsPlan.userPlan?.trim() || methodsPlan.lastResult || (methodsPlan.steps?.length ?? 0) > 0),
+      done: !!(
+        methodsPlan.draftStatus === "completed" ||
+        methodsPlan.userPlan?.trim() ||
+        methodsPlan.lastResult ||
+        (methodsPlan.steps?.length ?? 0) > 0
+      ),
       href: "/study-design/methods-plan",
       reason: "Draft how you will run the study.",
     },
@@ -111,6 +118,7 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
       id: "analysis",
       label: "Analysis plan",
       done: !!(
+        analysisPlan.draftStatus === "completed" ||
         analysisPlan.outcomeTypes?.trim() ||
         analysisPlan.analysisMethod?.trim() ||
         analysisPlan.userPlan?.trim() ||
@@ -172,8 +180,9 @@ export function buildObjectiveProgress(
   workspace: Workspace | null | undefined,
   studyDesign: StudyDesignData
 ): ObjectiveProgressSnapshot {
+  const aimsList = workspace ? normalizeAims(workspace.aims, workspace.aim, `${workspace.id}:overall`) : [];
   const objectives = normalizeObjectives(workspace?.objectives).filter((o) => o.text.trim());
-  const aim = workspace?.aim?.trim() ?? "";
+  const aim = aimsList.find((a) => a.role === "overall")?.text.trim() || workspace?.aim?.trim() || "";
   const findingLinks = studyDesign.objectiveLinks?.findingLinks ?? [];
 
   const rows: ObjectiveProgressRow[] = objectives.map((obj, index) => {
@@ -187,12 +196,27 @@ export function buildObjectiveProgress(
     };
   });
 
-  const aimCounts = countLinksForTarget(AIM_LINK_ID, studyDesign, findingLinks);
+  const overall = workspace ? normalizeAims(workspace.aims, workspace.aim, `${workspace.id}:overall`).find((a) => a.role === "overall") : undefined;
+  const overallId = overall?.id ?? AIM_LINK_ID;
+  const aimCounts = {
+    methodsSteps:
+      countLinksForTarget(AIM_LINK_ID, studyDesign, findingLinks).methodsSteps +
+      countLinksForTarget(overallId, studyDesign, findingLinks).methodsSteps +
+      countLinksForTarget(PROJECT_LINK_ID, studyDesign, findingLinks).methodsSteps,
+    analysisSteps:
+      countLinksForTarget(AIM_LINK_ID, studyDesign, findingLinks).analysisSteps +
+      countLinksForTarget(overallId, studyDesign, findingLinks).analysisSteps +
+      countLinksForTarget(PROJECT_LINK_ID, studyDesign, findingLinks).analysisSteps,
+    findings:
+      countLinksForTarget(AIM_LINK_ID, studyDesign, findingLinks).findings +
+      countLinksForTarget(overallId, studyDesign, findingLinks).findings +
+      countLinksForTarget(PROJECT_LINK_ID, studyDesign, findingLinks).findings,
+  };
   const aimLinked = aimCounts.methodsSteps + aimCounts.analysisSteps + aimCounts.findings > 0;
   if (aim && aimLinked) {
     rows.unshift({
-      id: AIM_LINK_ID,
-      label: "Aim",
+      id: overallId,
+      label: "Overall aim",
       text: aim,
       status: "draft",
       isAim: true,

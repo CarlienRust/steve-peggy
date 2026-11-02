@@ -9,6 +9,12 @@ export const layoutTokens = {
   panelPadding: 2.5,
 } as const;
 
+export const textWrapSx = {
+  minWidth: 0,
+  overflowWrap: "anywhere" as const,
+  wordBreak: "break-word" as const,
+};
+
 export const peggyColors = {
   background: "#f2f4ef",
   foreground: "#1e3330",

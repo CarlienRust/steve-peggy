@@ -1,4 +1,4 @@
-from core.objectives import AIM_LINK_ID, normalize_objectives, reconcile_objective_links, valid_link_ids
+from core.objectives import AIM_LINK_ID, PROJECT_LINK_ID, normalize_objectives, reconcile_objective_links, valid_link_ids
 
 
 def test_reconcile_strips_orphan_objective_ids():
@@ -15,6 +15,26 @@ def test_reconcile_strips_orphan_objective_ids():
     out = reconcile_objective_links(study, valid)
     assert out["methodsPlan"]["steps"][0]["objectiveIds"] == ["keep"]
     assert out["objectiveLinks"]["findingLinks"][0]["objectiveIds"] == [AIM_LINK_ID]
+
+
+def test_reconcile_keeps_project_link():
+    objectives = normalize_objectives([{"id": "keep", "text": "Stay", "status": "draft"}])
+    valid = valid_link_ids(objectives, aim="My aim")
+    study = {
+        "methodsPlan": {
+            "steps": [{"id": "s1", "title": "Step", "objectiveIds": [PROJECT_LINK_ID, "gone"]}],
+        },
+        "analysisPlan": {
+            "covariateEntries": [{"id": "c1", "description": "age", "scope": "aim", "scopeId": "gone"}],
+            "adhocAnalyses": [{"id": "h1", "title": "sens", "target": "age", "linkIds": [PROJECT_LINK_ID, "gone"]}],
+        },
+        "budget": {"lineItems": [{"id": "b1", "objectiveIds": ["gone", "keep"]}]},
+    }
+    out = reconcile_objective_links(study, valid)
+    assert out["methodsPlan"]["steps"][0]["objectiveIds"] == [PROJECT_LINK_ID]
+    assert out["analysisPlan"]["adhocAnalyses"][0]["linkIds"] == [PROJECT_LINK_ID]
+    assert out["analysisPlan"]["covariateEntries"][0]["scope"] == "project"
+    assert out["budget"]["lineItems"][0]["objectiveIds"] == ["keep"]
 
 
 def test_reconcile_reassign_map():

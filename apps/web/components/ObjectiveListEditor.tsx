@@ -12,25 +12,32 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  FormControl,
   FormControlLabel,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Select,
   Stack,
   Switch,
   TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
+import { aimLabel, type WorkspaceAim } from "@/lib/aims";
 import { countObjectiveLinkUsage, type StudyDesignData } from "@/lib/studyDesign";
 import { newObjective, normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
+import { textWrapSx } from "@/theme/peggyTheme";
 
 type ObjectiveListEditorProps = {
   value: WorkspaceObjective[];
   onChange: (objectives: WorkspaceObjective[]) => void;
   disabled?: boolean;
   studyDesign?: StudyDesignData;
+  aims?: WorkspaceAim[];
 };
 
-export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: ObjectiveListEditorProps) {
+export function ObjectiveListEditor({ value, onChange, disabled, studyDesign, aims = [] }: ObjectiveListEditorProps) {
   const objectives = normalizeObjectives(value);
   const [pendingRemoveIndex, setPendingRemoveIndex] = useState<number | null>(null);
 
@@ -67,7 +74,7 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
     <>
       <Stack spacing={1.5}>
         <Typography variant="body2" color="text.secondary">
-          Add objectives with stable IDs. Mark complete when done (manual only).
+          Add objectives and mark complete when done.
         </Typography>
         {objectives.length === 0 && (
           <Typography variant="body2" color="text.secondary">
@@ -102,7 +109,7 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
                 <DragIndicatorIcon fontSize="small" sx={{ transform: "rotate(-90deg)" }} />
               </IconButton>
             </Stack>
-            <Stack spacing={1}>
+            <Stack spacing={1} sx={{ minWidth: 0 }}>
               <TextField
                 label={`Objective ${index + 1}`}
                 value={obj.text}
@@ -111,7 +118,25 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
                 multiline
                 minRows={1}
                 disabled={disabled}
+                sx={{ "& .MuiInputBase-input": textWrapSx }}
               />
+              {aims.length > 0 ? (
+                <FormControl size="small" fullWidth disabled={disabled}>
+                  <InputLabel id={`obj-aim-${obj.id}`}>Linked aim</InputLabel>
+                  <Select
+                    labelId={`obj-aim-${obj.id}`}
+                    label="Linked aim"
+                    value={obj.aimId && aims.some((a) => a.id === obj.aimId) ? obj.aimId : aims[0]?.id ?? ""}
+                    onChange={(e) => updateAt(index, { aimId: String(e.target.value) })}
+                  >
+                    {aims.map((a) => (
+                      <MenuItem key={a.id} value={a.id}>
+                        {aimLabel(a, aims)}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : null}
               <Tooltip
                 title={
                   obj.status === "done"
@@ -143,7 +168,7 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
         ))}
         <Button
           startIcon={<AddIcon />}
-          onClick={() => onChange([...objectives, newObjective("")])}
+          onClick={() => onChange([...objectives, newObjective("", aims.find((a) => a.role === "overall")?.id)])}
           disabled={disabled}
           sx={{ alignSelf: "flex-start", textTransform: "none" }}
         >
@@ -156,7 +181,7 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign }: 
         <DialogContent>
           <DialogContentText component="div">
             {pendingObjective && (
-              <Typography variant="body2" sx={{ mb: 1.5, fontStyle: "italic" }}>
+              <Typography variant="body2" sx={{ ...textWrapSx, mb: 1.5, fontStyle: "italic" }}>
                 {pendingObjective.text || "(empty objective)"}
               </Typography>
             )}

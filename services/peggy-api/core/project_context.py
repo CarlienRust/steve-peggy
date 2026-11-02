@@ -25,6 +25,27 @@ def _plan_snippet(plan: dict | None, label: str) -> list[str]:
         lines.append(f"{label} outcomes: {plan['outcomeTypes']}")
     if plan.get("covariates"):
         lines.append(f"{label} covariates: {plan['covariates']}")
+    entries = plan.get("covariateEntries") or []
+    if isinstance(entries, list) and entries:
+        bits = []
+        for e in entries:
+            if not isinstance(e, dict) or not str(e.get("description") or "").strip():
+                continue
+            bits.append(f"{e.get('description')} (scope={e.get('scope') or 'project'} {e.get('scopeId') or ''})".strip())
+        if bits:
+            lines.append(f"{label} scoped covariates: {'; '.join(bits)}")
+    adhoc = plan.get("adhocAnalyses") or []
+    if isinstance(adhoc, list) and adhoc:
+        bits = []
+        for e in adhoc:
+            if not isinstance(e, dict):
+                continue
+            title = str(e.get("title") or "").strip()
+            target = str(e.get("target") or "").strip()
+            if title or target:
+                bits.append(f"{title or 'test'} on {target or 'unspecified'}")
+        if bits:
+            lines.append(f"{label} sensitivity/ad hoc: {'; '.join(bits)}")
     if plan.get("analysisMethod"):
         lines.append(f"{label} analysis method: {plan['analysisMethod']}")
     last = plan.get("lastResult")
@@ -45,11 +66,26 @@ def format_project_context(ws: dict, study_design: dict) -> str:
         f"Project title: {ws.get('title', '')}",
         f"Aim: {ws.get('aim', '')}",
     ]
+    from core.aims import normalize_aims, overall_aim_text
     from core.objectives import objective_texts
 
+    aims = ws.get("aims") or normalize_aims(None, legacy_aim=str(ws.get("aim") or ""))
+    overall = overall_aim_text(aims, str(ws.get("aim") or ""))
+    if overall:
+        parts[1] = f"Overall aim: {overall}"
+    specifics = [a for a in aims if a.get("role") == "specific" and (a.get("text") or "").strip()]
+    for i, a in enumerate(specifics, start=1):
+        parts.append(f"Aim {i}: {a.get('text')}")
     objectives = objective_texts(ws.get("objectives"))
     if objectives:
-        parts.append(f"Objectives: {', '.join(objectives)}")
+        obj_bits = []
+        for o in ws.get("objectives") or []:
+            if isinstance(o, dict) and o.get("text"):
+                aim_id = o.get("aimId") or ""
+                obj_bits.append(f"{o['text']}" + (f" (aim {aim_id})" if aim_id else ""))
+            elif isinstance(o, str) and o.strip():
+                obj_bits.append(o.strip())
+        parts.append(f"Objectives: {', '.join(obj_bits or objectives)}")
 
     if samples:
         parts.append(f"Study type: {samples.get('studyType', 'unknown')}")

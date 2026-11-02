@@ -4,6 +4,7 @@ from typing import Any, Optional
 
 from core.auth.deps import AuthUser, get_current_user
 from core.limits import enforce_workspace_quota
+from core.aims import normalize_aims, overall_aim_text, persist_aims_in_settings
 from core.objectives import normalize_objectives, reconcile_objective_links, valid_link_ids
 from core.store import catalog
 
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 class WorkspaceCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=256)
     aim: str = Field(default="", max_length=2000)
+    aims: Optional[list[Any]] = None
     objectives: list[Any] = Field(default_factory=list)
     resources: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, Any] = Field(default_factory=dict)
@@ -30,6 +32,7 @@ class WorkspaceUpdate(BaseModel):
     enabled_modules: Optional[list[str]] = None
     privacy_mode: Optional[str] = None
     last_opened_at: Optional[str] = None
+    aims: Optional[list[Any]] = None
     # Optional metadata for objective history (e.g. applying LLM suggestion)
     objective_history_reason: Optional[str] = None
     objective_history_actor: Optional[str] = None
@@ -45,13 +48,15 @@ async def list_workspaces(user: AuthUser = Depends(get_current_user)):
 async def create_workspace(body: WorkspaceCreate, user: AuthUser = Depends(get_current_user)):
     await enforce_workspace_quota(user.id)
     objectives = normalize_objectives(body.objectives)
+    aims = normalize_aims(body.aims, legacy_aim=body.aim.strip())
+    settings = persist_aims_in_settings(body.settings, aims)
     ws = await catalog.create_workspace(
         user.id,
         body.title.strip(),
-        body.aim.strip(),
+        overall_aim_text(aims, body.aim.strip()),
         objectives,
         resources=body.resources,
-        settings=body.settings,
+        settings=settings,
         enabled_modules=body.enabled_modules,
         privacy_mode=body.privacy_mode,
         last_opened_at=body.last_opened_at,
@@ -91,6 +96,19 @@ async def update_workspace(
     if body.last_opened_at is not None:
         fields["last_opened_at"] = body.last_opened_at
     old_ws = await catalog.get_workspace(user.id, workspace_id)
+    if old_ws is not None and (body.aims is not None or body.aim is not None):
+        existing_settings = fields.get("settings") if body.settings is not None else (old_ws.get("settings") or {})
+        if body.aims is not None:
+            aims = normalize_aims(body.aims, legacy_aim=body.aim if body.aim is not None else old_ws.get("aim") or "")
+        else:
+            aims = normalize_aims(old_ws.get("aims"), legacy_aim=body.aim.strip() if body.aim is not None else old_ws.get("aim") or "")
+            if body.aim is not None:
+                for a in aims:
+                    if a.get("role") == "overall":
+                        a["text"] = body.aim.strip()
+        fields["settings"] = persist_aims_in_settings(existing_settings, aims)
+        fields["aims"] = aims
+        fields["aim"] = overall_aim_text(aims)
     ws = await catalog.update_workspace(user.id, workspace_id, fields)
     if not ws:
         raise HTTPException(404, "Workspace not found")
@@ -191,10 +209,28 @@ async def update_workspace(
         if old_ids - new_ids:
             study = await catalog.get_study_design(user.id, workspace_id)
             if study:
-                link_ids = valid_link_ids(new_norm, ws.get("aim") or "")
+                link_ids = valid_link_ids(new_norm, ws.get("aim") or "", ws.get("aims") or [])
                 reconciled = reconcile_objective_links(study, link_ids)
                 patch: dict = {}
-                for key in ("methodsPlan", "analysisPlan", "objectiveLinks"):
+                for key in ("methodsPlan", "analysisPlan", "objectiveLinks", "budget"):
+                    if reconciled.get(key) != study.get(key):
+                        patch[key] = reconciled[key]
+                if patch:
+                    await catalog.patch_study_design(user.id, workspace_id, patch)
+    if body.aims is not None and old_ws:
+        old_aim_ids = {str(a.get("id")) for a in (old_ws.get("aims") or []) if a.get("id")}
+        new_aim_ids = {str(a.get("id")) for a in (ws.get("aims") or []) if a.get("id")}
+        if old_aim_ids - new_aim_ids:
+            study = await catalog.get_study_design(user.id, workspace_id)
+            if study:
+                link_ids = valid_link_ids(
+                    normalize_objectives(ws.get("objectives")),
+                    ws.get("aim") or "",
+                    ws.get("aims") or [],
+                )
+                reconciled = reconcile_objective_links(study, link_ids)
+                patch: dict = {}
+                for key in ("methodsPlan", "analysisPlan", "objectiveLinks", "budget"):
                     if reconciled.get(key) != study.get(key):
                         patch[key] = reconciled[key]
                 if patch:

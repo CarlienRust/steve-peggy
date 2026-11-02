@@ -15,6 +15,7 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import type { OutputTableDraft } from "@/lib/studyDesign";
+import { parsePastedTable } from "@/lib/parsePastedTable";
 
 type TableEditorDialogProps = {
   open: boolean;
@@ -32,6 +33,8 @@ export function TableEditorDialog({ open, initial, onClose, onSave }: TableEdito
   const [footnotes, setFootnotes] = useState("");
   const [headers, setHeaders] = useState<string[]>(["Column 1", "Column 2"]);
   const [rows, setRows] = useState<string[][]>(emptyGrid(2, 2));
+  const [pasteText, setPasteText] = useState("");
+  const [pasteMsg, setPasteMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +49,8 @@ export function TableEditorDialog({ open, initial, onClose, onSave }: TableEdito
       setHeaders(["Column 1", "Column 2"]);
       setRows(emptyGrid(2, 2));
     }
+    setPasteText("");
+    setPasteMsg(null);
   }, [open, initial]);
 
   const syncRowWidths = (nextHeaders: string[], nextRows: string[][]) => {
@@ -63,6 +68,39 @@ export function TableEditorDialog({ open, initial, onClose, onSave }: TableEdito
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 1 }}>
           <TextField label="Table title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
+          <TextField
+            label="Paste table"
+            placeholder="Paste TSV, CSV, or HTML"
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            multiline
+            minRows={3}
+            fullWidth
+            inputProps={{ "aria-label": "Paste table" }}
+          />
+          <Button
+            size="small"
+            variant="outlined"
+            sx={{ alignSelf: "flex-start", textTransform: "none" }}
+            onClick={() => {
+              const parsed = parsePastedTable(pasteText);
+              if ("error" in parsed) {
+                setPasteMsg(parsed.error);
+                return;
+              }
+              setHeaders(parsed.headers);
+              setRows(parsed.rows.length ? parsed.rows : emptyGrid(parsed.headers.length, 1));
+              if (!title.trim() && parsed.title) setTitle(parsed.title);
+              setPasteMsg(parsed.warning ?? "Table filled from paste.");
+            }}
+          >
+            Apply paste
+          </Button>
+          {pasteMsg ? (
+            <Typography variant="caption" color="text.secondary">
+              {pasteMsg}
+            </Typography>
+          ) : null}
           <Typography variant="subtitle2">Headers</Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             {headers.map((h, i) => (

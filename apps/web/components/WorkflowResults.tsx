@@ -15,6 +15,16 @@ type Gap = {
   paper_count?: number;
 };
 
+function asStringList(raw: unknown): string[] {
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) => (typeof item === "string" ? item.trim() : String(item ?? "").trim()))
+      .filter(Boolean);
+  }
+  if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+  return [];
+}
+
 export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: Record<string, unknown> | null | undefined }) {
   const body = normalizeWorkflowBody(rawBody ?? undefined);
   if (!body) return null;
@@ -56,12 +66,12 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
 
   if (mode === "methods_plan" || mode === "analysis_plan") {
     const reviewKeys = ["strengths", "gaps", "recommendations", "ethics_flags"] as const;
-    const isReview = reviewKeys.some((k) => Array.isArray(body[k]) && (body[k] as unknown[]).length > 0);
+    const isReview = reviewKeys.some((k) => asStringList(body[k]).length > 0);
     if (isReview) {
       return (
         <Stack spacing={2}>
           {reviewKeys.map((key) => {
-            const items = (body[key] as string[]) ?? [];
+            const items = asStringList(body[key]);
             if (!items.length) return null;
             return (
               <Paper key={key} variant="outlined" sx={{ p: 2 }}>
@@ -102,7 +112,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
         {suggestSections.map(({ key, multi }) => {
           const raw = body[key];
           if (multi) {
-            const items = (raw as string[]) ?? [];
+            const items = asStringList(raw);
             if (!items.length) return null;
             return (
               <Paper key={key} variant="outlined" sx={{ p: 2 }}>
@@ -137,6 +147,16 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
                 <strong>{tier}:</strong> {note}
               </Typography>
             ))}
+          </Paper>
+        ) : null}
+        {typeof body.summary === "string" && body.summary.trim() ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Summary
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+              {body.summary}
+            </Typography>
           </Paper>
         ) : null}
       </Stack>

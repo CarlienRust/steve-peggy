@@ -101,6 +101,19 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Tables:** manual editor + import from HTML in findings uploads
 - **Layout:** project main column `maxWidth: 1200` in AppShell; section panels use full column width
 
+## Batch 11 — aims, outputs paste, analysis plan
+
+- **Tables:** paste TSV/CSV/HTML into the table editor
+- **Aims:** overall + specific aims; objectives linked to one aim (`aimId`)
+- **Text overflow:** wrap tokens on Aims and plan-step chips
+- **Step links:** Entire project (`project`) plus aims/objectives
+- **Covariates:** scoped entries on analysis plan; optional sensitivity/ad hoc tests
+
+NEXT:
+Additional tests/Ad hoc and sensitivity test on Analysis methods: We can move this to be part of advance settings for analysis plan instead. need to also be saved to supabase and evaluated as part of the plan. Analysis plan result still not showing output - only a info block, but no breakdown on what was found and the result from the analysis plan. Say it is saved to project - but that is all. Not correct. 
+
+Pasting table: Manual pasting and auto table not working if user copies from Word or text - populates the rows/columns wrong. 
+
 FUTURE:
 
 **Still open:**
@@ -112,3 +125,7 @@ FUTURE:
 Security: Want to transition back to using quandrant and render api. Info used in Peggy shouldn't compromise user data or research data. All documentation should be safely behind the auth wall.
 
 Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
+
+Data/Files already present: Need to plan and execute a way to use files and documnet user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
+
+In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. 

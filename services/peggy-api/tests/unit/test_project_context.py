@@ -19,6 +19,7 @@ def test_format_project_context_includes_plans():
     }
     text = format_project_context(ws, sd)
     assert "Gut microbiome" in text
+    assert "Overall aim" in text or "Aim:" in text
     assert "Randomized crossover" in text
     assert "Linear mixed models" in text
     assert "Adults with T2D" in text

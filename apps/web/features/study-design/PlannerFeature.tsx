@@ -15,11 +15,14 @@ import {
 } from "@mui/material";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
+import { AdhocAnalysesEditor } from "@/features/study-design/AdhocAnalysesEditor";
+import { CovariateEntriesEditor } from "@/features/study-design/CovariateEntriesEditor";
 import { PlanStepsEditor } from "@/features/study-design/PlanStepsEditor";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
 import { StatusChip } from "@/components/StatusChip";
-import { normalizeObjectives } from "@/lib/objectives";
-import type { PlanStep } from "@/lib/studyDesign";
+import { normalizeAims } from "@/lib/aims";
+import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
+import type { AdhocAnalysis, CovariateEntry, PlanStep } from "@/lib/studyDesign";
 import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { objectivesForForm, type WorkspaceFormValues } from "@/lib/schemas/workspace";
@@ -27,7 +30,7 @@ import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
-import { monoSx, peggyColors } from "@/theme/peggyTheme";
+import { monoSx, peggyColors, textWrapSx } from "@/theme/peggyTheme";
 
 type PlannerSection = "methods" | "analysis";
 
@@ -85,7 +88,7 @@ function SummaryRow({
         <Typography fontWeight={500} sx={{ width: 140, flexShrink: 0 }}>
           {label}
         </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ flex: 1, lineHeight: 1.6, ...textWrapSx }}>
           {value}
         </Typography>
         <Button
@@ -131,8 +134,20 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [preferredTools, setPreferredTools] = useState(plan.preferredTools ?? "");
   const [outcomeTypes, setOutcomeTypes] = useState(plan.outcomeTypes ?? "");
   const [covariates, setCovariates] = useState(plan.covariates ?? "");
+  const [covariateEntries, setCovariateEntries] = useState<CovariateEntry[]>(plan.covariateEntries ?? []);
+  const [adhocAnalyses, setAdhocAnalyses] = useState<AdhocAnalysis[]>(plan.adhocAnalyses ?? []);
   const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
+  const aims = normalizeAims(activeWorkspace?.aims, activeWorkspace?.aim, activeWorkspace ? `${activeWorkspace.id}:overall` : undefined);
+  const linkOptions = linkTargetOptions(activeWorkspace?.aim, objectives, aims);
+
+  const summarizeCovariates = (entries: CovariateEntry[], fallback: string) => {
+    const parts = entries.filter((e) => e.description.trim()).map((e) => {
+      const opt = linkOptions.find((o) => o.id === (e.scope === "project" ? "project" : e.scopeId));
+      return `${e.description.trim()} [${opt?.label ?? e.scope}]`;
+    });
+    return parts.join("; ") || fallback;
+  };
 
   const workspaceSave = useMutation({
     mutationFn: (body: Parameters<typeof peggyApi.updateWorkspace>[1]) => {
@@ -192,7 +207,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   useEffect(() => {
     setSteps(plan.steps ?? []);
     setUserNotes(plan.userNotes ?? "");
-  }, [activeWorkspace?.id, planKey, plan.steps, plan.userNotes]);
+    setCovariateEntries(plan.covariateEntries ?? []);
+    setAdhocAnalyses(plan.adhocAnalyses ?? []);
+    setCovariates(plan.covariates ?? "");
+  }, [activeWorkspace?.id, planKey, plan.steps, plan.userNotes, plan.covariateEntries, plan.adhocAnalyses, plan.covariates]);
 
   const updateSteps = (next: PlanStep[]) => {
     setSteps(next);
@@ -200,15 +218,16 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   };
 
   const run = useMutation({
-    mutationFn: () => {
+    mutationFn: (modeOverride?: "review" | "suggest") => {
+      const mode = modeOverride ?? tab;
       const body = {
         workspaceId: activeWorkspace!.id,
-        mode: tab,
-        userPlan: tab === "review" ? userPlan : "",
+        mode,
+        userPlan: mode === "review" ? userPlan : "",
         budget: "",
         tools: preferredTools,
         outcomeTypes: outcomeTypes || undefined,
-        covariates: covariates || undefined,
+        covariates: summarizeCovariates(covariateEntries, covariates) || undefined,
         analysisMethod: analysisMethod || undefined,
         constraints,
       };
@@ -231,12 +250,15 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       constraints,
       preferredTools,
       outcomeTypes,
-      covariates,
+      covariates: summarizeCovariates(covariateEntries, covariates),
+      covariateEntries,
+      adhocAnalyses,
       analysisMethod,
       steps,
       userNotes,
+      draftStatus: plan.draftStatus,
     }),
-    [tab, userPlan, constraints, preferredTools, outcomeTypes, covariates, analysisMethod, steps, userNotes]
+    [tab, userPlan, constraints, preferredTools, outcomeTypes, covariates, covariateEntries, adhocAnalyses, analysisMethod, steps, userNotes, linkOptions, plan.draftStatus]
   );
 
   const reviewDisabled = llmBlocked || run.isPending || (tab === "review" && !userPlan.trim());
@@ -283,6 +305,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           onClick={() => {
             setTab("review");
             saveSection(planKey, { mode: "review" });
+            if (userPlan.trim() && !llmBlocked) run.mutate("review");
           }}
           sx={
             tab === "review"
@@ -357,6 +380,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                     value={draftObjectives}
                     onChange={setDraftObjectives}
                     studyDesign={studyDesign}
+                    aims={aims}
                   />
                   <Button
                     variant="contained"
@@ -523,28 +547,45 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
             />
             <SummaryRow
               label="Covariates"
-              value={covariates.trim() || "Not set"}
+              value={summarizeCovariates(covariateEntries, covariates) || "Not set"}
               editing={editingField === "covariates"}
               onEdit={() => openProjectEdit("covariates")}
               onCancel={cancelProjectEdit}
               editPanel={
                 <Stack spacing={1.5}>
-                  <TextField
-                    label="Covariates"
-                    value={draftCovariates}
-                    onChange={(e) => setDraftCovariates(e.target.value)}
-                    fullWidth
-                  />
+                  {section === "analysis" ? (
+                    <CovariateEntriesEditor
+                      entries={covariateEntries}
+                      options={linkOptions}
+                      onChange={(next) => {
+                        setCovariateEntries(next);
+                        saveSection(planKey, {
+                          covariateEntries: next,
+                          covariates: summarizeCovariates(next, ""),
+                        });
+                      }}
+                    />
+                  ) : (
+                    <TextField
+                      label="Covariates"
+                      value={draftCovariates}
+                      onChange={(e) => setDraftCovariates(e.target.value)}
+                      fullWidth
+                    />
+                  )}
                   <Button
                     variant="contained"
                     size="small"
                     disabled={savingSection === planKey}
                     sx={{ alignSelf: "flex-start", textTransform: "none" }}
                     onClick={() => {
-                      setCovariates(draftCovariates);
-                      void commitSection(planKey, { ...sectionFields, covariates: draftCovariates }).then(() =>
-                        setEditingField(null)
-                      );
+                      const nextText = section === "analysis" ? summarizeCovariates(covariateEntries, draftCovariates) : draftCovariates;
+                      setCovariates(nextText);
+                      void commitSection(planKey, {
+                        ...sectionFields,
+                        covariates: nextText,
+                        covariateEntries: section === "analysis" ? covariateEntries : undefined,
+                      }).then(() => setEditingField(null));
                     }}
                   >
                     {savingSection === planKey ? "Saving…" : "Save covariates"}
@@ -568,6 +609,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                     value={draftObjectives}
                     onChange={setDraftObjectives}
                     studyDesign={studyDesign}
+                    aims={aims}
                   />
                   <Button
                     variant="contained"
@@ -592,20 +634,30 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       {section === "analysis" && (
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-            ANALYSIS STEPS
+            SENSITIVITY AND AD HOC TESTS
           </Typography>
-          <Typography variant="h6" sx={{ mt: 0.5 }}>
-            Steps linked to objectives
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+            Optional.
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Link each step to one or more objectives. Unlinked steps are allowed.
-          </Typography>
-          <PlanStepsEditor
-            steps={steps}
-            aim={activeWorkspace.aim}
-            objectives={objectives}
-            onChange={updateSteps}
+          <AdhocAnalysesEditor
+            items={adhocAnalyses}
+            options={linkOptions}
+            onChange={(next) => {
+              setAdhocAnalyses(next);
+              saveSection(planKey, { adhocAnalyses: next });
+            }}
           />
+          <Button
+            variant="contained"
+            size="small"
+            disabled={savingSection === planKey}
+            sx={{ mt: 2, textTransform: "none" }}
+            onClick={() =>
+              void commitSection(planKey, { ...sectionFields, adhocAnalyses })
+            }
+          >
+            {savingSection === planKey ? "Saving…" : "Save tests"}
+          </Button>
         </Paper>
       )}
 
@@ -662,14 +714,15 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                   }}
                   fullWidth
                 />
-                <TextField
-                  label="Covariates"
-                  value={covariates}
-                  onChange={(e) => {
-                    setCovariates(e.target.value);
-                    saveSection(planKey, { covariates: e.target.value });
+                <CovariateEntriesEditor
+                  entries={covariateEntries}
+                  options={linkOptions}
+                  onChange={(next) => {
+                    setCovariateEntries(next);
+                    const text = summarizeCovariates(next, "");
+                    setCovariates(text);
+                    saveSection(planKey, { covariateEntries: next, covariates: text });
                   }}
-                  fullWidth
                 />
                 <TextField
                   label="Analysis method"
@@ -699,7 +752,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
               <Button
                 variant="contained"
                 disabled={reviewDisabled}
-                onClick={() => run.mutate()}
+                onClick={() => run.mutate(tab)}
                 sx={{ textTransform: "none" }}
               >
                 {run.isPending ? (
@@ -728,11 +781,11 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
       )}
       {run.isError && <Alert severity="error">{formatApiError(run.error)}</Alert>}
 
-      {displayBody && (
+      {(displayBody || run.isSuccess) && (
         <WorkflowOutputPanel
           mode={workflowMode}
           title={section === "methods" ? "Methods plan result" : "Analysis plan result"}
-          body={displayBody}
+          body={displayBody ?? {}}
           sources={run.data?.sources}
           confidence={run.data?.confidence}
           limitations={run.data?.limitations}
@@ -759,25 +812,24 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         />
       )}
 
-      {section === "methods" && (
-        <Paper variant="outlined" sx={{ p: 2.5 }}>
-          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-            METHODS STEPS
-          </Typography>
-          <Typography variant="h6" sx={{ mt: 0.5 }}>
-            Steps linked to objectives
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Link each step to one or more objectives. Unlinked steps are allowed.
-          </Typography>
-          <PlanStepsEditor
-            steps={steps}
-            aim={activeWorkspace.aim}
-            objectives={objectives}
-            onChange={updateSteps}
-          />
-        </Paper>
-      )}
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
+        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
+          {section === "methods" ? "METHODS STEPS" : "ANALYSIS STEPS"}
+        </Typography>
+        <Typography variant="h6" sx={{ mt: 0.5 }}>
+          Steps linked to objectives
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Link to the project, an aim, or objectives.
+        </Typography>
+        <PlanStepsEditor
+          steps={steps}
+          aim={activeWorkspace.aim}
+          objectives={objectives}
+          aims={aims}
+          onChange={updateSteps}
+        />
+      </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
@@ -833,6 +885,32 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
             </Stack>
           ))
         )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
+        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
+          DRAFT STATUS
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
+          {plan.draftStatus === "completed" ? "Marked complete." : "Happy with this draft for now?"}
+        </Typography>
+        <Button
+          variant={plan.draftStatus === "completed" ? "outlined" : "contained"}
+          sx={{ textTransform: "none" }}
+          disabled={savingSection === planKey}
+          onClick={() =>
+            void commitSection(planKey, {
+              ...sectionFields,
+              draftStatus: plan.draftStatus === "completed" ? "draft" : "completed",
+            })
+          }
+        >
+          {savingSection === planKey
+            ? "Saving…"
+            : plan.draftStatus === "completed"
+              ? "Back to draft"
+              : "Completed"}
+        </Button>
       </Paper>
 
       <StudyDesignSaveBar

@@ -1,3 +1,4 @@
+import type { WorkspaceAim } from "@/lib/aims";
 import type { WorkspaceObjective } from "@/lib/objectives";
 
 export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -108,6 +109,7 @@ export type Workspace = {
   user_id?: string;
   title: string;
   aim: string;
+  aims?: WorkspaceAim[];
   objectives: WorkspaceObjective[];
   resources?: Record<string, unknown>;
   settings?: Record<string, unknown>;
@@ -723,6 +725,7 @@ export const peggyApi = {
   createWorkspace: (body: {
     title: string;
     aim?: string;
+    aims?: WorkspaceAim[];
     objectives?: WorkspaceObjective[];
     resources?: Record<string, unknown>;
     settings?: Record<string, unknown>;
@@ -737,6 +740,7 @@ export const peggyApi = {
     body: Partial<{
       title: string;
       aim: string;
+      aims: WorkspaceAim[];
       objectives: WorkspaceObjective[];
       resources: Record<string, unknown>;
       settings: Record<string, unknown>;
