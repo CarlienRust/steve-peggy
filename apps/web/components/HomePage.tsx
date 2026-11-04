@@ -3,19 +3,41 @@
 import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from "@mui/material";
+import { Alert, Box, Button, CircularProgress, Grid, Paper, Stack, Typography } from "@mui/material";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
-import { formatApiError, peggyApi, queryKeys } from "@/lib/api";
+import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { eyebrowSx } from "@/theme/peggyTheme";
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+type ActivityItem = { key: string; label: string; at: string };
 
-function sortByOpened(a: { last_opened_at?: string | null }, b: { last_opened_at?: string | null }) {
-  const ta = a.last_opened_at ? new Date(a.last_opened_at).getTime() : 0;
-  const tb = b.last_opened_at ? new Date(b.last_opened_at).getTime() : 0;
-  return tb - ta;
+function relativeTime(iso: string) {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms)) return "";
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "Just now";
+  if (min < 60) return `${min} minute${min === 1 ? "" : "s"} ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} hour${hr === 1 ? "" : "s"} ago`;
+  const day = Math.floor(hr / 24);
+  if (day === 1) return "Yesterday";
+  if (day < 7) return `${day} days ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: "center" }}>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="h4" fontWeight={600} sx={{ mt: 0.5 }}>
+        {value}
+      </Typography>
+    </Paper>
+  );
 }
 
 export function HomePage() {
@@ -28,11 +50,6 @@ export function HomePage() {
     queryFn: () => peggyApi.listWorkspaces(),
     enabled: ready && !!userId,
   });
-  const eventsQuery = useQuery({
-    queryKey: queryKeys.calendar(),
-    queryFn: () => peggyApi.listCalendarEvents(),
-    enabled: ready && !!userId,
-  });
   const papersQuery = useQuery({
     queryKey: queryKeys.corpus("literature"),
     queryFn: () => peggyApi.listCorpus("literature"),
@@ -40,30 +57,49 @@ export function HomePage() {
   });
 
   const workspaces = workspacesQuery.data?.workspaces ?? [];
-  const mostUsed = useMemo(() => {
-    if (workspaces.length === 0) return null;
-    return [...workspaces].sort(sortByOpened)[0];
-  }, [workspaces]);
-
-  const upcoming = useMemo(() => {
-    const now = Date.now();
-    return (eventsQuery.data?.events ?? [])
-      .filter((e) => new Date(e.starts_at).getTime() >= now)
-      .sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
-      .slice(0, 3);
-  }, [eventsQuery.data?.events]);
-
   const papers = papersQuery.data?.papers ?? [];
-  const lastRead = useMemo(() => {
-    const read = papers.filter((p) => p.read_at);
-    if (read.length === 0) return null;
-    return [...read].sort((a, b) => new Date(b.read_at!).getTime() - new Date(a.read_at!).getTime())[0];
+  const unread = papers.filter((p) => !p.read_at);
+  const countsByWs = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const p of papers) {
+      if (!p.workspace_id) continue;
+      map[p.workspace_id] = (map[p.workspace_id] ?? 0) + 1;
+    }
+    return map;
   }, [papers]);
-  const nextUnread = useMemo(() => papers.find((p) => !p.read_at) ?? null, [papers]);
-  const readThisWeek = papers.some((p) => p.read_at && Date.now() - new Date(p.read_at).getTime() <= WEEK_MS);
 
-  const loading = !ready || workspacesQuery.isLoading || eventsQuery.isLoading || papersQuery.isLoading;
-  const loadError = workspacesQuery.error || eventsQuery.error || papersQuery.error;
+  const activity = useMemo(() => {
+    const items: ActivityItem[] = [];
+    for (const p of papers) {
+      if (p.ingested_at) {
+        items.push({
+          key: `add-${p.id}-${p.ingested_at}`,
+          label: `Added paper${p.title ? `: ${p.title}` : ""}`,
+          at: p.ingested_at,
+        });
+      }
+      if (p.read_at) {
+        items.push({
+          key: `read-${p.id}-${p.read_at}`,
+          label: `Marked paper read${p.title ? `: ${p.title}` : ""}`,
+          at: p.read_at,
+        });
+      }
+    }
+    for (const ws of workspaces) {
+      if (ws.last_opened_at) {
+        items.push({
+          key: `open-${ws.id}-${ws.last_opened_at}`,
+          label: `Opened project: ${ws.title}`,
+          at: ws.last_opened_at,
+        });
+      }
+    }
+    return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime()).slice(0, 5);
+  }, [papers, workspaces]);
+
+  const loading = !ready || workspacesQuery.isLoading || papersQuery.isLoading;
+  const loadError = workspacesQuery.error || papersQuery.error;
 
   const openProject = (id: string) => {
     saveActiveWorkspaceId(id);
@@ -71,10 +107,6 @@ export function HomePage() {
       if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
     });
     router.push("/dashboard");
-  };
-
-  const goJournal = () => {
-    router.push("/reading-journal");
   };
 
   return (
@@ -86,92 +118,87 @@ export function HomePage() {
       ) : loadError ? (
         <Alert severity="error">{formatApiError(loadError)}</Alert>
       ) : (
-        <Stack spacing={2}>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-              Upcoming events
-            </Typography>
-            {upcoming.length === 0 ? (
+        <Stack spacing={3}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={4}>
+              <StatCard label="Projects" value={workspaces.length} />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <StatCard label="Papers" value={papers.length} />
+            </Grid>
+            <Grid item xs={12} sm={4}>
+              <StatCard label="Unread papers" value={unread.length} />
+            </Grid>
+          </Grid>
+
+          <Box>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
+              <Typography sx={eyebrowSx}>Your projects</Typography>
+              <Button size="small" onClick={() => router.push("/setup/step-1")}>
+                + New project
+              </Button>
+            </Stack>
+            {workspaces.length === 0 ? (
               <Typography variant="body2" color="text.secondary">
-                No upcoming events. Add dates on Calendar.
+                No projects yet. Create one to start a corpus.
               </Typography>
             ) : (
-              <Stack spacing={1}>
-                {upcoming.map((e) => (
-                  <Stack key={e.id} direction="row" spacing={2} justifyContent="space-between">
-                    <Typography variant="body2">{e.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {new Date(e.starts_at).toLocaleString()}
+              <Grid container spacing={2}>
+                {workspaces.map((ws: Workspace) => (
+                  <Grid item xs={12} md={6} key={ws.id}>
+                    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, height: "100%" }}>
+                      <Typography fontWeight={600}>{ws.title}</Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, mb: 1.5 }}>
+                        {(ws.aim || "No research description yet.").slice(0, 180)}
+                        {(ws.aim || "").length > 180 ? "…" : ""}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1.5 }}>
+                        {countsByWs[ws.id] ?? 0} papers
+                      </Typography>
+                      <Button size="small" onClick={() => openProject(ws.id)}>
+                        Open project →
+                      </Button>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
+
+          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+            <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>Recent activity</Typography>
+            {activity.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No recent activity yet.
+              </Typography>
+            ) : (
+              <Stack spacing={1.25}>
+                {activity.map((item) => (
+                  <Stack key={item.key} direction="row" justifyContent="space-between" spacing={2}>
+                    <Typography variant="body2">{item.label}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                      {relativeTime(item.at)}
                     </Typography>
                   </Stack>
                 ))}
               </Stack>
             )}
-            <Button size="small" sx={{ mt: 1.5, textTransform: "none" }} onClick={() => router.push("/calendar")}>
-              Open calendar
-            </Button>
           </Paper>
 
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-              Reading
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              {readThisWeek ? "You have marked a paper as read this week." : "Read one a week."}
-            </Typography>
-            {lastRead ? (
-              <Typography variant="body2" sx={{ mb: 1 }}>
-                Return to reading: {lastRead.title || `Paper ${lastRead.id}`}
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                No papers marked read yet.
-              </Typography>
-            )}
-            {nextUnread ? (
-              <Typography variant="body2" sx={{ mb: 1.5 }}>
-                Suggest read next: {nextUnread.title || `Paper ${nextUnread.id}`}
-              </Typography>
-            ) : papers.length > 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                All literature papers are marked read.
-              </Typography>
-            ) : (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-                No research papers in your corpus yet.
-              </Typography>
-            )}
-            <Stack direction="row" spacing={1}>
-              <Button size="small" sx={{ textTransform: "none" }} onClick={goJournal}>
-                Return to reading
-              </Button>
-              <Button size="small" variant="outlined" sx={{ textTransform: "none" }} onClick={goJournal}>
-                Open reading journal
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={2}>
+              <Box>
+                <Typography sx={{ ...eyebrowSx, mb: 0.75 }}>Reading reminder</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {unread.length === 0
+                    ? "No papers waiting to be reviewed."
+                    : `${unread.length} paper${unread.length === 1 ? "" : "s"} waiting to be reviewed`}
+                </Typography>
+              </Box>
+              <Button size="small" onClick={() => router.push("/reading-journal")}>
+                View all →
               </Button>
             </Stack>
-          </Paper>
-
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-              Most used project
-            </Typography>
-            {mostUsed ? (
-              <>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  {mostUsed.title}
-                  {mostUsed.last_opened_at
-                    ? ` · Last opened ${new Date(mostUsed.last_opened_at).toLocaleString()}`
-                    : " · Not opened yet"}
-                </Typography>
-                <Button size="small" sx={{ textTransform: "none" }} onClick={() => openProject(mostUsed.id)}>
-                  Open project
-                </Button>
-              </>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                No projects yet. Create one in Project hub.
-              </Typography>
-            )}
           </Paper>
         </Stack>
       )}

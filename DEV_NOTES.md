@@ -121,7 +121,10 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Reading journal:** `/reading-journal` (home sidebar), `papers.notes` + `read_at` (020); list is `source_type=literature` only
 - **Lab book:** `/lab-book` (project sidebar), `lab_book_entries` (021)
 - **Analysis tool:** `/analysis-tool` CSV/TSV in browser or reuse `sample_datasets` from Samples; descriptives, Shapiro-like W', test selector; save `analysisTool` metadata only. SPSS still not supported.
-- **Home `/`:** Welcome copy plus upcoming 3 events, reading nudges, most-used project (`last_opened_at` stamped on open)
+- **Home `/`:** Welcome copy unchanged; below it: project/paper/unread stats, project cards, derived recent activity, reading reminder
+- **Ask `/ask`:** Project + literature/own-findings source types; suggested questions fill composer
+- **Reading journal:** To read / Completed stats; search and chips; PMID + project on cards
+- **Analysis tool:** Numbered dataset / configuration / guidance layout; same CSV + sample-dataset behaviour
 - **Abstract versions:** `study_design.outputs` nested in the proposal JSON column so latest generate persists
 
 NEXT:

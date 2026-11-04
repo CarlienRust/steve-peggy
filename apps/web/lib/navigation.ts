@@ -142,11 +142,11 @@ export type HomeNavItem = {
 
 /** Main sidebar (home shell) — no active project. */
 export const HOME_NAV: HomeNavItem[] = [
-  { num: "01", label: "Home", href: "/", tooltip: "Welcome, upcoming events, reading, and most used project" },
+  { num: "01", label: "Home", href: "/", tooltip: "Welcome, project stats, and reading reminder" },
   { num: "02", label: "Project hub", href: "/projects", tooltip: "All projects and new project wizard" },
   { num: "03", label: "Calendar", href: "/calendar", tooltip: "Deadlines and project dates for this account" },
-  { num: "04", label: "Reading journal", href: "/reading-journal", tooltip: "Notes and read/unread for your papers" },
-  { num: "05", label: "Ask Peggy", href: "/ask", tooltip: "General research help; optional project for literature" },
+  { num: "04", label: "Reading journal", href: "/reading-journal", tooltip: "To read and completed literature papers" },
+  { num: "05", label: "Ask Peggy", href: "/ask", tooltip: "Ask questions grounded in a project corpus" },
   { num: "06", label: "Useful links", href: "/useful-links", tooltip: "Curated external tools and databases" },
 ];
 

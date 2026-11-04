@@ -40,6 +40,21 @@ const HOME_MODES: { id: ChatMode; label: string }[] = [
   { id: "chat", label: "Ask" },
 ];
 
+const SUGGESTED_QUESTIONS = [
+  "Summarise the evidence for...",
+  "Compare findings across studies",
+  "Identify inconsistencies in the literature",
+  "What research gaps remain?",
+];
+
+type SourceChoice = "literature" | "own_findings" | "both";
+
+function sourceTypesFromChoice(choice: SourceChoice): string[] {
+  if (choice === "own_findings") return ["own_findings"];
+  if (choice === "both") return ["literature", "own_findings"];
+  return ["literature"];
+}
+
 const SESSION_KEY = "peggy_home_chat_session_id";
 
 function getSessionId(): string {
@@ -93,6 +108,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
   const [stepLabel, setStepLabel] = useState<string | null>(null);
   const [usedOpen, setUsedOpen] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [sourceChoice, setSourceChoice] = useState<SourceChoice>("both");
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -103,6 +119,11 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
   const literatureQuery = useQuery({
     queryKey: queryKeys.corpus("literature", selectedWorkspaceId || undefined),
     queryFn: () => peggyApi.listCorpus("literature", selectedWorkspaceId),
+    enabled: !!selectedWorkspaceId,
+  });
+  const findingsQuery = useQuery({
+    queryKey: queryKeys.corpus("own_findings", selectedWorkspaceId || undefined),
+    queryFn: () => peggyApi.listCorpus("own_findings", selectedWorkspaceId),
     enabled: !!selectedWorkspaceId,
   });
 
@@ -132,10 +153,12 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
   const unitLabel = mode === "auto" ? "agent runs" : "messages";
   const workspaceId = selectedWorkspaceId || undefined;
   const literatureCount = literatureQuery.data?.count ?? 0;
+  const findingsCount = findingsQuery.data?.count ?? 0;
+  const sourceTypes = sourceTypesFromChoice(sourceChoice);
 
   const chat = useMutation({
     mutationFn: (q: string) =>
-      peggyApi.chat(q, { mode, sourceTypes: ["literature"], workspaceId }),
+      peggyApi.chat(q, { mode, sourceTypes, workspaceId }),
     onSuccess: (data) => {
       refreshUsage();
       setTurns((prev) => [
@@ -195,7 +218,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
       try {
         for await (const event of peggyApi.agentStream(q, {
           sessionId: sid,
-          sourceTypes: ["literature"],
+          sourceTypes,
           mode: "auto",
           workspaceId,
         })) {
@@ -211,7 +234,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
         setStepLabel(null);
       }
     },
-    [sessionId, refreshUsage, workspaceId]
+    [sessionId, refreshUsage, workspaceId, sourceChoice]
   );
 
   const handleSend = () => {
@@ -248,41 +271,62 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
         <Stack spacing={1}>
           <Typography sx={{ ...eyebrowSx, color: peggyColors.accent }}>ASK PEGGY</Typography>
           <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
-            General help
+            Research assistant
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, maxWidth: 720 }}>
-            Ask about research methods, study design, or how to use Peggy. Pick a project below when you want answers
-            grounded in that project&apos;s literature.
+            Ask questions grounded in your research.
           </Typography>
         </Stack>
       ) : null}
 
       <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-        <FormControl fullWidth size="small">
-          <InputLabel id="home-ask-project-label">Project context (optional)</InputLabel>
-          <Select
-            labelId="home-ask-project-label"
-            label="Project context (optional)"
-            value={selectedWorkspaceId}
-            onChange={(e) => setSelectedWorkspaceId(e.target.value)}
-          >
-            <MenuItem value="">
-              <em>No project — general guidance only</em>
-            </MenuItem>
-            {workspaces.map((ws) => (
-              <MenuItem key={ws.id} value={ws.id}>
-                {ws.title}
+        {!embedded ? (
+          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>Research context</Typography>
+        ) : null}
+        <Stack spacing={1.5}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="home-ask-project-label">Project</InputLabel>
+            <Select
+              labelId="home-ask-project-label"
+              label="Project"
+              value={selectedWorkspaceId}
+              onChange={(e) => setSelectedWorkspaceId(e.target.value)}
+            >
+              <MenuItem value="">
+                <em>Select project</em>
               </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+              {workspaces.map((ws) => (
+                <MenuItem key={ws.id} value={ws.id}>
+                  {ws.title}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel id="home-ask-sources-label">Sources</InputLabel>
+            <Select
+              labelId="home-ask-sources-label"
+              label="Sources"
+              value={sourceChoice}
+              onChange={(e) => setSourceChoice(e.target.value as SourceChoice)}
+            >
+              <MenuItem value="literature">Literature</MenuItem>
+              <MenuItem value="own_findings">Own findings</MenuItem>
+              <MenuItem value="both">Literature + Own findings</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
         {selectedWorkspaceId ? (
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-            Literature in this project: {literatureQuery.isLoading ? "…" : literatureCount} paper
-            {literatureCount === 1 ? "" : "s"}
-            {literatureCount === 0 ? " — add papers in the project for cited answers." : ""}
+            {literatureQuery.isLoading || findingsQuery.isLoading
+              ? "…"
+              : `${literatureCount} literature paper${literatureCount === 1 ? "" : "s"} · ${findingsCount} internal finding${findingsCount === 1 ? "" : "s"}`}
           </Typography>
-        ) : null}
+        ) : (
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+            Pick a project when you want answers cited from that corpus.
+          </Typography>
+        )}
       </Paper>
 
       <UsageQuotaBanner
@@ -296,11 +340,32 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
       <Paper variant="outlined" sx={{ p: 2.5, bgcolor: peggyColors.surface }}>
         <Stack spacing={2}>
           {turns.length === 0 && !isPending && (
-            <Typography variant="body2" color="text.secondary">
-              {selectedWorkspaceId && literatureCount === 0
-                ? "This project has no literature yet. You can still ask general questions, or add papers in the project first."
-                : "Try: “How should I phrase a primary outcome?” or “What belongs in an ethics application?”"}
-            </Typography>
+            <Stack spacing={1.5} sx={{ textAlign: embedded ? "left" : "center", py: embedded ? 0 : 2 }}>
+              {!embedded ? (
+                <Typography sx={{ ...monoSx, fontSize: 12, letterSpacing: "1.2px", color: peggyColors.accent }}>
+                  Peggy
+                </Typography>
+              ) : null}
+              <Typography variant="body2" color="text.secondary">
+                {embedded
+                  ? "Ask a research question."
+                  : "What would you like to investigate?"}
+              </Typography>
+              {!embedded ? (
+                <>
+                  <Typography variant="caption" color="text.secondary">
+                    Suggested questions
+                  </Typography>
+                  <Stack spacing={0.75} alignItems="center">
+                    {SUGGESTED_QUESTIONS.map((q) => (
+                      <Button key={q} size="small" variant="text" onClick={() => setQuery(q)}>
+                        {q}
+                      </Button>
+                    ))}
+                  </Stack>
+                </>
+              ) : null}
+            </Stack>
           )}
 
           {turns.map((turn) =>
@@ -379,7 +444,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
         <TextField
           id="peggy-home-chat-query"
           name="query"
-          placeholder="Ask a general research or methods question…"
+          placeholder="Ask a research question..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           fullWidth

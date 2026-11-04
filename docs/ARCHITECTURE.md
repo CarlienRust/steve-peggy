@@ -142,11 +142,11 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 
 | Route | Nav | Purpose |
 |-------|-----|---------|
-| `/` | 01 Home | Welcome copy plus dashboard: next three calendar events, return to reading / “Read one a week” / suggest next unread literature paper, most-used project (`last_opened_at`) |
+| `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry (user picks the date) |
-| `/reading-journal` | 04 Reading journal | Literature corpus PDFs only (`source_type=literature`); notes + read/unread; optional project filter. Ethics documents and uploaded results are excluded. |
-| `/ask` | 05 Ask Peggy | General help chat; optional project picker for literature-grounded answers |
+| `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID |
+| `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask |
 | `/useful-links` | 06 Useful links | Curated external resources by category |
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
 | `/setup` | — | Redirects to `/setup/checks` |
@@ -164,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | Load a project `sample_datasets` file (parsed as a table) or upload a new CSV/TSV; column summaries; test selector; optional save of `analysisTool` metadata (not the CSV) |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV drop/browse or `sample_datasets`), 02 test configuration (outcome column, groups, design, additional settings), 03 suggested test; save `analysisTool` metadata only |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |

@@ -6,7 +6,9 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   FormControl,
+  Grid,
   InputLabel,
   MenuItem,
   Paper,
@@ -20,11 +22,27 @@ import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api
 import { useAuthSession } from "@/lib/authContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
+type ReadFilter = "all" | "to_read" | "completed";
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, textAlign: "center" }}>
+      <Typography variant="body2" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="h4" fontWeight={600} sx={{ mt: 0.5 }}>
+        {value}
+      </Typography>
+    </Paper>
+  );
+}
+
 export function ReadingJournalFeature() {
   const { ready, userId } = useAuthSession();
   const queryClient = useQueryClient();
   const [filterWs, setFilterWs] = useState("");
-  const [filterRead, setFilterRead] = useState<"all" | "read" | "unread">("all");
+  const [filterRead, setFilterRead] = useState<ReadFilter>("all");
+  const [search, setSearch] = useState("");
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
 
   const workspacesQuery = useQuery({
@@ -44,26 +62,50 @@ export function ReadingJournalFeature() {
   });
 
   const workspaces = workspacesQuery.data?.workspaces ?? [];
+  const wsTitle = (id?: string | null) => workspaces.find((w) => w.id === id)?.title || "Unknown project";
+  const allPapers = papersQuery.data?.papers ?? [];
+  const toReadCount = allPapers.filter((p) => !p.read_at).length;
+  const completedCount = allPapers.filter((p) => !!p.read_at).length;
+
   const papers = useMemo(() => {
-    const list = papersQuery.data?.papers ?? [];
-    return list.filter((p) => {
-      if (filterRead === "read") return !!p.read_at;
-      if (filterRead === "unread") return !p.read_at;
-      return true;
+    const q = search.trim().toLowerCase();
+    return allPapers.filter((p) => {
+      if (filterRead === "to_read" && p.read_at) return false;
+      if (filterRead === "completed" && !p.read_at) return false;
+      if (!q) return true;
+      const hay = `${p.title ?? ""} ${p.authors ?? ""} ${p.pmid ?? ""} ${p.journal ?? ""}`.toLowerCase();
+      return hay.includes(q);
     });
-  }, [papersQuery.data?.papers, filterRead]);
+  }, [allPapers, filterRead, search]);
 
   return (
     <Box>
       <LocalDevBanner />
-      <Typography sx={eyebrowSx}>HOME</Typography>
+      <Typography sx={eyebrowSx}>READING JOURNAL</Typography>
       <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-        Reading journal
+        Manage and track your literature reading.
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
-        Research papers from your literature corpus only. Ethics letters and uploaded results are not listed. Screening status on literature search is unchanged.
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 720 }}>
+        Research papers from your literature corpus only. Ethics letters and uploaded results are not listed.
       </Typography>
-      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <StatCard label="To read" value={toReadCount} />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <StatCard label="Completed" value={completedCount} />
+        </Grid>
+      </Grid>
+
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+        <TextField
+          size="small"
+          placeholder="Search papers..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ flex: 1, minWidth: 220 }}
+        />
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Project</InputLabel>
           <Select label="Project" value={filterWs} onChange={(e) => setFilterWs(e.target.value)}>
@@ -75,51 +117,63 @@ export function ReadingJournalFeature() {
             ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 140 }}>
-          <InputLabel>Read</InputLabel>
-          <Select
-            label="Read"
-            value={filterRead}
-            onChange={(e) => setFilterRead(e.target.value as "all" | "read" | "unread")}
-          >
-            <MenuItem value="all">All</MenuItem>
-            <MenuItem value="unread">Unread</MenuItem>
-            <MenuItem value="read">Read</MenuItem>
-          </Select>
-        </FormControl>
       </Stack>
+
+      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+        {(
+          [
+            ["all", "All"],
+            ["to_read", "To read"],
+            ["completed", "Completed"],
+          ] as const
+        ).map(([id, label]) => (
+          <Chip
+            key={id}
+            label={label}
+            variant={filterRead === id ? "filled" : "outlined"}
+            color={filterRead === id ? "primary" : "default"}
+            onClick={() => setFilterRead(id)}
+          />
+        ))}
+      </Stack>
+
       {papersQuery.isError ? <Alert severity="error">{formatApiError(papersQuery.error)}</Alert> : null}
       {savePaper.isError ? <Alert severity="error">{formatApiError(savePaper.error)}</Alert> : null}
+
+      <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>Your papers</Typography>
       <Stack spacing={1.5}>
         {papers.map((paper) => {
           const id = paper.id;
           if (id == null) return null;
           const notes = notesDraft[id] ?? paper.notes ?? "";
+          const subtitle = [paper.authors, paper.year, paper.journal].filter(Boolean).join(" · ");
           return (
-            <Paper key={id} variant="outlined" sx={{ p: 2 }}>
+            <Paper key={id} variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
               <Typography fontWeight={600}>{paper.title || "Untitled"}</Typography>
-              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                {paper.source_type} {paper.year ? `· ${paper.year}` : ""} {paper.read_at ? `· read ${new Date(paper.read_at).toLocaleDateString()}` : "· unread"}
+              {subtitle ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {subtitle}
+                </Typography>
+              ) : null}
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                Project: {wsTitle(paper.workspace_id)}
+                {paper.pmid ? ` · PMID: ${paper.pmid}` : ""}
               </Typography>
               <TextField
                 label="Notes"
+                placeholder="Add your reading notes..."
                 value={notes}
                 onChange={(e) => setNotesDraft((d) => ({ ...d, [id]: e.target.value }))}
                 fullWidth
                 multiline
                 minRows={2}
-                sx={{ mb: 1 }}
+                sx={{ my: 1.5 }}
               />
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={1} justifyContent="space-between" flexWrap="wrap" useFlexGap>
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() =>
-                    savePaper.mutate({
-                      id,
-                      data: { notes },
-                    })
-                  }
+                  onClick={() => savePaper.mutate({ id, data: { notes } })}
                 >
                   Save notes
                 </Button>
@@ -133,7 +187,7 @@ export function ReadingJournalFeature() {
                     })
                   }
                 >
-                  {paper.read_at ? "Mark unread" : "Mark read"}
+                  {paper.read_at ? "Mark unread" : "Mark as read"}
                 </Button>
               </Stack>
             </Paper>
