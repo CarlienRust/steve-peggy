@@ -49,6 +49,9 @@ export function ProjectHubPage() {
 
   const openProject = (id: string) => {
     saveActiveWorkspaceId(id);
+    void peggyApi.updateWorkspace(id, { last_opened_at: new Date().toISOString() }).then(() => {
+      if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+    });
     router.push("/dashboard");
   };
 

@@ -67,6 +67,16 @@ function asStringList(value: unknown): string[] {
   return value.map((item) => String(item).trim()).filter(Boolean);
 }
 
+function formatAdhoc(items: AdhocAnalysis[]): string {
+  return items
+    .filter((item) => item.title.trim() || item.target.trim())
+    .map((item) => {
+      const bits = [item.title.trim(), item.target.trim(), (item.notes ?? "").trim()].filter(Boolean);
+      return bits.join(" - ");
+    })
+    .join("; ");
+}
+
 function SummaryRow({
   label,
   value,
@@ -229,6 +239,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         outcomeTypes: outcomeTypes || undefined,
         covariates: summarizeCovariates(covariateEntries, covariates) || undefined,
         analysisMethod: analysisMethod || undefined,
+        adhocTests: formatAdhoc(adhocAnalyses) || undefined,
         constraints,
       };
       return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
@@ -631,36 +642,6 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         )}
       </Paper>
 
-      {section === "analysis" && (
-        <Paper variant="outlined" sx={{ p: 2.5 }}>
-          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-            SENSITIVITY AND AD HOC TESTS
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-            Optional.
-          </Typography>
-          <AdhocAnalysesEditor
-            items={adhocAnalyses}
-            options={linkOptions}
-            onChange={(next) => {
-              setAdhocAnalyses(next);
-              saveSection(planKey, { adhocAnalyses: next });
-            }}
-          />
-          <Button
-            variant="contained"
-            size="small"
-            disabled={savingSection === planKey}
-            sx={{ mt: 2, textTransform: "none" }}
-            onClick={() =>
-              void commitSection(planKey, { ...sectionFields, adhocAnalyses })
-            }
-          >
-            {savingSection === planKey ? "Saving…" : "Save tests"}
-          </Button>
-        </Paper>
-      )}
-
       <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
           YOUR PLAN
@@ -732,6 +713,15 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                     saveSection(planKey, { analysisMethod: e.target.value });
                   }}
                   fullWidth
+                />
+                <Typography variant="subtitle2">Sensitivity and ad hoc tests</Typography>
+                <AdhocAnalysesEditor
+                  items={adhocAnalyses}
+                  options={linkOptions}
+                  onChange={(next) => {
+                    setAdhocAnalyses(next);
+                    saveSection(planKey, { adhocAnalyses: next });
+                  }}
                 />
               </>
             )}

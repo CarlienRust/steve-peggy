@@ -119,6 +119,20 @@ async def setup_checks():
                     ) AS ok
                     """
                 )
+                papers_notes = await conn.fetchval(
+                    """
+                    SELECT EXISTS (
+                      SELECT 1 FROM information_schema.columns
+                      WHERE table_name = 'papers' AND column_name = 'notes'
+                    ) AS ok
+                    """
+                )
+                calendar_tbl = await conn.fetchval(
+                    "SELECT to_regclass('public.user_calendar_events') IS NOT NULL AS ok"
+                )
+                lab_tbl = await conn.fetchval(
+                    "SELECT to_regclass('public.lab_book_entries') IS NOT NULL AS ok"
+                )
                 ws_fields = await conn.fetchval(
                     """
                     SELECT EXISTS (
@@ -127,12 +141,23 @@ async def setup_checks():
                     ) AS ok
                     """
                 )
-                ok = bool(obj_hist and papers_journal and papers_screening and ws_fields)
+                ok = bool(
+                    obj_hist
+                    and papers_journal
+                    and papers_screening
+                    and papers_notes
+                    and calendar_tbl
+                    and lab_tbl
+                    and ws_fields
+                )
                 if not ok:
                     detail = (
                         f"objective_history={bool(obj_hist)}, "
                         f"papers.journal={bool(papers_journal)}, "
                         f"papers.screening_status={bool(papers_screening)}, "
+                        f"papers.notes={bool(papers_notes)}, "
+                        f"user_calendar_events={bool(calendar_tbl)}, "
+                        f"lab_book_entries={bool(lab_tbl)}, "
                         f"workspaces.privacy_mode={bool(ws_fields)}"
                     )
         except Exception as exc:

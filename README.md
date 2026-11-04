@@ -147,12 +147,17 @@ Smoke test (Qdrant + API running):
 | `/study-design/methods-plan`  | 03 · Methods plan      | Plan + optional steps linked to objectives               |
 | `/study-design/analysis-plan` | 03 · Analysis plan     | Plan + optional steps linked to objectives               |
 | `/study-design/proposal`      | 03 · Proposal          | Study/grant draft from project context                   |
-| `/analysis-tool`              | 04 Analysis tool       | Coming soon (nav disabled)                               |
+| `/calendar`                   | 03 Calendar            | Account calendar (home sidebar)                          |
+| `/reading-journal`            | 04 Reading journal     | Paper notes and read/unread (home sidebar)               |
+| `/ask`                        | 05 Ask Peggy           | Home Ask Peggy                                           |
+| `/useful-links`               | 06 Useful links        | External resources                                       |
+| `/analysis-tool`              | 04 Analysis tool       | CSV table, descriptives, test selector                   |
+| `/lab-book`                   | 07 Lab book            | Project notes                                            |
 | `/results`                    | 05 Results             | Hub — methods, our findings, upload, comparison          |
 | `/results/findings`           | 05 · Our findings      | Summary of uploaded findings                             |
 | `/results/report`             | 05 · Upload/Report     | Add findings (narrative, PDF, HTML); tag to objectives   |
 | `/results/comparison`         | 05 · Comparison        | Finding vs field                                         |
-| `/chat`                       | 06 Ask Peggy           | Q&A and agent modes                                      |
+| `/chat`                       | 08 Ask Peggy           | Q&A and agent modes                                      |
 
 
 Legacy redirects: `/ingest` → literature, `/gaps` → gap analysis, `/findings` → our findings, `/compare` → comparison.

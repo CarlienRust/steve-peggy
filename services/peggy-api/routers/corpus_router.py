@@ -17,6 +17,8 @@ class PaperUpdate(BaseModel):
     journal: Optional[str] = None
     screening_status: Optional[str] = None
     source_type: Optional[str] = None
+    notes: Optional[str] = None
+    read_at: Optional[str] = None
 
 
 @router.get("")
@@ -59,7 +61,14 @@ async def get_corpus_item_text(paper_id: int, user: AuthUser = Depends(get_curre
 
 @router.patch("/{paper_id}")
 async def update_corpus_item(paper_id: int, body: PaperUpdate, user: AuthUser = Depends(get_current_user)):
-    paper = await catalog.update_paper(user.id, paper_id, body.model_dump(exclude_unset=True))
+    from core.limits import enforce_text_length
+    from core.safety.phi_guard import assert_no_phi
+
+    fields = body.model_dump(exclude_unset=True)
+    if "notes" in fields and fields["notes"]:
+        enforce_text_length(str(fields["notes"]), max_len=20000, label="Paper notes")
+        assert_no_phi(str(fields["notes"]), label="Paper notes")
+    paper = await catalog.update_paper(user.id, paper_id, fields)
     if not paper:
         raise HTTPException(404, "Paper not found")
     return paper

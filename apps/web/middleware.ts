@@ -12,6 +12,7 @@ const WORKSPACE_ROUTES = [
   "/analysis-tool",
   "/results",
   "/outputs",
+  "/lab-book",
   "/gaps",
   "/findings",
   "/compare",
@@ -59,6 +60,8 @@ export async function middleware(request: NextRequest) {
     path === "/ask" ||
     path === "/help" ||
     path === "/useful-links" ||
+    path === "/calendar" ||
+    path === "/reading-journal" ||
     path.startsWith("/setup/");
   const isSetupRoute =
     isHubRoute ||

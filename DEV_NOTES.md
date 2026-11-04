@@ -109,10 +109,23 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Step links:** Entire project (`project`) plus aims/objectives
 - **Covariates:** scoped entries on analysis plan; optional sensitivity/ad hoc tests
 
-NEXT:
-Additional tests/Ad hoc and sensitivity test on Analysis methods: We can move this to be part of advance settings for analysis plan instead. need to also be saved to supabase and evaluated as part of the plan. Analysis plan result still not showing output - only a info block, but no breakdown on what was found and the result from the analysis plan. Say it is saved to project - but that is all. Not correct. 
+## Batch 12 — analysis result, ad hoc, Word paste
 
-Pasting table: Manual pasting and auto table not working if user copies from Word or text - populates the rows/columns wrong. 
+- **Analysis plan result:** render leftover JSON keys, summary, and `full_text` (including `{raw}` fallback) when structured sections are empty
+- **Ad hoc tests:** Advanced options only; saved in `analysisPlan.adhocAnalyses`; sent as `adhoc_tests` on review/suggest
+- **Table paste:** Word HTML / `<tr` / `mso-`, `\r` lines, tabs, then 2+ spaces, then `|`, then CSV (never split on a single space)
+
+## Batch 13 — calendar, reading journal, lab book
+
+- **Calendar:** `/calendar` (home sidebar), `user_calendar_events` (019), CRUD, project filter, add from aims/objectives/steps/ethics expiry
+- **Reading journal:** `/reading-journal` (home sidebar), `papers.notes` + `read_at` (020); list is `source_type=literature` only
+- **Lab book:** `/lab-book` (project sidebar), `lab_book_entries` (021)
+- **Analysis tool:** `/analysis-tool` CSV/TSV in browser or reuse `sample_datasets` from Samples; descriptives, Shapiro-like W', test selector; save `analysisTool` metadata only. SPSS still not supported.
+- **Home `/`:** Welcome copy plus upcoming 3 events, reading nudges, most-used project (`last_opened_at` stamped on open)
+- **Abstract versions:** `study_design.outputs` nested in the proposal JSON column so latest generate persists
+
+NEXT:
+SPSS / full analysis engine (not in v1) 
 
 FUTURE:
 

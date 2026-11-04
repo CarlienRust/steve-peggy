@@ -158,6 +158,16 @@ export type StudyDesignOutputs = {
   tables?: OutputTableDraft[];
 };
 
+export type AnalysisToolMeta = {
+  fileName?: string;
+  columnTypes?: Record<string, "continuous" | "categorical">;
+  lastSelector?: {
+    outcome?: "continuous" | "ordinal" | "categorical";
+    groups?: "1" | "2" | "3plus";
+    pairing?: "independent" | "paired";
+  };
+};
+
 export type ProjectTask = {
   id: string;
   text: string;
@@ -174,6 +184,7 @@ export type StudyDesignData = {
   analysisPlan?: StudyDesignPlan;
   proposal?: StudyDesignProposal;
   outputs?: StudyDesignOutputs;
+  analysisTool?: AnalysisToolMeta;
   objectiveLinks?: StudyDesignObjectiveLinks;
   projectTasks?: ProjectTask[];
 };
@@ -187,6 +198,7 @@ export const EMPTY_STUDY_DESIGN: StudyDesignData = {
   analysisPlan: {},
   proposal: {},
   outputs: {},
+  analysisTool: {},
   objectiveLinks: { findingLinks: [] },
   projectTasks: [],
 };

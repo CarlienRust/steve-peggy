@@ -278,6 +278,7 @@ def analysis_plan_suggest_prompt(
     covariates: str,
     analysis_method: str,
     sources: list[dict],
+    adhoc_tests: str = "",
 ) -> str:
     return f"""Propose a statistical analysis plan.
 
@@ -287,6 +288,7 @@ Project context:
 Outcome types: {outcome_types or "not specified"}
 Covariates (if specified): {covariates or "not specified"}
 Pre-specified analysis method (if any): {analysis_method or "none — suggest appropriate methods"}
+Sensitivity / ad hoc tests: {adhoc_tests or "not specified"}
 Constraints (budget, software, sample size):
 {constraints}
 
@@ -305,7 +307,9 @@ Return JSON only:
 }}"""
 
 
-def analysis_plan_review_prompt(user_plan: str, workspace_context: str, sources: list[dict]) -> str:
+def analysis_plan_review_prompt(
+    user_plan: str, workspace_context: str, sources: list[dict], adhoc_tests: str = ""
+) -> str:
     return f"""Review this analysis plan.
 
 User plan:
@@ -313,6 +317,9 @@ User plan:
 
 Project context:
 {workspace_context}
+
+Sensitivity / ad hoc tests (include these in your review):
+{adhoc_tests or "not specified"}
 
 Literature context:
 {format_context(sources)}

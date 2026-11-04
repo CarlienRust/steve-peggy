@@ -101,9 +101,10 @@ export const MAIN_NAV: NavItem[] = [
       },
     ],
   },
+  { kind: "link", num: "04", label: "Analysis tool", href: "/analysis-tool" },
   {
     kind: "group",
-    num: "04",
+    num: "05",
     label: "Results",
     href: "/results/findings",
     sectionHref: "/results",
@@ -124,11 +125,12 @@ export const MAIN_NAV: NavItem[] = [
   },
   {
     kind: "link",
-    num: "05",
+    num: "06",
     label: "Outputs",
     href: "/outputs",
   },
-  { kind: "link", num: "06", label: "Ask Peggy", href: "/chat" },
+  { kind: "link", num: "07", label: "Lab book", href: "/lab-book" },
+  { kind: "link", num: "08", label: "Ask Peggy", href: "/chat" },
 ];
 
 export type HomeNavItem = {
@@ -140,10 +142,12 @@ export type HomeNavItem = {
 
 /** Main sidebar (home shell) — no active project. */
 export const HOME_NAV: HomeNavItem[] = [
-  { num: "01", label: "Home", href: "/", tooltip: "Welcome and quick access to your projects" },
+  { num: "01", label: "Home", href: "/", tooltip: "Welcome, upcoming events, reading, and most used project" },
   { num: "02", label: "Project hub", href: "/projects", tooltip: "All projects and new project wizard" },
-  { num: "03", label: "Ask Peggy", href: "/ask", tooltip: "General research help; optional project for literature" },
-  { num: "04", label: "Useful links", href: "/useful-links", tooltip: "Curated external tools and databases" },
+  { num: "03", label: "Calendar", href: "/calendar", tooltip: "Deadlines and project dates for this account" },
+  { num: "04", label: "Reading journal", href: "/reading-journal", tooltip: "Notes and read/unread for your papers" },
+  { num: "05", label: "Ask Peggy", href: "/ask", tooltip: "General research help; optional project for literature" },
+  { num: "06", label: "Useful links", href: "/useful-links", tooltip: "Curated external tools and databases" },
 ];
 
 /** Hover hints for project sidebar top-level links (keyed by href). */
@@ -151,9 +155,10 @@ export const PROJECT_NAV_TOOLTIPS: Record<string, string> = {
   "/dashboard": "Objectives, setup flow, and project overview",
   "/validate/gap-analysis": "Gap scan, literature, and aim checks",
   "/study-design/samples": "Samples, ethics, methods, analysis, and proposal",
-  "/analysis-tool": "Analysis tool (coming soon)",
+  "/analysis-tool": "CSV table, descriptives, and a test selector",
   "/results/findings": "Findings upload and comparison to literature",
   "/outputs": "Figures, tables, and poster drafts from your results",
+  "/lab-book": "Progress notes, meetings, and methods for this project",
   "/chat": "Chat grounded in this project’s papers and findings",
 };
 

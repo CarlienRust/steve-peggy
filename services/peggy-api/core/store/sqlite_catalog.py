@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS papers (
     year TEXT,
     journal TEXT,
     screening_status TEXT NOT NULL DEFAULT 'to_read',
+    notes TEXT NOT NULL DEFAULT '',
+    read_at TEXT,
     source_type TEXT DEFAULT 'literature',
     ingested_at TEXT
 );
@@ -175,6 +177,9 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_extractions(db)
         await _migrate_profile_orcid(db)
         await _migrate_workspace_aims(db)
+        await _migrate_papers_journal_notes(db)
+        await _migrate_user_calendar_events(db)
+        await _migrate_lab_book_entries(db)
         await db.commit()
 
 
@@ -357,6 +362,56 @@ async def _migrate_profile_orcid(db: aiosqlite.Connection) -> None:
         await db.commit()
     except Exception:
         pass
+
+
+async def _migrate_papers_journal_notes(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN notes TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN read_at TEXT")
+    except Exception:
+        pass
+
+
+async def _migrate_user_calendar_events(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS user_calendar_events (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            workspace_id TEXT,
+            title TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'other',
+            starts_at TEXT NOT NULL,
+            ends_at TEXT,
+            notes TEXT NOT NULL DEFAULT '',
+            source_type TEXT,
+            source_id TEXT,
+            created_at TEXT,
+            updated_at TEXT
+        )"""
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_user_calendar_events_user_starts ON user_calendar_events (user_id, starts_at)"
+    )
+
+
+async def _migrate_lab_book_entries(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS lab_book_entries (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            category TEXT NOT NULL DEFAULT 'progress',
+            body TEXT NOT NULL,
+            created_at TEXT,
+            updated_at TEXT
+        )"""
+    )
+    await db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_lab_book_workspace_created ON lab_book_entries (workspace_id, created_at)"
+    )
 
 
 def _parse_study_design(d: dict) -> dict:
@@ -550,7 +605,18 @@ async def get_paper(user_id: str, paper_id: int) -> dict | None:
 async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None:
     if not await get_paper(user_id, paper_id):
         return None
-    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type", "screening_status"}
+    allowed = {
+        "pmid",
+        "doi",
+        "title",
+        "authors",
+        "year",
+        "journal",
+        "source_type",
+        "screening_status",
+        "notes",
+        "read_at",
+    }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return await get_paper(user_id, paper_id)
@@ -1413,3 +1479,194 @@ async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
         )
         await db.commit()
         return cur.rowcount
+
+
+async def list_calendar_events(user_id: str, workspace_id: str | None = None) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        if workspace_id:
+            cur = await db.execute(
+                """SELECT * FROM user_calendar_events
+                   WHERE user_id = ? AND workspace_id = ? ORDER BY starts_at""",
+                (user_id, workspace_id),
+            )
+        else:
+            cur = await db.execute(
+                "SELECT * FROM user_calendar_events WHERE user_id = ? ORDER BY starts_at",
+                (user_id,),
+            )
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def create_calendar_event(user_id: str, fields: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    event_id = str(uuid.uuid4())
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute(
+            """INSERT INTO user_calendar_events
+               (id, user_id, workspace_id, title, kind, starts_at, ends_at, notes,
+                source_type, source_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                event_id,
+                user_id,
+                fields.get("workspace_id"),
+                fields["title"],
+                fields.get("kind") or "other",
+                fields["starts_at"],
+                fields.get("ends_at"),
+                fields.get("notes") or "",
+                fields.get("source_type"),
+                fields.get("source_id"),
+                now,
+                now,
+            ),
+        )
+        await db.commit()
+        cur = await db.execute(
+            "SELECT * FROM user_calendar_events WHERE id = ? AND user_id = ?",
+            (event_id, user_id),
+        )
+        row = await cur.fetchone()
+    return dict(row)
+
+
+async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> dict | None:
+    allowed = {
+        "title",
+        "kind",
+        "starts_at",
+        "ends_at",
+        "notes",
+        "workspace_id",
+        "source_type",
+        "source_id",
+    }
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        async with aiosqlite.connect(config.SQLITE_DB) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                "SELECT * FROM user_calendar_events WHERE id = ? AND user_id = ?",
+                (event_id, user_id),
+            )
+            row = await cur.fetchone()
+        return dict(row) if row else None
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    cols = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [event_id, user_id]
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"UPDATE user_calendar_events SET {cols} WHERE id = ? AND user_id = ?",
+            values,
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+        cur = await db.execute(
+            "SELECT * FROM user_calendar_events WHERE id = ? AND user_id = ?",
+            (event_id, user_id),
+        )
+        row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_calendar_event(user_id: str, event_id: str) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            "DELETE FROM user_calendar_events WHERE id = ? AND user_id = ?",
+            (event_id, user_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0
+
+
+async def list_lab_book_entries(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """SELECT * FROM lab_book_entries
+               WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC""",
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    entry_id = str(uuid.uuid4())
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute(
+            """INSERT INTO lab_book_entries
+               (id, workspace_id, user_id, category, body, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                entry_id,
+                workspace_id,
+                user_id,
+                fields.get("category") or "progress",
+                fields["body"],
+                now,
+                now,
+            ),
+        )
+        await db.commit()
+        cur = await db.execute(
+            "SELECT * FROM lab_book_entries WHERE id = ? AND user_id = ? AND workspace_id = ?",
+            (entry_id, user_id, workspace_id),
+        )
+        row = await cur.fetchone()
+    return dict(row)
+
+
+async def update_lab_book_entry(
+    user_id: str, workspace_id: str, entry_id: str, fields: dict
+) -> dict | None:
+    allowed = {"category", "body"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        async with aiosqlite.connect(config.SQLITE_DB) as db:
+            db.row_factory = aiosqlite.Row
+            cur = await db.execute(
+                """SELECT * FROM lab_book_entries
+                   WHERE id = ? AND user_id = ? AND workspace_id = ?""",
+                (entry_id, user_id, workspace_id),
+            )
+            row = await cur.fetchone()
+        return dict(row) if row else None
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    cols = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [entry_id, user_id, workspace_id]
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            f"""UPDATE lab_book_entries SET {cols}
+                WHERE id = ? AND user_id = ? AND workspace_id = ?""",
+            values,
+        )
+        await db.commit()
+        if cur.rowcount == 0:
+            return None
+        cur = await db.execute(
+            """SELECT * FROM lab_book_entries
+               WHERE id = ? AND user_id = ? AND workspace_id = ?""",
+            (entry_id, user_id, workspace_id),
+        )
+        row = await cur.fetchone()
+    return dict(row) if row else None
+
+
+async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        cur = await db.execute(
+            """DELETE FROM lab_book_entries
+               WHERE id = ? AND user_id = ? AND workspace_id = ?""",
+            (entry_id, user_id, workspace_id),
+        )
+        await db.commit()
+        return cur.rowcount > 0

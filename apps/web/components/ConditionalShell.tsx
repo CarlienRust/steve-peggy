@@ -16,6 +16,8 @@ export function ConditionalShell({ children }: { children: ReactNode }) {
     pathname === "/ask" ||
     pathname === "/help" ||
     pathname === "/useful-links" ||
+    pathname === "/calendar" ||
+    pathname === "/reading-journal" ||
     pathname.startsWith("/setup");
   if (NO_SHELL_PREFIXES.some((p) => pathname.startsWith(p))) {
     return <>{children}</>;

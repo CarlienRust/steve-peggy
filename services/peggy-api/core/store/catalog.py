@@ -285,3 +285,37 @@ async def patch_extraction(
 
 async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
     return await _backend().delete_extractions_for_paper(user_id, paper_id)
+
+
+async def list_calendar_events(user_id: str, workspace_id: str | None = None) -> list[dict]:
+    return await _backend().list_calendar_events(user_id, workspace_id=workspace_id)
+
+
+async def create_calendar_event(user_id: str, fields: dict) -> dict:
+    return await _backend().create_calendar_event(user_id, fields)
+
+
+async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> dict | None:
+    return await _backend().update_calendar_event(user_id, event_id, fields)
+
+
+async def delete_calendar_event(user_id: str, event_id: str) -> bool:
+    return await _backend().delete_calendar_event(user_id, event_id)
+
+
+async def list_lab_book_entries(user_id: str, workspace_id: str) -> list[dict]:
+    return await _backend().list_lab_book_entries(user_id, workspace_id)
+
+
+async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -> dict:
+    return await _backend().create_lab_book_entry(user_id, workspace_id, fields)
+
+
+async def update_lab_book_entry(
+    user_id: str, workspace_id: str, entry_id: str, fields: dict
+) -> dict | None:
+    return await _backend().update_lab_book_entry(user_id, workspace_id, entry_id, fields)
+
+
+async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
+    return await _backend().delete_lab_book_entry(user_id, workspace_id, entry_id)

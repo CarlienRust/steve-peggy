@@ -14,10 +14,21 @@ DEFAULT_STUDY_DESIGN: dict[str, Any] = {
     "analysisPlan": {},
     "proposal": {},
     "outputs": {},
+    "analysisTool": {},
     "objectiveLinks": {"findingLinks": []},
 }
 
-_MERGE_KEYS = ("samples", "budget", "ethics", "methodsPlan", "analysisPlan", "proposal", "outputs", "objectiveLinks")
+_MERGE_KEYS = (
+    "samples",
+    "budget",
+    "ethics",
+    "methodsPlan",
+    "analysisPlan",
+    "proposal",
+    "outputs",
+    "analysisTool",
+    "objectiveLinks",
+)
 
 
 def normalize_study_design(raw: dict | None) -> dict:

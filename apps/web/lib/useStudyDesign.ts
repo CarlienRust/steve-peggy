@@ -15,6 +15,7 @@ const SECTIONS = [
   "proposal",
   "objectiveLinks",
   "outputs",
+  "analysisTool",
 ] as const;
 type SectionKey = (typeof SECTIONS)[number];
 

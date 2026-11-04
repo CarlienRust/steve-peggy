@@ -107,6 +107,8 @@ For agent development, use `LLM_PROVIDER=ollama` locally or `gemini` on Render (
 - Only registered tools execute; unknown names error
 - Persona agent block in `persona_config.json`; `build_agent_system_prompt()` in `prompts.py`
 
+Study-design `POST /workflows/study-design/analysis-plan` is still single-shot (not the agent loop). Review and suggest prompts include sensitivity / ad hoc tests from the request and from saved `analysisPlan.adhocAnalyses`.
+
 ## Single-shot `/chat` (still available)
 
 | Mode | Behavior |

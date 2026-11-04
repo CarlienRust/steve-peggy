@@ -68,6 +68,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
     const reviewKeys = ["strengths", "gaps", "recommendations", "ethics_flags"] as const;
     const isReview = reviewKeys.some((k) => asStringList(body[k]).length > 0);
     if (isReview) {
+      const reviewFull = typeof body.full_text === "string" ? body.full_text.trim() : "";
       return (
         <Stack spacing={2}>
           {reviewKeys.map((key) => {
@@ -86,6 +87,16 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               </Paper>
             );
           })}
+          {reviewFull ? (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Full text
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+                {reviewFull}
+              </Typography>
+            </Paper>
+          ) : null}
         </Stack>
       );
     }
@@ -107,6 +118,30 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             { key: "citations", multi: true },
           ];
     const budgetTiers = body.budget_tiers as Record<string, string> | undefined;
+    const used = new Set<string>(suggestSections.map((s) => s.key));
+    used.add("budget_tiers");
+    used.add("summary");
+    used.add("limitations");
+    const extraKeys = Object.keys(body).filter((k) => !used.has(k) && k !== "full_text");
+    const fullText = typeof body.full_text === "string" ? body.full_text.trim() : "";
+    const extraBlocks = extraKeys
+      .map((key) => {
+        const items = asStringList(body[key]);
+        if (items.length) {
+          return { key, kind: "list" as const, items };
+        }
+        const text = typeof body[key] === "string" ? (body[key] as string).trim() : "";
+        if (text) return { key, kind: "text" as const, text };
+        const val = body[key];
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          return { key, kind: "text" as const, text: JSON.stringify(val, null, 2) };
+        }
+        return null;
+      })
+      .filter((b): b is { key: string; kind: "list"; items: string[] } | { key: string; kind: "text"; text: string } => !!b);
+    const hasSuggest = suggestSections.some(({ key, multi }) =>
+      multi ? asStringList(body[key]).length > 0 : typeof body[key] === "string" && !!(body[key] as string).trim()
+    );
     return (
       <Stack spacing={2}>
         {suggestSections.map(({ key, multi }) => {
@@ -156,6 +191,44 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             </Typography>
             <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
               {body.summary}
+            </Typography>
+          </Paper>
+        ) : null}
+        {extraBlocks.map((block) => (
+          <Paper key={block.key} variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, textTransform: "capitalize" }}>
+              {block.key.replace(/_/g, " ")}
+            </Typography>
+            {block.kind === "list" ? (
+              block.items.map((item, i) => (
+                <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
+                  • {item}
+                </Typography>
+              ))
+            ) : (
+              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
+                {block.text}
+              </Typography>
+            )}
+          </Paper>
+        ))}
+        {fullText && !hasSuggest && extraBlocks.length === 0 && !(typeof body.summary === "string" && body.summary.trim()) ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Result
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+              {fullText}
+            </Typography>
+          </Paper>
+        ) : null}
+        {fullText && (hasSuggest || extraBlocks.length > 0) ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              Full text
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+              {fullText}
             </Typography>
           </Paper>
         ) : null}

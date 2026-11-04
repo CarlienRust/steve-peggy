@@ -214,7 +214,18 @@ async def get_paper(user_id: str, paper_id: int) -> dict | None:
 async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None:
     if not await get_paper(user_id, paper_id):
         return None
-    allowed = {"pmid", "doi", "title", "authors", "year", "journal", "source_type", "screening_status"}
+    allowed = {
+        "pmid",
+        "doi",
+        "title",
+        "authors",
+        "year",
+        "journal",
+        "source_type",
+        "screening_status",
+        "notes",
+        "read_at",
+    }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         return await get_paper(user_id, paper_id)
@@ -1174,3 +1185,180 @@ async def delete_extractions_for_paper(user_id: str, paper_id: int) -> int:
         return int(str(result).split()[-1])
     except (ValueError, IndexError):
         return 0
+
+
+async def list_calendar_events(user_id: str, workspace_id: str | None = None) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        if workspace_id:
+            rows = await conn.fetch(
+                """SELECT * FROM user_calendar_events
+                   WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+                   ORDER BY starts_at""",
+                user_id,
+                workspace_id,
+            )
+        else:
+            rows = await conn.fetch(
+                """SELECT * FROM user_calendar_events
+                   WHERE user_id = $1::uuid ORDER BY starts_at""",
+                user_id,
+            )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def create_calendar_event(user_id: str, fields: dict) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO user_calendar_events
+               (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
+                source_type, source_id, updated_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
+                       $7, $8, $9, NOW())
+               RETURNING *""",
+            user_id,
+            fields.get("workspace_id"),
+            fields["title"],
+            fields.get("kind") or "other",
+            fields["starts_at"],
+            fields.get("ends_at"),
+            fields.get("notes") or "",
+            fields.get("source_type"),
+            fields.get("source_id"),
+        )
+    return _row_to_dict(row)
+
+
+async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> dict | None:
+    allowed = {
+        "title",
+        "kind",
+        "starts_at",
+        "ends_at",
+        "notes",
+        "workspace_id",
+        "source_type",
+        "source_id",
+    }
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        pool = await _pool_conn()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "SELECT * FROM user_calendar_events WHERE id = $1::uuid AND user_id = $2::uuid",
+                event_id,
+                user_id,
+            )
+        return _row_to_dict(row) if row else None
+    set_parts = []
+    values: list[Any] = []
+    i = 1
+    for key, val in updates.items():
+        if key in ("starts_at", "ends_at") and val:
+            set_parts.append(f"{key} = ${i}::timestamptz")
+        elif key == "workspace_id":
+            set_parts.append(f"{key} = ${i}::uuid")
+        else:
+            set_parts.append(f"{key} = ${i}")
+        values.append(val)
+        i += 1
+    set_parts.append("updated_at = NOW()")
+    values.extend([event_id, user_id])
+    sql = (
+        f"UPDATE user_calendar_events SET {', '.join(set_parts)} "
+        f"WHERE id = ${i}::uuid AND user_id = ${i + 1}::uuid RETURNING *"
+    )
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, *values)
+    return _row_to_dict(row) if row else None
+
+
+async def delete_calendar_event(user_id: str, event_id: str) -> bool:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "DELETE FROM user_calendar_events WHERE id = $1::uuid AND user_id = $2::uuid",
+            event_id,
+            user_id,
+        )
+    return result.endswith("1")
+
+
+async def list_lab_book_entries(user_id: str, workspace_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT * FROM lab_book_entries
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+               ORDER BY created_at DESC""",
+            user_id,
+            workspace_id,
+        )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO lab_book_entries
+               (workspace_id, user_id, category, body, updated_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4, NOW())
+               RETURNING *""",
+            workspace_id,
+            user_id,
+            fields.get("category") or "progress",
+            fields["body"],
+        )
+    return _row_to_dict(row)
+
+
+async def update_lab_book_entry(
+    user_id: str, workspace_id: str, entry_id: str, fields: dict
+) -> dict | None:
+    allowed = {"category", "body"}
+    updates = {k: v for k, v in fields.items() if k in allowed}
+    if not updates:
+        pool = await _pool_conn()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow(
+                """SELECT * FROM lab_book_entries
+                   WHERE id = $1::uuid AND user_id = $2::uuid AND workspace_id = $3::uuid""",
+                entry_id,
+                user_id,
+                workspace_id,
+            )
+        return _row_to_dict(row) if row else None
+    set_parts = []
+    values: list[Any] = []
+    i = 1
+    for key, val in updates.items():
+        set_parts.append(f"{key} = ${i}")
+        values.append(val)
+        i += 1
+    set_parts.append("updated_at = NOW()")
+    values.extend([entry_id, user_id, workspace_id])
+    sql = (
+        f"UPDATE lab_book_entries SET {', '.join(set_parts)} "
+        f"WHERE id = ${i}::uuid AND user_id = ${i + 1}::uuid AND workspace_id = ${i + 2}::uuid "
+        f"RETURNING *"
+    )
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(sql, *values)
+    return _row_to_dict(row) if row else None
+
+
+async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            """DELETE FROM lab_book_entries
+               WHERE id = $1::uuid AND user_id = $2::uuid AND workspace_id = $3::uuid""",
+            entry_id,
+            user_id,
+            workspace_id,
+        )
+    return result.endswith("1")

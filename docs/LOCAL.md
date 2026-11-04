@@ -126,7 +126,7 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 
 ## Supabase auth (optional, not needed for solo local)
 
-1. Run migrations in order in the Supabase SQL Editor: `001` through `015_papers_journal.sql` (see [DATABASE.md](DATABASE.md))
+1. Run migrations in order in the Supabase SQL Editor: `001` through `021_lab_book.sql` (see [DATABASE.md](DATABASE.md))
 2. Redirect URLs: `http://localhost:3000/auth/callback` and your Vercel URL
 3. Password sign-in recommended for local dev
 4. Use the **transaction pooler** URI (port **6543**) for `DATABASE_URL`; restart API after env changes
@@ -137,6 +137,7 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 |---------|-----|
 | UI hits Render / prod API | `NEXT_PUBLIC_API_URL=http://localhost:8000` in `.env.local` |
 | Empty profile/workspaces after sign-in | Web uses Supabase (`NEXT_PUBLIC_SOLO_LOCAL=false`) but API has `AUTH_REQUIRED=false` or no `DATABASE_URL` — align both sides per [LOCAL.md](LOCAL.md) signed-in local block |
+| Sign-in works, then Home/projects never load | Local API is down or crash-looping (`curl http://localhost:8000/health`). Python 3.9 cannot import `str \| None` without `from __future__ import annotations`. Check `.local-run/api.log`, then restart `./scripts/start-local.sh` |
 | Postgres `prepared statement "__asyncpg_stmt_*" does not exist` | Supabase **transaction pooler** + asyncpg — use pooler URI (port 6543) and restart API (uses `statement_cache_size=0`) |
 | Dev on port **3001**, data never loads | Stale process on 3000; Next picks 3001 but API CORS may only allow 3000. Kill port 3000 (`lsof -ti:3000 | xargs kill`) and restart `npm run dev`, or add `http://localhost:3001` to API `CORS_ORIGINS` and restart API |
 | `__webpack_modules__[moduleId] is not a function` | Stop all `next dev` processes, `rm -rf apps/web/.next`, restart dev once |

@@ -77,7 +77,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /corpus?source_type=` | List papers (`literature` \| `own_findings`) |
-| `GET/PATCH/DELETE /corpus/{id}` | CRUD (Qdrant purge on delete: stub) |
+| `GET/PATCH/DELETE /corpus/{id}` | CRUD including `notes` and `read_at`; Qdrant purge on delete |
 
 ### RAG & workflows
 
@@ -102,6 +102,10 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET/POST /workspaces` | List / create projects (`aim`, `objectives[]`) |
 | `GET/PATCH/DELETE /workspaces/{id}` | Read / update / delete project |
 | `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET/POST /calendar/events` | User calendar; optional `workspace_id` filter |
+| `PATCH/DELETE /calendar/events/{id}` | Update or delete a calendar event |
+| `GET/POST /workspaces/{id}/lab-book` | Project lab book notes |
+| `PATCH/DELETE /workspaces/{id}/lab-book/{id}` | Edit or delete a lab book note |
 | `GET /workspaces/{id}/papers/summary` | Literature table payload: papers + computed review status from `extractions` |
 | `GET /workspaces/{id}/coverage` | Coverage matrix aggregation for dashboard/gap analysis (grouped counts from `extractions`) |
 | `GET /extraction-modules` | Versioned field schemas (`core`, `outcomes`, …) from `core/extraction/schemas/` |
@@ -113,7 +117,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |
 | `POST /workflows/study-design/methods-plan` | Methods review or suggest (`mode`: review \| suggest) |
-| `POST /workflows/study-design/analysis-plan` | Analysis review or suggest |
+| `POST /workflows/study-design/analysis-plan` | Analysis review or suggest (`adhoc_tests` plus saved `analysisPlan.adhocAnalyses`) |
 | `POST /workflows/study-design/proposal` | 1–2 page proposal from workspace study design + literature |
 | `POST /workflows/compare` | Finding vs literature; optional `workspace_id` injects study design + plans; retrieval includes `sample_datasets` |
 | `POST /workflows/future-design` | Study design draft (API only) |
@@ -138,10 +142,12 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 
 | Route | Nav | Purpose |
 |-------|-----|---------|
-| `/` | Home (main sidebar) | Welcome + your projects list (inside **HomeAppShell**) |
-| `/projects` | Project hub | Dedicated project list and **+ New project** |
-| `/ask` | Ask Peggy (main sidebar) | General help chat; optional project picker for literature-grounded answers |
-| `/useful-links` | Useful links | Curated external resources by category |
+| `/` | 01 Home | Welcome copy plus dashboard: next three calendar events, return to reading / “Read one a week” / suggest next unread literature paper, most-used project (`last_opened_at`) |
+| `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
+| `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry (user picks the date) |
+| `/reading-journal` | 04 Reading journal | Literature corpus PDFs only (`source_type=literature`); notes + read/unread; optional project filter. Ethics documents and uploaded results are excluded. |
+| `/ask` | 05 Ask Peggy | General help chat; optional project picker for literature-grounded answers |
+| `/useful-links` | 06 Useful links | Curated external resources by category |
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
 | `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
@@ -156,16 +162,17 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
-| `/study-design/analysis-plan` | 03 · Analysis plan | From your project, sensitivity/ad hoc, your plan, result, steps, similar-studies checklist, Completed |
+| `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | Placeholder (nav disabled) |
+| `/analysis-tool` | 04 Analysis tool | Load a project `sample_datasets` file (parsed as a table) or upload a new CSV/TSV; column summaries; test selector; optional save of `analysisTool` metadata (not the CSV) |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
-| `/results/comparison` | 04 · Comparison | Finding vs ingested literature (not other findings sets) |
-| `/outputs` | 05 · Outputs | Tabs: Figures (external tools), Tables (manual, paste TSV/CSV/HTML, HTML import), Abstract (saved versions in `study_design.outputs`) |
-| `/chat` | 06 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
+| `/results/comparison` | 05 · Comparison | Finding vs ingested literature (not other findings sets) |
+| `/outputs` | 06 · Outputs | Tabs: Figures (external tools), Tables (manual; paste Word HTML/`<tr`/`mso-`, TSV, 2+ space columns, pipes, CSV; HTML import), Abstract (each generate is a saved version in `study_design.outputs`, nested in the proposal JSON column) |
+| `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
+| `/chat` | 08 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.

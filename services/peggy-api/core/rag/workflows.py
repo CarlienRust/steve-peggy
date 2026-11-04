@@ -366,26 +366,45 @@ async def run_analysis_plan(
     covariates: str = "",
     analysis_method: str = "",
     source_types: list[str] | None = None,
+    adhoc_tests: str = "",
 ) -> dict:
     from core.safety.phi_guard import assert_no_phi, assert_study_design_safe
 
     ws, sd = await _load_workspace_context(user_id, workspace_id)
     samples = sd.get("samples") or {}
+    saved_adhoc = ""
+    plan = sd.get("analysisPlan") or {}
+    rows = plan.get("adhocAnalyses") or []
+    if isinstance(rows, list) and rows:
+        bits = []
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            title = str(row.get("title") or "").strip()
+            target = str(row.get("target") or "").strip()
+            notes = str(row.get("notes") or "").strip()
+            if title or target:
+                bits.append(" - ".join(p for p in (title, target, notes) if p))
+        saved_adhoc = "; ".join(bits)
+    adhoc = (adhoc_tests or "").strip() or saved_adhoc
     assert_study_design_safe(
-        samples, user_plan + budget + tools + outcome_types + covariates + analysis_method
+        samples, user_plan + budget + tools + outcome_types + covariates + analysis_method + adhoc
     )
     if user_plan:
         assert_no_phi(user_plan, label="Analysis plan")
     ctx = _workspace_context(ws, sd)
-    constraints = f"Budget: {budget or 'not specified'}\nPreferred tools: {tools or 'not specified'}"
+    constraints = (
+        f"Budget: {budget or 'not specified'}\nPreferred tools: {tools or 'not specified'}\n"
+        f"Sensitivity / ad hoc tests: {adhoc or 'not specified'}"
+    )
     query = f"{ws.get('aim', '')} statistical analysis methods"
     sources = qdrant_store.search(query, source_types=source_types or ["literature"], user_id=user_id)
     llm = get_llm()
     if mode == "review":
-        prompt = prompts.analysis_plan_review_prompt(user_plan, ctx, sources)
+        prompt = prompts.analysis_plan_review_prompt(user_plan, ctx, sources, adhoc_tests=adhoc)
     else:
         prompt = prompts.analysis_plan_suggest_prompt(
-            ctx, constraints, outcome_types, covariates, analysis_method, sources
+            ctx, constraints, outcome_types, covariates, analysis_method, sources, adhoc_tests=adhoc
         )
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)

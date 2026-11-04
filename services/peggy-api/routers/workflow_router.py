@@ -86,6 +86,7 @@ class StudyPlanRequest(BaseModel):
     outcome_types: str = ""
     covariates: str = ""
     analysis_method: str = ""
+    adhoc_tests: str = ""
     source_types: list[str] = Field(default_factory=lambda: ["literature"])
 
 
@@ -268,6 +269,8 @@ async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_cur
             enforce_text_length(body.covariates, max_len=1024, label="Covariates")
         if body.analysis_method:
             enforce_text_length(body.analysis_method, max_len=512, label="Analysis method")
+        if body.adhoc_tests:
+            enforce_text_length(body.adhoc_tests, max_len=4000, label="Ad hoc tests")
         return _wrap(
             await run_analysis_plan(
                 user.id,
@@ -280,6 +283,7 @@ async def analysis_plan(body: StudyPlanRequest, user: AuthUser = Depends(get_cur
                 body.covariates,
                 body.analysis_method,
                 body.source_types,
+                body.adhoc_tests,
             )
         )
     except ValueError as exc:

@@ -253,6 +253,8 @@ class StudyDesignPatch(BaseModel):
     methodsPlan: Optional[dict[str, Any]] = None
     analysisPlan: Optional[dict[str, Any]] = None
     proposal: Optional[dict[str, Any]] = None
+    outputs: Optional[dict[str, Any]] = None
+    analysisTool: Optional[dict[str, Any]] = None
     objectiveLinks: Optional[dict[str, Any]] = None
     projectTasks: Optional[list[dict[str, Any]]] = None
 

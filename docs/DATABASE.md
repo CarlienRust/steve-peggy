@@ -31,14 +31,14 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `018_workspace_aims.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `021_lab_book.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
 - Partial unique indexes for dedup per user + source type
 - RLS policies `auth.uid() = user_id`
 
-`007_study_design.sql` creates **one row per project** in `study_design` (`workspace_id` primary key) with JSON columns for samples, ethics, budget, methods plan, analysis plan, and proposal. Client merge also supports `outputs` (abstract versions and table drafts). Save updates the column for that section. Existing `workspaces.study_design` JSON is copied in once.
+`007_study_design.sql` creates **one row per project** in `study_design` (`workspace_id` primary key) with JSON columns for samples, ethics, budget, methods plan, analysis plan, and proposal. Client merge also supports `outputs` (abstract versions and table drafts). There is no `outputs` SQL column: PATCH nests `outputs` inside the `proposal` JSON (same pattern as `analysisTool` inside `analysis_plan`). Save updates the column for that section. Existing `workspaces.study_design` JSON is copied in once.
 
 `008_findings_summary.sql` creates **one row per account** in `findings_summaries`. Uploading findings rebuilds `summary`, `points`, and `source_count`.
 
@@ -73,6 +73,14 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `015_papers_journal.sql` adds `papers.journal` for the Literature table.
 
+`019_user_calendar_events.sql` creates `user_calendar_events` (user-owned; optional `workspace_id`; kinds include deadline, meeting, ethics_renewal, aim, objective, step). RLS `auth.uid() = user_id`.
+
+`020_paper_journal.sql` adds `papers.notes` (text, default empty) and `papers.read_at` (timestamptz, nullable). Screening status stays a separate column.
+
+`021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
+
+Analysis tool metadata is `study_design.analysisTool` (`fileName`, `columnTypes`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). The CSV itself is not saved. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`) can be loaded into the analysis tool via paper text parse, or the user can upload a new CSV in the browser.
+
 ## Entity relationships (Postgres / SQLite)
 
 ```mermaid
@@ -81,6 +89,8 @@ erDiagram
   workspaces ||--|| study_design : has
   workspaces ||--o{ extractions : scopes
   workspaces ||--o| findings_summaries_by_workspace : summarizes
+  workspaces ||--o{ lab_book_entries : records
+  workspaces ||--o{ user_calendar_events : optional
   papers ||--o{ extractions : yields
   workspaces {
     uuid id PK
@@ -93,6 +103,22 @@ erDiagram
     uuid workspace_id FK
     uuid user_id FK
     text source_type
+    text notes
+    timestamptz read_at
+  }
+  user_calendar_events {
+    uuid id PK
+    uuid user_id FK
+    uuid workspace_id FK
+    text kind
+    timestamptz starts_at
+  }
+  lab_book_entries {
+    uuid id PK
+    uuid workspace_id FK
+    uuid user_id FK
+    text category
+    text body
   }
   extractions {
     bigint id PK

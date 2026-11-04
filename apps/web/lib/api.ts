@@ -314,11 +314,53 @@ export type PaperRecord = {
   year?: string;
   journal?: string;
   screening_status?: "to_read" | "included" | "excluded";
+  notes?: string;
+  read_at?: string | null;
+  workspace_id?: string | null;
   ingested_at?: string;
   status?: "not_extracted" | "needs_review" | "reviewed";
   extraction_review_status?: "not_extracted" | "needs_review" | "reviewed";
   extraction_count?: number;
   auto_extraction_count?: number;
+};
+
+export type CalendarEventKind =
+  | "deadline"
+  | "meeting"
+  | "check_in"
+  | "ethics_renewal"
+  | "conference"
+  | "grant"
+  | "step"
+  | "aim"
+  | "objective"
+  | "other";
+
+export type CalendarEvent = {
+  id: string;
+  user_id?: string;
+  workspace_id?: string | null;
+  title: string;
+  kind: CalendarEventKind;
+  starts_at: string;
+  ends_at?: string | null;
+  notes?: string;
+  source_type?: string | null;
+  source_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type LabBookCategory = "progress" | "meeting" | "idea" | "methods" | "other";
+
+export type LabBookEntry = {
+  id: string;
+  workspace_id: string;
+  user_id?: string;
+  category: LabBookCategory;
+  body: string;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type DiscoveryCandidate = {
@@ -413,6 +455,52 @@ export const peggyApi = {
 
   updatePaper: (id: number, data: Partial<PaperRecord>) =>
     apiFetch<PaperRecord>(`/corpus/${id}`, { method: "PATCH", body: JSON.stringify(data) }),
+
+  listCalendarEvents: (workspaceId?: string) => {
+    const q = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : "";
+    return apiFetch<{ events: CalendarEvent[]; count: number }>(`/calendar/events${q}`);
+  },
+
+  createCalendarEvent: (body: {
+    title: string;
+    kind?: CalendarEventKind;
+    starts_at: string;
+    ends_at?: string | null;
+    notes?: string;
+    workspace_id?: string | null;
+    source_type?: string | null;
+    source_id?: string | null;
+  }) => apiFetch<CalendarEvent>("/calendar/events", { method: "POST", body: JSON.stringify(body) }),
+
+  updateCalendarEvent: (id: string, body: Partial<CalendarEvent>) =>
+    apiFetch<CalendarEvent>(`/calendar/events/${id}`, { method: "PATCH", body: JSON.stringify(body) }),
+
+  deleteCalendarEvent: (id: string) =>
+    apiFetch<{ status: string; id: string }>(`/calendar/events/${id}`, { method: "DELETE" }),
+
+  listLabBook: (workspaceId: string) =>
+    apiFetch<{ entries: LabBookEntry[]; count: number }>(`/workspaces/${workspaceId}/lab-book`),
+
+  createLabBookEntry: (workspaceId: string, body: { category?: LabBookCategory; body: string }) =>
+    apiFetch<LabBookEntry>(`/workspaces/${workspaceId}/lab-book`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  updateLabBookEntry: (
+    workspaceId: string,
+    entryId: string,
+    body: Partial<{ category: LabBookCategory; body: string }>
+  ) =>
+    apiFetch<LabBookEntry>(`/workspaces/${workspaceId}/lab-book/${entryId}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+
+  deleteLabBookEntry: (workspaceId: string, entryId: string) =>
+    apiFetch<{ status: string; id: string }>(`/workspaces/${workspaceId}/lab-book/${entryId}`, {
+      method: "DELETE",
+    }),
 
   deletePaper: (id: number) =>
     apiFetch<{ status: string; paper_id: number; vectors_purged: boolean }>(`/corpus/${id}`, {
@@ -826,6 +914,7 @@ export const peggyApi = {
     outcomeTypes?: string;
     covariates?: string;
     analysisMethod?: string;
+    adhocTests?: string;
   }) =>
     apiFetch<WorkflowResponse>("/workflows/study-design/analysis-plan", {
       method: "POST",
@@ -838,6 +927,7 @@ export const peggyApi = {
         outcome_types: body.outcomeTypes ?? "",
         covariates: body.covariates ?? "",
         analysis_method: body.analysisMethod ?? "",
+        adhoc_tests: body.adhocTests ?? "",
       }),
     }),
 
@@ -945,4 +1035,6 @@ export const queryKeys = {
   job: (id: string) => ["job", id] as const,
   profile: (userId?: string) => (userId ? (["profile", userId] as const) : (["profile"] as const)),
   workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),
+  calendar: (workspaceId?: string) => ["calendar", workspaceId ?? "all"] as const,
+  labBook: (workspaceId?: string) => ["lab-book", workspaceId] as const,
 };

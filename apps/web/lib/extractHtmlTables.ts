@@ -13,10 +13,13 @@ function rowCells(tr: Element): string[] {
   return Array.from(cells).map((c) => cellText(c));
 }
 
-/** Pull simple tables from HTML findings uploads (browser only). */
+/** Pull simple tables from HTML findings uploads or Word paste (browser only). */
 export function extractHtmlTables(html: string, defaultTitle = "Imported table"): ParsedHtmlTable[] {
-  if (typeof DOMParser === "undefined" || !html.includes("<table")) return [];
-  const doc = new DOMParser().parseFromString(html, "text/html");
+  if (typeof DOMParser === "undefined") return [];
+  const lower = html.toLowerCase();
+  if (!lower.includes("<table") && !lower.includes("<tr")) return [];
+  const wrapped = lower.includes("<table") ? html : `<table>${html}</table>`;
+  const doc = new DOMParser().parseFromString(wrapped, "text/html");
   const tables = Array.from(doc.querySelectorAll("table"));
   return tables
     .map((table, index) => {

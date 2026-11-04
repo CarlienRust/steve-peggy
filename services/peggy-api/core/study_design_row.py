@@ -37,12 +37,31 @@ def row_to_design(row: dict | None) -> dict:
     payload: dict[str, Any] = {"v": 1}
     for api_key, column in API_SECTIONS:
         payload[api_key] = _loads(row.get(column))
+    plan = payload.get("analysisPlan")
+    if isinstance(plan, dict) and isinstance(plan.get("analysisTool"), dict):
+        payload["analysisTool"] = plan["analysisTool"]
+        payload["analysisPlan"] = {k: v for k, v in plan.items() if k != "analysisTool"}
+    proposal = payload.get("proposal")
+    if isinstance(proposal, dict) and isinstance(proposal.get("outputs"), dict):
+        payload["outputs"] = proposal["outputs"]
+        payload["proposal"] = {k: v for k, v in proposal.items() if k != "outputs"}
     return normalize_study_design(payload)
 
 
 def design_to_column_json(design: dict) -> dict[str, str]:
     normalized = normalize_study_design(design)
-    return {column: json.dumps(normalized.get(api_key) or {}) for api_key, column in API_SECTIONS}
+    cols = {column: json.dumps(normalized.get(api_key) or {}) for api_key, column in API_SECTIONS}
+    plan = dict(normalized.get("analysisPlan") or {})
+    tool = normalized.get("analysisTool")
+    if isinstance(tool, dict) and tool:
+        plan["analysisTool"] = tool
+        cols["analysis_plan"] = json.dumps(plan)
+    proposal = dict(normalized.get("proposal") or {})
+    outputs = normalized.get("outputs")
+    if isinstance(outputs, dict) and outputs:
+        proposal["outputs"] = outputs
+        cols["proposal"] = json.dumps(proposal)
+    return cols
 
 
 def design_has_content(design: dict | None) -> bool:

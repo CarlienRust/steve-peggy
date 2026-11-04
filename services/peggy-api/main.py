@@ -16,12 +16,14 @@ from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
 from routers import (
     agent_router,
+    calendar_router,
     chat_router,
     corpus_router,
     extractions_router,
     feedback_router,
     github_router,
     ingest_router,
+    lab_book_router,
     limits_router,
     profile_router,
     setup_router,
@@ -126,6 +128,8 @@ app.include_router(extractions_router.router)
 app.include_router(extractions_router.workspace_router)
 app.include_router(github_router.router)
 app.include_router(setup_router.router)
+app.include_router(calendar_router.router)
+app.include_router(lab_book_router.router)
 
 
 @app.get("/health")

@@ -23,6 +23,26 @@ def test_merge_deep_merges_section_keys():
     assert merged["methodsPlan"]["budget"] == "low"
 
 
+def test_analysis_tool_nested_in_analysis_plan_column():
+    design = normalize_study_design(
+        {"analysisTool": {"fileName": "a.csv", "columnTypes": {"age": "continuous"}}}
+    )
+    row = design_to_column_json(design)
+    restored = row_to_design(row)
+    assert restored["analysisTool"]["fileName"] == "a.csv"
+    assert "analysisTool" not in restored["analysisPlan"]
+
+
+def test_outputs_nested_in_proposal_column():
+    design = normalize_study_design(
+        {"outputs": {"abstractDrafts": [{"id": "a1", "label": "Version 1"}], "activeAbstractId": "a1"}}
+    )
+    row = design_to_column_json(design)
+    restored = row_to_design(row)
+    assert restored["outputs"]["activeAbstractId"] == "a1"
+    assert "outputs" not in restored["proposal"]
+
+
 def test_row_round_trip_keeps_sections():
     design = normalize_study_design(
         {"samples": {"studyType": "RCT"}, "methodsPlan": {"userPlan": "Crossover"}}

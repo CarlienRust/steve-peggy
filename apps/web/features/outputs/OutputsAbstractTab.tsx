@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import {
   Alert,
@@ -28,17 +28,24 @@ export function OutputsAbstractTab() {
   const [minWords, setMinWords] = useState(250);
   const [selectedId, setSelectedId] = useState<string | null>(outputs.activeAbstractId ?? drafts[0]?.id ?? null);
 
+  useEffect(() => {
+    if (outputs.activeAbstractId) setSelectedId(outputs.activeAbstractId);
+  }, [outputs.activeAbstractId]);
+
   const selected = useMemo(
     () => drafts.find((d) => d.id === selectedId) ?? drafts[0] ?? null,
     [drafts, selectedId]
   );
-  const body = normalizeWorkflowBody(selected?.body);
 
   const generate = useMutation({
     mutationFn: () => peggyApi.conferenceAbstract(activeWorkspace!.id, minWords),
     onSuccess: async (data) => {
-      const normalized = normalizeWorkflowBody(data.body as Record<string, unknown>);
-      if (!normalized || !hasAbstractSections(normalized)) return;
+      const normalized =
+        normalizeWorkflowBody(data.body as Record<string, unknown>) ??
+        ({ full_text: typeof data.body === "string" ? data.body : JSON.stringify(data.body ?? {}) } as Record<
+          string,
+          unknown
+        >);
       const label = `Version ${drafts.length + 1}`;
       const draft: AbstractDraft = {
         id: crypto.randomUUID(),
@@ -56,6 +63,12 @@ export function OutputsAbstractTab() {
       setSelectedId(draft.id);
     },
   });
+
+  const pendingBody = generate.data?.body
+    ? normalizeWorkflowBody(generate.data.body as Record<string, unknown>)
+    : undefined;
+  const body = pendingBody ?? normalizeWorkflowBody(selected?.body);
+  const panelTitle = pendingBody && generate.isSuccess ? "Latest generation" : selected?.label;
 
   const removeDraft = async (id: string) => {
     const next = drafts.filter((d) => d.id !== id);
@@ -118,13 +131,13 @@ export function OutputsAbstractTab() {
         <Alert severity="info">No abstract versions yet. Click Generate new version.</Alert>
       )}
 
-      {body && hasAbstractSections(body) && selected ? (
+      {body && (hasAbstractSections(body) || (typeof body.full_text === "string" && body.full_text.trim())) ? (
         <WorkflowOutputPanel
           mode="conference_abstract"
-          title={selected.label}
+          title={panelTitle ?? "Abstract"}
           body={body}
-          hasUnsavedResult={false}
-          hasSavedResult
+          hasUnsavedResult={!!pendingBody && !selected}
+          hasSavedResult={!!selected}
         />
       ) : null}
     </Stack>

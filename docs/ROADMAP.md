@@ -73,7 +73,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Item | Status |
 |------|--------|
 | MUI shell + dashboard health chips | Done |
-| Nav: Dashboard, Validate, Study Design, Analysis tool, Results, Ask Peggy | Done (Analysis tool disabled in nav) |
+| Nav: Dashboard, Validate, Study Design, Analysis tool, Results, Outputs, Lab book, Ask Peggy | Done |
 | Welcome Setup CTA | Done | Hosted vs localhost clone/run instructions |
 | Dashboard project progress | Done | Per-objective roadmap + project setup stages + task checklists |
 | Section hubs | Done | `/validate`, `/study-design`, `/results` overview pages (no blind redirect) |
@@ -82,7 +82,11 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Validate aim and objectives (Figma) | Done | `/validate/aim` — criteria checklist, suggestion apply, history |
 | Study design proposal | Done | `/study-design/proposal` — draft + Export Markdown / Word (saved result) |
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
-| Ethics renewal reminders | Planned | Notify before `expiryDate` on study design |
+| Ethics renewal reminders | Partial | Calendar “Add from this project” can create an `ethics_renewal` event from `expiryDate` |
+| Calendar | Done | `/calendar` — user events, project filter, add from aims/objectives/steps |
+| Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at` |
+| Lab book | Done | `/lab-book` — per-project notes |
+| Analysis tool | Done | `/analysis-tool` — CSV in browser, descriptives, test selector; SPSS not in v1 |
 | Dashboard demo placeholders | Partial |
 | Inner pages polish | Basic |
 

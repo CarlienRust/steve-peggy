@@ -70,7 +70,7 @@ export function TableEditorDialog({ open, initial, onClose, onSave }: TableEdito
           <TextField label="Table title" value={title} onChange={(e) => setTitle(e.target.value)} fullWidth />
           <TextField
             label="Paste table"
-            placeholder="Paste TSV, CSV, or HTML"
+            placeholder="Paste from Word, TSV, CSV, or HTML"
             value={pasteText}
             onChange={(e) => setPasteText(e.target.value)}
             multiline

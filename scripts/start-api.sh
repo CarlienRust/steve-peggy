@@ -24,4 +24,4 @@ export SQLITE_DB="${SQLITE_DB:-$PWD/data/peggy.db}"
 mkdir -p "$(dirname "$SQLITE_DB")"
 
 echo "API http://localhost:8000 (Qdrant: $QDRANT_URL)"
-exec uvicorn main:app --reload --host 0.0.0.0 --port 8000
+exec uvicorn main:app --reload --reload-dir . --reload-exclude '.venv' --reload-exclude 'data' --host 0.0.0.0 --port 8000
