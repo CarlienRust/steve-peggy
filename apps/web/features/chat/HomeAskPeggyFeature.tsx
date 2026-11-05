@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -32,12 +33,23 @@ import { WhatPeggyUsedDrawer } from "@/components/WhatPeggyUsedDrawer";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
+import { ProjectContextImport } from "@/components/ProjectContextImport";
+import { WorkflowResults } from "@/components/WorkflowResults";
 import { useAuthSession } from "@/lib/authContext";
+import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
+import { useStudyDesign } from "@/lib/useStudyDesign";
+import { useOptionalWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const HOME_MODES: { id: ChatMode; label: string }[] = [
   { id: "auto", label: "Auto" },
   { id: "chat", label: "Ask" },
+];
+
+const PROJECT_MODES: { id: ChatMode; label: string }[] = [
+  ...HOME_MODES,
+  { id: "gap_analysis", label: "Gaps" },
+  { id: "compare", label: "Compare" },
 ];
 
 const SUGGESTED_QUESTIONS = [
@@ -55,14 +67,17 @@ function sourceTypesFromChoice(choice: SourceChoice): string[] {
   return ["literature"];
 }
 
-const SESSION_KEY = "peggy_home_chat_session_id";
+function sessionKey(locked: boolean) {
+  return locked ? "peggy_chat_session_id" : "peggy_home_chat_session_id";
+}
 
-function getSessionId(): string {
+function getSessionId(locked: boolean): string {
   if (typeof window === "undefined") return "server";
-  let id = sessionStorage.getItem(SESSION_KEY);
+  const key = sessionKey(locked);
+  let id = sessionStorage.getItem(key);
   if (!id) {
     id = crypto.randomUUID();
-    sessionStorage.setItem(SESSION_KEY, id);
+    sessionStorage.setItem(key, id);
   }
   return id;
 }
@@ -72,6 +87,8 @@ const TOOL_LABELS: Record<string, string> = {
   list_corpus: "Listing papers",
   search_pubmed: "Searching PubMed",
   get_paper_metadata: "Fetching metadata",
+  run_gap_analysis: "Running gap analysis",
+  compare_finding: "Comparing finding",
   summarise_context: "Summarising context",
 };
 
@@ -81,6 +98,7 @@ type ChatTurn = {
   text: string;
   sources?: SourceCitation[];
   limitations?: string[];
+  body?: Record<string, unknown> | null;
   error?: boolean;
 };
 
@@ -93,13 +111,26 @@ function sourceChipLabel(source: SourceCitation, index: number) {
 type HomeAskPeggyFeatureProps = {
   /** Side drawer in HomeAppShell — omit page chrome. */
   embedded?: boolean;
+  /** In-project Ask Peggy: lock the current workspace and keep Gaps/Compare. */
+  lockedWorkspaceId?: string;
+  projectExtras?: boolean;
 };
 
-/** Ask Peggy from the home shell — general help, optional project for corpus context. */
-export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeatureProps) {
+/** Ask Peggy — same layout on Home `/ask` and in a project `/chat`. */
+export function HomeAskPeggyFeature({
+  embedded = false,
+  lockedWorkspaceId,
+  projectExtras = false,
+}: HomeAskPeggyFeatureProps) {
+  const router = useRouter();
   const { ready, userId } = useAuthSession();
   const queryClient = useQueryClient();
-  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>("");
+  const workspaceCtx = useOptionalWorkspace();
+  const activeWorkspace = workspaceCtx?.activeWorkspace ?? null;
+  const { studyDesign, saveSection, commitSection } = useStudyDesign(
+    projectExtras ? lockedWorkspaceId ?? activeWorkspace?.id : undefined
+  );
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string>(lockedWorkspaceId ?? "");
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<ChatMode>("chat");
   const [sessionId, setSessionId] = useState("");
@@ -128,8 +159,29 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
   });
 
   useEffect(() => {
-    setSessionId(getSessionId());
-  }, []);
+    if (lockedWorkspaceId) setSelectedWorkspaceId(lockedWorkspaceId);
+  }, [lockedWorkspaceId]);
+
+  useEffect(() => {
+    setSessionId(getSessionId(!!lockedWorkspaceId));
+  }, [lockedWorkspaceId]);
+
+  const profileQuery = useQuery({
+    queryKey: queryKeys.profile(userId ?? undefined),
+    queryFn: () => peggyApi.getProfileOptional(),
+    enabled: projectExtras && !!userId,
+  });
+  const workspaceForPrefill = projectExtras
+    ? activeWorkspace ??
+      workspacesQuery.data?.workspaces.find((w) => w.id === (lockedWorkspaceId ?? selectedWorkspaceId))
+    : undefined;
+  const [prefillQuery] = useResearchQuestionPrefill(workspaceForPrefill, profileQuery.data);
+
+  useEffect(() => {
+    if (projectExtras && mode === "gap_analysis" && !query && prefillQuery) {
+      setQuery(prefillQuery);
+    }
+  }, [projectExtras, mode, prefillQuery, query]);
 
   const refreshUsage = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.usage });
@@ -169,6 +221,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
           text: data.response ?? "",
           sources: data.sources,
           limitations: data.limitations,
+          body: data.body,
         },
       ]);
     },
@@ -204,6 +257,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
           text: event.response!.answer,
           sources: event.response!.sources,
           limitations: event.response!.limitations,
+          body: event.response!.body,
         },
       ]);
     }
@@ -214,7 +268,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
       setAgentPending(true);
       setAgentData(null);
       setStepLabel("Starting agent…");
-      const sid = sessionId || getSessionId();
+      const sid = sessionId || getSessionId(!!lockedWorkspaceId);
       try {
         for await (const event of peggyApi.agentStream(q, {
           sessionId: sid,
@@ -234,7 +288,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
         setStepLabel(null);
       }
     },
-    [sessionId, refreshUsage, workspaceId, sourceChoice]
+    [sessionId, refreshUsage, workspaceId, sourceChoice, lockedWorkspaceId]
   );
 
   const handleSend = () => {
@@ -253,6 +307,15 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
   const sendDisabled = !query.trim() || isPending || queryTooLong || quotaExhausted;
   const latestPeggy = [...turns].reverse().find((t) => t.role === "peggy" && !t.error);
 
+  const addToMethods = () => {
+    if (!latestPeggy?.text) return;
+    const existing = studyDesign.methodsPlan?.userPlan ?? "";
+    const next = existing.trim() ? `${existing.trim()}\n\n${latestPeggy.text}` : latestPeggy.text;
+    saveSection("methodsPlan", { userPlan: next });
+    void commitSection("methodsPlan", { ...(studyDesign.methodsPlan ?? {}), userPlan: next });
+    router.push("/study-design/methods-plan");
+  };
+
   const chipSx = (active: boolean) =>
     active
       ? { bgcolor: peggyColors.primary, color: peggyColors.primaryForeground, "& .MuiChip-label": { ...monoSx, fontSize: 11 } }
@@ -266,7 +329,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
 
   return (
     <Stack spacing={embedded ? 2 : 3}>
-      {!embedded ? <LocalDevBanner /> : null}
+      {!embedded && !lockedWorkspaceId ? <LocalDevBanner /> : null}
       {!embedded ? (
         <Stack spacing={1}>
           <Typography sx={{ ...eyebrowSx, color: peggyColors.accent }}>ASK PEGGY</Typography>
@@ -290,11 +353,14 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
               labelId="home-ask-project-label"
               label="Project"
               value={selectedWorkspaceId}
+              disabled={!!lockedWorkspaceId}
               onChange={(e) => setSelectedWorkspaceId(e.target.value)}
             >
-              <MenuItem value="">
-                <em>Select project</em>
-              </MenuItem>
+              {!lockedWorkspaceId ? (
+                <MenuItem value="">
+                  <em>Select project</em>
+                </MenuItem>
+              ) : null}
               {workspaces.map((ws) => (
                 <MenuItem key={ws.id} value={ws.id}>
                   {ws.title}
@@ -399,6 +465,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
                       <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", color: peggyColors.foreground }}>
                         {turn.text}
                       </Typography>
+                      {turn.body ? <WorkflowResults mode={mode === "auto" ? "chat" : mode} body={turn.body} /> : null}
                       {(turn.sources?.length ?? 0) > 0 && (
                         <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 1 }}>
                           {turn.sources!.map((s, i) => (
@@ -432,13 +499,34 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
             </Stack>
           )}
 
-          {latestPeggy && !isPending && (latestPeggy.sources?.length ?? 0) > 0 && (
-            <Button variant="text" onClick={() => setUsedOpen(true)} sx={{ textTransform: "none", color: peggyColors.accent, alignSelf: "flex-start" }}>
-              What Peggy used
-            </Button>
+          {latestPeggy && !isPending && (projectExtras || (latestPeggy.sources?.length ?? 0) > 0) && (
+            <Stack direction="row" spacing={1} flexWrap="wrap">
+              {projectExtras ? (
+                <>
+                  <Button variant="outlined" onClick={addToMethods}>
+                    Add to Methods plan
+                  </Button>
+                  <Button variant="text" onClick={() => router.push("/validate/literature")} sx={{ color: peggyColors.accent }}>
+                    Open papers
+                  </Button>
+                </>
+              ) : null}
+              {(latestPeggy.sources?.length ?? 0) > 0 ? (
+                <Button variant="text" onClick={() => setUsedOpen(true)} sx={{ color: peggyColors.accent }}>
+                  What Peggy used
+                </Button>
+              ) : null}
+            </Stack>
           )}
         </Stack>
       </Paper>
+
+      {projectExtras && !embedded ? (
+        <ProjectContextImport
+          sections={["samples", "methods", "analysis", "findings"]}
+          onImport={(text) => setQuery((prev) => (prev.trim() ? `${prev.trim()}\n\n---\n\n${text}` : text))}
+        />
+      ) : null}
 
       <Paper variant="outlined" sx={{ p: 2 }}>
         <TextField
@@ -456,7 +544,7 @@ export function HomeAskPeggyFeature({ embedded = false }: HomeAskPeggyFeaturePro
           variant="standard"
         />
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
-          {HOME_MODES.map((m) => (
+          {(projectExtras ? PROJECT_MODES : HOME_MODES).map((m) => (
             <Chip key={m.id} label={m.label} onClick={() => setMode(m.id)} sx={chipSx(mode === m.id)} />
           ))}
           <Box sx={{ flex: 1 }} />

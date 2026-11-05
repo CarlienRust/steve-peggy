@@ -120,15 +120,17 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Calendar:** `/calendar` (home sidebar), `user_calendar_events` (019), CRUD, project filter, add from aims/objectives/steps/ethics expiry
 - **Reading journal:** `/reading-journal` (home sidebar), `papers.notes` + `read_at` (020); list is `source_type=literature` only
 - **Lab book:** `/lab-book` (project sidebar), `lab_book_entries` (021)
-- **Analysis tool:** `/analysis-tool` CSV/TSV in browser or reuse `sample_datasets` from Samples; descriptives, Shapiro-like W', test selector; save `analysisTool` metadata only. SPSS still not supported.
+- **Analysis tool:** `/analysis-tool` CSV/TSV/SAV in browser or reuse `sample_datasets` from Samples; descriptives, Shapiro-like W', test selector; save `analysisTool` metadata only. SAV parsed client-side (`@irbisadm/statfmt`).
 - **Home `/`:** Welcome copy unchanged; below it: project/paper/unread stats, project cards, derived recent activity, reading reminder
-- **Ask `/ask`:** Project + literature/own-findings source types; suggested questions fill composer
+- **Ask `/ask` and `/chat`:** Same Ask Peggy layout (context card, sources, suggested questions, Auto/Ask). In-project keeps Gaps/Compare, import, and Add to Methods.
 - **Reading journal:** To read / Completed stats; search and chips; PMID + project on cards
 - **Analysis tool:** Numbered dataset / configuration / guidance layout; same CSV + sample-dataset behaviour
 - **Abstract versions:** `study_design.outputs` nested in the proposal JSON column so latest generate persists
 
 NEXT:
-SPSS / full analysis engine (not in v1) 
+Full analysis engine (running tests, not only suggesting them)
+Calendar - recurring feature
+
 
 FUTURE:
 
@@ -137,6 +139,12 @@ FUTURE:
 - Literature **extraction job** 500 (needs API logs)
 - Comparison vs **live internet** (not in corpus yet)
 - 503 login / workspace 500 errors (runtime)
+
+Extraction of pdfs:
+[Error] Fetch API cannot load http://127.0.0.1:7290/ingest/db2becdf-6fe6-4671-adb8-08ab727906fc due to access control checks.
+[Error] Failed to load resource: Could not connect to the server. (db2becdf-6fe6-4671-adb8-08ab727906fc, line 0)
+[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
+Interal server error for calendar upload of event
 
 Security: Want to transition back to using quandrant and render api. Info used in Peggy shouldn't compromise user data or research data. All documentation should be safely behind the auth wall.
 

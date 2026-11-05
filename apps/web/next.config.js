@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  transpilePackages: ["@irbisadm/statfmt"],
   async redirects() {
     return [
       { source: "/gaps", destination: "/validate/gap-analysis", permanent: true },

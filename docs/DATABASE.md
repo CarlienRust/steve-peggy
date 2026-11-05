@@ -79,7 +79,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
 
-Analysis tool metadata is `study_design.analysisTool` (`fileName`, `columnTypes`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). The CSV itself is not saved. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`) can be loaded into the analysis tool via paper text parse, or the user can upload a new CSV in the browser.
+Analysis tool metadata is `study_design.analysisTool` (`fileName`, `columnTypes`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). The CSV/SAV itself is not saved. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`) can be loaded into the analysis tool via paper text parse, or the user can upload a new CSV/TSV/SAV in the browser.
 
 ## Entity relationships (Postgres / SQLite)
 

@@ -26,6 +26,7 @@ import { peggyApi, queryKeys } from "@/lib/api";
 import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type TestSelector } from "@/lib/analysisTestSelector";
 import { profileTable, type ColumnKind } from "@/lib/columnStats";
 import { parsePastedTable } from "@/lib/parsePastedTable";
+import { parseSavTable } from "@/lib/parseSavTable";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
@@ -48,6 +49,7 @@ export function AnalysisToolFeature() {
   const [search, setSearch] = useState("");
   const [columnFilter, setColumnFilter] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
+  const [datasetNote, setDatasetNote] = useState<string | null>(null);
   const [selector, setSelector] = useState<TestSelector>({
     outcome: saved.lastSelector?.outcome ?? "continuous",
     groups: saved.lastSelector?.groups ?? "2",
@@ -98,6 +100,7 @@ export function AnalysisToolFeature() {
       setParseError(parsed.error);
       return;
     }
+    setDatasetNote(parsed.warning ?? null);
     setFileName(name);
     setHeaders(parsed.headers);
     setRows(parsed.rows);
@@ -113,9 +116,14 @@ export function AnalysisToolFeature() {
 
   const onFile = async (file: File) => {
     setParseError(null);
+    setDatasetNote(null);
     const lower = file.name.toLowerCase();
+    if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+      applyParsed(file.name, await parseSavTable(file));
+      return;
+    }
     if (!lower.endsWith(".csv") && !lower.endsWith(".tsv") && !lower.endsWith(".txt")) {
-      setParseError("CSV only for now (also TSV/plain text). SPSS files are not supported in v1.");
+      setParseError("Use CSV, TSV, plain text, or SPSS SAV.");
       return;
     }
     applyParsed(file.name, parsePastedTable(await file.text()));
@@ -151,7 +159,7 @@ export function AnalysisToolFeature() {
     <input
       type="file"
       hidden
-      accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+      accept=".csv,.tsv,.txt,.sav,.zsav,text/csv,text/tab-separated-values,application/x-spss-sav"
       disabled={blocked}
       onChange={(e) => {
         const file = e.target.files?.[0];
@@ -202,7 +210,7 @@ export function AnalysisToolFeature() {
               Upload CSV dataset
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Drag and drop or browse files. CSV only for now. SPSS is not supported in this version. Peggy does not store the CSV.
+              Drag and drop or browse files. CSV, TSV, or SPSS SAV. Peggy does not store the file.
             </Typography>
             <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
               <Button component="label" variant="contained" disabled={blocked}>
@@ -237,10 +245,11 @@ export function AnalysisToolFeature() {
             </Stack>
           ) : (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              No sample datasets on this project yet. Upload one on Samples, or add a CSV above.
+              No sample datasets on this project yet. Upload one on Samples, or add a CSV or SAV above.
             </Typography>
           )}
           {parseError ? <Alert severity="error" sx={{ mt: 1.5 }}>{parseError}</Alert> : null}
+          {datasetNote ? <Alert severity="info" sx={{ mt: 1.5 }}>{datasetNote}</Alert> : null}
           {fileName ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
               Loaded: {fileName} ({rows.length} rows). File stays in this browser session.

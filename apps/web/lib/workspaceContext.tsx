@@ -77,3 +77,7 @@ export function useWorkspace() {
   if (!ctx) throw new Error("useWorkspace must be used within WorkspaceProvider");
   return ctx;
 }
+
+export function useOptionalWorkspace() {
+  return useContext(WorkspaceContext);
+}

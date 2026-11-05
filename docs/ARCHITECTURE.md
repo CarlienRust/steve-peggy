@@ -146,7 +146,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry (user picks the date) |
 | `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID |
-| `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask |
+| `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
 | `/useful-links` | 06 Useful links | Curated external resources by category |
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
 | `/setup` | — | Redirects to `/setup/checks` |
@@ -164,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV drop/browse or `sample_datasets`), 02 test configuration (outcome column, groups, design, additional settings), 03 suggested test; save `analysisTool` metadata only |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV drop/browse or `sample_datasets`), 02 test configuration, 03 suggested test; save `analysisTool` metadata only. SAV is parsed by `POST /api/parse-sav` (not stored). |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
@@ -172,7 +172,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/comparison` | 05 · Comparison | Finding vs ingested literature (not other findings sets) |
 | `/outputs` | 06 · Outputs | Tabs: Figures (external tools), Tables (manual; paste Word HTML/`<tr`/`mso-`, TSV, 2+ space columns, pipes, CSV; HTML import), Abstract (each generate is a saved version in `study_design.outputs`, nested in the proposal JSON column) |
 | `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
-| `/chat` | 08 · Ask Peggy (project sidebar) | Project-scoped conversation + composer (Auto / Ask / Gaps / Compare); citations and What Peggy used |
+| `/chat` | 08 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.
