@@ -1,44 +1,39 @@
 # Code review notes — Peggy (active codebase)
 
-Scope: `apps/web/` and `services/peggy-api/` only. `legacy/` excluded.
+Scope: `apps/web/` and `services/peggy-api/`.
 
-Last reviewed against commit series: dedup, `/findings`, chat modes, Groq/Ollama, Qdrant `query_points`.
+Last aligned: original-file store, Storage layout, literature delete, Samples table preview.
 
 ## Summary
 
-Lean research assistant: literature corpus + separate own-findings space, RAG workflows, MUI frontend, free-first LLM stack.
+Literature and own findings stay in separate Qdrant collections. Sample datasets are catalog + Storage only. Ethics PDFs are stored under `study_docs/` and excluded from LLM search. FastAPI verifies JWT `sub` as `user_id`.
 
 ## Frontend
 
-- TanStack Query; `queryKeys.corpus(sourceType)` for split corpora
+- Next.js 15, TanStack Query, MUI (`theme/peggyTheme.ts`)
 - Shared API errors: `formatApiError()` / `PeggyApiError` in [`apps/web/lib/api.ts`](../apps/web/lib/api.ts)
-- Multi-field forms: `react-hook-form` + Zod (`IngestFeature`, onboarding, `WorkspaceEditDialog`); single-field chat query uses controlled `TextField`
-- MUI shell; health chips on dashboard
-- **Corpus** (`/ingest`) — literature ingest modal (PubMed + PDF)
-- **Our findings** (`/findings`) — narrative + research PDF
-- **Ask Peggy** — mode chips (auto / chat / gaps / compare)
-- Shared `CorpusTable`, `WorkflowResults`, `SourceCards`
-- Profile stub: `ResearcherProfile` + `localStorage`
+- Literature: `/validate/literature` + Reading journal delete / bulk delete
+- Samples Preview: `DatasetTablePreview` (same CSV/SAV parse as Analysis)
+- Analysis tool: file chosen on `/analysis-tool` only
+- Ask Peggy: Auto uses agent; Ask / Gaps / Compare use `/chat`
 
 ## Backend
 
-- LLM: OpenAI, Anthropic, Ollama, Groq (`core/llm/`)
-- Embeddings: local `sentence-transformers`; Qdrant `query_points`
-- Ingest dedup: `catalog.record_paper()` before vector upsert
-- Chat intent routing: `core/rag/intent.py` (not full agent — see [AGENT.md](AGENT.md))
-- Corpus CRUD; delete does not purge Qdrant yet
-- PubMed rate limit: Upstash or in-memory fallback
+- LLM: Ollama locally; Gemini on Render (`core/llm/`)
+- Embeddings: `sentence-transformers` locally; hash fallback on Render
+- Original files: `file_store.py` → `UPLOAD_DIR` or bucket `peggy-uploads`
+- Paths: `{project_id}/{filename}` literature; `{project_id}/study_docs/{filename}` ethics + samples
+- `DELETE /corpus/{id}` purges catalog, file, and Qdrant points
+- Calendar Postgres params are `datetime` objects (not ISO strings)
 
 ## Tests
 
-~30 pytest cases: dedup, intent, llm health, qdrant search, API routes, PDF upload.
+pytest: chunker, dedup, intent, agent, PHI, upload guardrails (Storage paths + migrate), API routes, PDF upload.
 
 ## Follow-ups
 
-1. Qdrant purge on `DELETE /corpus/{id}`
+1. Frontend Vitest
 2. OpenAPI → TypeScript types for web client
-3. Migrate `ResearcherProfile` edit dialog to RHF + Zod (login/register stay legacy useState)
-4. Frontend Vitest
-5. Inngest when async ingest at scale
+3. OCR for scanned PDFs
 
 See also [SECURITY.md](SECURITY.md).

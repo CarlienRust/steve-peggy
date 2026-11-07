@@ -4,16 +4,15 @@
 
 ## Niche
 
-Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [RESEARCH_PAPERS.md](RESEARCH_PAPERS.md).
+Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [REFERENCES.md](REFERENCES.md).
 
 ## Active codebase
 
 ```
-apps/web/                 Next.js 14 + MUI → Vercel
-services/peggy-api/       FastAPI → Railway / Render / Fly.io
+apps/web/                 Next.js 15 + MUI → Vercel
+services/peggy-api/       FastAPI → Render
 scripts/ + tools/qdrant/  Native Qdrant + API (default local)
 docker-compose.yml        Optional containers
-legacy/                   Archived — do not import
 ```
 
 ## Two corpora
@@ -21,9 +20,9 @@ legacy/                   Archived — do not import
 | UI | Route | `source_type` | Qdrant collection |
 |----|-------|---------------|-------------------|
 | Literature search | `/validate/literature` | `literature` | `peggy_literature` |
-| Our findings (summary) | `/results/findings` | `own_findings` | `peggy_own_findings` |
 | Findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
-| Sample datasets | `/study-design/samples`, `/analysis-tool` | `sample_datasets` | **Not indexed** (file + catalog only) |
+| Sample datasets | `/study-design/samples` | `sample_datasets` | **Not indexed** (file + catalog only) |
+| Ethics letters | `/study-design/ethics` | `ethics_documents` | Same collection as literature, payload `source_type=ethics_documents`; excluded from LLM search |
 
 Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
 
@@ -172,10 +171,9 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV upload on this page). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers/rows in `study_design.analysisTool`. SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers/rows in `study_design.analysisTool`. SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
-| `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 05 · Comparison | Finding vs ingested literature; optional live PubMed/OpenAlex/Europe PMC abstracts (`include_live`) |
 | `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. |
@@ -213,11 +211,11 @@ Protected routes require Supabase session (middleware). All API routes except `/
 | Layer | Milestone 1 | Milestone 2 |
 |-------|-------------|-------------|
 | Frontend | Vercel (auth shell) + localhost full app | Vercel + public API |
-| API | localhost `:8000` | Railway / Render / Fly |
+| API | localhost `:8000` | Render |
 | Vectors | Local Qdrant | Qdrant Cloud |
 | Catalog + auth | Supabase — [DATABASE.md](DATABASE.md), [AUTH.md](AUTH.md) |
 | Original files | Local `UPLOAD_DIR` | Supabase Storage `peggy-uploads` |
-| Jobs | Inngest (optional) | Inngest (optional) |
+| Jobs | FastAPI BackgroundTasks | FastAPI BackgroundTasks |
 | Cache | Upstash Redis (optional) | Upstash Redis (optional) |
 
 ## Own-findings payload
@@ -239,6 +237,3 @@ Native (default): [LOCAL.md](LOCAL.md). Optional: [DOCKER.md](DOCKER.md).
 - Web: http://localhost:3000  
 - Smoke: `./scripts/smoke-local.sh`
 
-## Legacy
-
-`legacy/steve/`, `legacy/peggy_bot/`, `legacy/kwacha_bot/` — reference only. **Do not import in active code.**

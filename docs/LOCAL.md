@@ -1,6 +1,6 @@
 # Local development (start here)
 
-**Current focus:** run Peggy fully on your machine. Production (Vercel + Render + Qdrant Cloud) is paused until the local loop is solid. Vercel can stay deployed for later.
+**Current focus:** run Peggy on your machine (solo SQLite or signed-in Supabase). Hosted API is Render + Qdrant Cloud — [SCALE.md](SCALE.md).
 
 Everything runs **without Docker**:
 

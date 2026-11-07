@@ -8,7 +8,7 @@
 
 Evidence-grounded research synthesis: ingest peer-reviewed literature, add your own findings in a separate space, then chat, compare, and analyze gaps — with citations and stated limitations, not generic LLM answers.
 
-**Status:** **Local-first** — solo dev on your Mac (Ollama + local Qdrant + SQLite), or **signed-in local** with Supabase Auth + Postgres. Vercel/Render deploy paused until the local loop is trusted — see [LOCAL.md](docs/LOCAL.md).
+**Status:** Local solo (Ollama + Qdrant + SQLite) or signed-in (Supabase Auth + Postgres). Hosted API: Render + Qdrant Cloud. See [LOCAL.md](docs/LOCAL.md) and [SCALE.md](docs/SCALE.md).
 
 
 |                     |                                    |
@@ -37,7 +37,9 @@ Evidence-grounded research synthesis: ingest peer-reviewed literature, add your 
 | **Objective linking** | Stable objective IDs; tag methods/analysis steps and finding sets to objectives or aim |
 | **Compare**           | `/results/comparison` — your finding vs literature (+ our findings in retrieval)       |
 | **Study design**      | `/study-design/`* — samples, ethics, budget, methods/analysis plans, proposal          |
-| **Welcome setup**     | Project hub **Setup** button — hosted vs localhost instructions                        |
+| **Setup checks**      | `/setup/checks`                                                                        |
+| **Original files**    | Supabase Storage `peggy-uploads/{project_id}/` and `…/study_docs/`                     |
+| **Calendar / journal / lab book** | `/calendar`, `/reading-journal`, `/lab-book`                               |
 | **Health dashboard**  | Status chips for Qdrant, LLM provider, embeddings                                      |
 | **Profile**           | Sidebar edit + Supabase sign-out; display prefs in `user_metadata`                     |
 | **Embeddings**        | `sentence-transformers` locally (no OpenAI embeddings required)                        |
@@ -165,12 +167,11 @@ Legacy redirects: `/ingest` → literature, `/gaps` → gap analysis, `/findings
 ## Architecture
 
 ```
-apps/web/                 Next.js 14 + MUI (Vercel-ready)
+apps/web/                 Next.js 15 + MUI (Vercel-ready)
 services/peggy-api/       FastAPI — ingest, RAG, workflows
 data/qdrant/              Local Qdrant storage + config
 tools/qdrant/             macOS binary (install-qdrant.sh)
 test_pdfs/                Dev PDF corpus
-legacy/steve/             Archived (not used by Peggy)
 docker-compose.yml        Optional — not required locally
 scripts/                  setup-local, start-local, check-local, start-qdrant, start-api, smoke-local
 ```
@@ -188,7 +189,8 @@ Diagram: [docs/peggy_architecture.svg](docs/peggy_architecture.svg)
 | [docs/ENV.md](docs/ENV.md)                   | Ollama local / Gemini deploy LLM setup               |
 | [docs/ROADMAP.md](docs/ROADMAP.md)           | Done vs outstanding                                  |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | API, collections, routes, objective linking          |
-| [docs/AGENT.md](docs/AGENT.md)               | Chat modes today; reactive agent plan                |
+| [docs/AGENT.md](docs/AGENT.md)               | Chat modes; reactive agent                           |
+| [docs/SECURITY.md](docs/SECURITY.md)         | Auth, Storage, PHI                                   |
 | [docs/TESTING.md](docs/TESTING.md)           | pytest + future Playwright                           |
 | [docs/DOCKER.md](docs/DOCKER.md)             | Optional Compose                                     |
 | [docs/SCALE.md](docs/SCALE.md)               | Vercel + Render deploy                               |
@@ -211,8 +213,4 @@ pytest -v
 
 ## What's next
 
-See [docs/ROADMAP.md](docs/ROADMAP.md): perfect the local loop first, then re-enable Render + Gemini when ready.
-
-## Steve / bioinformatics
-
-Archived under `[legacy/steve/](legacy/steve/)` — not connected to Peggy. Steve will become the "soon" Analysis tool. 
+See [docs/ROADMAP.md](docs/ROADMAP.md) and [DEV_NOTES.md](DEV_NOTES.md). 

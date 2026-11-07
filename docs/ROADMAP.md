@@ -2,19 +2,21 @@
 
 Living backlog. **Goal:** evidence-grounded synthesis from literature + own findings.
 
-## Now (local-first — production paused)
+Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use [LOCAL.md](LOCAL.md) on a Mac; [SCALE.md](SCALE.md) for Render/Vercel.
 
-- [ ] **Solo local env** — `NEXT_PUBLIC_SOLO_LOCAL=true`, `AUTH_REQUIRED=false`, local Qdrant + Ollama ([LOCAL.md](LOCAL.md))
-- [ ] **Start stack** — `./scripts/start-local.sh` + `npm run dev`; `./scripts/check-local.sh`
-- [ ] **Ingest + chat** — Corpus, findings, Ask Peggy via Ollama
-- [ ] **Smoke test** — `./scripts/smoke-local.sh`
+## Now
+
+- [ ] **Smoke** — `./scripts/smoke-local.sh` with `AUTH_REQUIRED=false` when testing solo
+- [ ] **Extraction benchmark** — `scripts/benchmark-extraction.py` when gold PDFs exist
 - [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)
+- [ ] **GitHub OAuth env** — [ENV.md](ENV.md) if project README sync is needed
 
-## Later (when local loop is trusted)
+## Later
 
-- [ ] Re-enable Render API + Gemini (`GEMINI_MODEL=gemini-2.5-flash`)
-- [ ] Qdrant Cloud or keep local vectors
-- [ ] Vercel → hosted API (disable solo mode)
+- [ ] OCR for scanned PDFs
+- [ ] Frontend Vitest
+- [ ] User-chosen LLM keys and spend caps (see DEV_NOTES FUTURE)
+- [ ] Collaborators / share project
 
 ## Done recently
 
@@ -26,7 +28,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Validate section | `/validate/*` — gap analysis, literature, validate aim (replaces old ingest/gaps routes) |
 | Objective-linked roadmap | Stable objective IDs, plan steps, finding tags, dashboard per-objective progress |
 | Dashboard progress | Project setup stages + objective done toggle |
-| Welcome Setup dialog | Hosted vs localhost clone/run instructions |
+| Setup checks | `/setup/checks` — `GET /setup/checks` |
 | Supabase pooler fix | asyncpg `statement_cache_size=0` for transaction pooler |
 | Study design save | Per-section Save; findings summary on upload |
 | Groq + Ollama default | [ENV.md](ENV.md) |
@@ -51,7 +53,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | GitHub repo link | Done | OAuth + README/docs sync per project |
 | Supabase keep-alive | Done | Weekly GitHub Actions cron |
 | Compare | Done | Literature + own findings retrieval |
-| Researcher profile | Stub | `localStorage` |
+| Researcher profile | Done | Sidebar edit, ORCID (`017`), `user_metadata` |
 | Corpus delete → Qdrant | Done | Deletes catalog row, stored file, and matching Qdrant points; bulk literature delete on Literature / Reading journal |
 | Papers `workspace_id` | Done | Migration `010`; ingest + corpus list scoped to active project |
 | Findings summary per workspace | Done | Migration `011`; API + UI scoped per workspace |
@@ -74,7 +76,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 |------|--------|
 | MUI shell + dashboard health chips | Done |
 | Nav: Dashboard, Validate, Study Design, Analysis tool, Results, Outputs, Lab book, Ask Peggy | Done |
-| Welcome Setup CTA | Done | Hosted vs localhost clone/run instructions |
+| Setup checks | Done (`/setup/checks`) |
 | Dashboard project progress | Done | Per-objective roadmap + project setup stages + task checklists |
 | Section hubs | Done | `/validate`, `/study-design`, `/results` overview pages (no blind redirect) |
 | Objective-linked roadmap | Done | Stable objective IDs, plan steps + finding tags, manual done, delete confirm, orphan warning |
@@ -86,20 +88,19 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Calendar | Done | `/calendar` — user events, project filter, add from aims/objectives/steps |
 | Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at`; stored-PDF iframe preview when the file exists, else extracted text plus DOI/PubMed |
 | Lab book | Done | `/lab-book` — per-project notes |
-| Analysis tool | Done | `/analysis-tool` — CSV/SAV, stored table on save, dataset overview, column-guided test suggestion |
+| Analysis tool | Done | `/analysis-tool` — CSV/SAV upload on that page; Samples Preview uses the same table parse |
 | Dashboard demo placeholders | Partial |
 | Inner pages polish | Basic |
 
-## Platform (deferred — [SCALE.md](SCALE.md))
+## Platform ([SCALE.md](SCALE.md))
 
 | Item | Status |
 |------|--------|
 | Supabase Auth | Done locally — [AUTH.md](AUTH.md); magic link + password |
-| Supabase Postgres | Done when `DATABASE_URL` set — [DATABASE.md](DATABASE.md); migrations through `015` |
+| Supabase Postgres | Done when `DATABASE_URL` set — [DATABASE.md](DATABASE.md); migrations through `023` |
 | Vercel deploy | `vercel.json` ready |
-| Inngest | Stub — `jobs/inngest_events.py` |
-| Upstash Redis | Optional PubMed rate limit |
-| Steve bridge | Out of scope — `legacy/steve/` |
+| Upstash Redis | Optional rate limit |
+| Original files | Done — `peggy-uploads/{project_id}/` and `{project_id}/study_docs/` |
 
 ## Quality
 
@@ -111,9 +112,8 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 
 ## Suggested order
 
-1. Trust local loop ([LOCAL.md](LOCAL.md)) — solo or signed-in with Supabase
-2. Run Postgres migrations through `009` when using `DATABASE_URL`
-3. Dashboard demo placeholders when corpus empty
-4. Purge Qdrant vectors on corpus delete
-5. Agent ingest tools + cross-session Qdrant memory — [AGENT.md](AGENT.md)
-6. Deploy ([SCALE.md](SCALE.md))
+1. Keep local loop working ([LOCAL.md](LOCAL.md))
+2. Postgres migrations through `023` when using `DATABASE_URL`
+3. Dashboard empty-corpus placeholders
+4. Extraction benchmark on gold PDFs
+5. Deploy notes ([SCALE.md](SCALE.md))

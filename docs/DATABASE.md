@@ -81,7 +81,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
 
-Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `rows`, `columnTypes`, `adminColumns`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). Save configuration persists the parsed table so the overview can reload. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`; PDF/CSV/TSV/SAV) can also be loaded via paper text parse.
+Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `rows`, `columnTypes`, `adminColumns`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). Save configuration persists the parsed table so the overview can reload. The Analysis tool reads a file chosen on that page. Study design → Samples stores originals (`sample_datasets`) and **Preview** parses CSV/TSV/SAV with the same client parsers (`parsePastedTable` / `parseSavTable`).
 
 ## Entity relationships (Postgres / SQLite)
 

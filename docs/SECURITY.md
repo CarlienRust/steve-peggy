@@ -65,7 +65,7 @@ Cloud LLM (Gemini on Render) still sends prompt text to Google. Keep identifiabl
 ## Original files and sample datasets
 
 - Literature and own-findings **text chunks** go to Qdrant for Peggy AI. Search filters `source_type` to those two.
-- **Sample datasets** (CSV/SAV/PDF) are catalog rows plus stored bytes. They are not upserted into `peggy_literature` / `peggy_own_findings`. The Analysis tool loads them via `GET /corpus/{id}/file`.
+- **Sample datasets** (CSV/SAV/PDF) are catalog rows plus stored bytes. They are not upserted into `peggy_literature` / `peggy_own_findings`. Samples **Preview** loads them via `GET /corpus/{id}/file`. The Analysis tool does not pull those files.
 - Hosted originals use **Supabase Storage** (private bucket `peggy-uploads`, service role on the API). Literature PDFs sit under `{project_id}/`; ethics and sample files under `{project_id}/study_docs/`. Solo local uses the same layout in `UPLOAD_DIR`. Do not log file bytes.
 - Downloads require the same JWT owner as the papers row.
 - `DELETE /corpus/{id}` and bulk `DELETE /corpus?source_type=literature` purge Storage/local files and Qdrant points for that owner only. Bulk delete is limited to `literature`.

@@ -66,8 +66,8 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `DATABASE_URL` | Auth + Render | — | Supabase pooler URI |
 | `SUPABASE_URL` | Hosted files + JWT JWKS | — | Project URL |
 | `SUPABASE_SERVICE_ROLE_KEY` | Hosted file store | — | API only; private Storage `peggy-uploads` |
-| `UPLOAD_DIR` | Solo files | `data/uploads` | Local original PDFs/datasets |
-| `STORAGE_BUCKET` | Hosted files | `peggy-uploads` | Private bucket name |
+| `UPLOAD_DIR` | Solo files | `data/uploads` | Local originals: `{project_id}/{filename}` and `{project_id}/study_docs/{filename}` |
+| `STORAGE_BUCKET` | Hosted files | `peggy-uploads` | Private bucket; same object paths as solo |
 | `SUPABASE_JWT_SECRET` | If `AUTH_REQUIRED=true` | — | JWT Secret from API settings |
 | `AUTH_REQUIRED` | No | `false` in tests | `true` for real Supabase auth |
 | `EXPOSE_API_DOCS` | No | `true` when auth is off | Swagger `/docs`. Leave `false` on Render |
