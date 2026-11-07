@@ -152,6 +152,8 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 | Ingest `Internal server error` | API `.env` still on cloud Qdrant or Postgres — use local `QDRANT_URL=http://localhost:6333`, comment out `DATABASE_URL`, set `AUTH_REQUIRED=false`, restart API. Run `./scripts/check-local.sh` — need `qdrant: true` in `/health`. |
 | Cloud Qdrant / Render down | Expected — use local URLs above |
 | Papers missing after upgrade to workspace-scoped corpus | Pre-migration papers have `workspace_id` NULL — run backfill SQL in [DATABASE.md](DATABASE.md) or re-ingest into the project |
+| PDF preview says original file not stored | Open Literature or Reading journal once (runs `POST /corpus/migrate-files`) or re-upload. Old Storage keys `{user}/{workspace}/{paper_id}/` are copied to `{workspace}/{paper_id}_{filename}`. |
+| Need a clean literature set | Literature table or Reading journal: delete one paper, or Delete all (project-scoped on the literature table; all projects if Reading journal filter is All). Ethics and samples stay. |
 
 ## Supabase keep-alive
 

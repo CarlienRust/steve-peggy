@@ -15,7 +15,8 @@ Living matrix for estimating what works before Jan pilot. Update after manual QA
 | `/chat` | Ask Peggy | chat/agent | Partial | Usage banner not in Figma | — |
 | `/setup/checks` | System checks | `GET /setup/checks` | Aligned | — | — |
 | Corpus isolation | Switch project | workspace_id on papers/Qdrant | OK | — | Re-ingest for old papers without workspace_id |
-| Delete paper | Vectors purged | DELETE `/corpus/{id}` | OK | — | — |
+| Delete paper | Vectors + file purged | DELETE `/corpus/{id}` | OK | — | — |
+| Delete all literature | Project or all projects | DELETE `/corpus?source_type=literature` | OK | — | — |
 | CI web | `npm ci` + build | — | — | — | Run in `apps/web` |
 | CI API | pytest integration | — | — | — | `test_workspace_export`, extractions |
 | Smoke | `scripts/smoke-local.sh` | Stack up | — | Needs Qdrant + API + optional Ollama | Record last run below |

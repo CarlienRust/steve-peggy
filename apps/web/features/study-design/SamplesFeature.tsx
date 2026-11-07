@@ -33,7 +33,7 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import { CorpusFilePreview } from "@/components/CorpusFilePreview";
+import { DatasetTablePreview } from "@/components/DatasetTablePreview";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
@@ -551,7 +551,7 @@ export function SamplesFeature() {
           </Button>
         </DialogActions>
       </Dialog>
-      <CorpusFilePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
+      <DatasetTablePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
     </>
   );
 }

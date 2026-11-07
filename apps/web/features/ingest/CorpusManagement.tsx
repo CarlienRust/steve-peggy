@@ -1,12 +1,18 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
 import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  IconButton,
   Menu,
   MenuItem,
   Paper,
@@ -122,6 +128,30 @@ export function CorpusManagement() {
 
   const [statusAnchor, setStatusAnchor] = useState<null | HTMLElement>(null);
   const [statusPaper, setStatusPaper] = useState<PaperRecord | null>(null);
+  const [deletePaper, setDeletePaper] = useState<PaperRecord | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+
+  useEffect(() => {
+    if (!workspaceId) return;
+    void peggyApi.migrateCorpusFiles(workspaceId);
+  }, [workspaceId]);
+
+  const deleteOneMut = useMutation({
+    mutationFn: (id: number) => peggyApi.deletePaper(id),
+    onSuccess: () => {
+      setDeletePaper(null);
+      papersSummary.refetch();
+    },
+  });
+
+  const deleteAllMut = useMutation({
+    mutationFn: () => peggyApi.deleteLiterature(workspaceId),
+    onSuccess: () => {
+      setDeleteAllOpen(false);
+      setSelectedPaperId(null);
+      papersSummary.refetch();
+    },
+  });
 
   const openStatusMenu = (e: MouseEvent<HTMLElement>, p: PaperRecord) => {
     setStatusAnchor(e.currentTarget);
@@ -180,6 +210,16 @@ export function CorpusManagement() {
             >
               Export CSV
             </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              startIcon={<DeleteOutlineIcon />}
+              disabled={!workspaceId || papers.length === 0}
+              onClick={() => setDeleteAllOpen(true)}
+              sx={{ textTransform: "none" }}
+            >
+              Delete all
+            </Button>
             <Button variant="contained" startIcon={<AddIcon />} onClick={() => setIngestOpen(true)} sx={{ textTransform: "none" }}>
               Add by DOI or PMID
             </Button>
@@ -203,12 +243,13 @@ export function CorpusManagement() {
                   <TableCell>Year</TableCell>
                   <TableCell>Screening</TableCell>
                   <TableCell>Extraction</TableCell>
+                  <TableCell align="right" />
                 </TableRow>
               </TableHead>
               <TableBody>
                 {papers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <Box sx={{ py: 3, px: 1 }}>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                           No papers in this project yet.
@@ -253,6 +294,15 @@ export function CorpusManagement() {
                       </TableCell>
                       <TableCell>
                         <StatusChip label={extractionChipLabel(p)} tone={extractionChipTone(p)} />
+                      </TableCell>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        <IconButton
+                          size="small"
+                          aria-label="Delete paper"
+                          onClick={() => setDeletePaper(p)}
+                        >
+                          <DeleteOutlineIcon fontSize="small" />
+                        </IconButton>
                       </TableCell>
                     </TableRow>
                   ))
@@ -302,6 +352,41 @@ export function CorpusManagement() {
       </Menu>
 
       <IngestModal open={ingestOpen} onClose={() => setIngestOpen(false)} variant="literature" />
+
+      <Dialog open={!!deletePaper} onClose={() => setDeletePaper(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete paper?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Remove <strong>{deletePaper?.title ?? "this paper"}</strong> from this project. The stored file and search vectors are deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeletePaper(null)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={!deletePaper?.id || deleteOneMut.isPending}
+            onClick={() => deletePaper?.id && deleteOneMut.mutate(deletePaper.id)}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete all literature?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            This removes every literature paper in this project, including stored PDFs and search vectors. Ethics files and sample datasets are not touched.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteAllOpen(false)}>Cancel</Button>
+          <Button color="error" variant="contained" disabled={deleteAllMut.isPending} onClick={() => deleteAllMut.mutate()}>
+            Delete all
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

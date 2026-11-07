@@ -1,12 +1,16 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
@@ -46,6 +50,8 @@ export function ReadingJournalFeature() {
   const [search, setSearch] = useState("");
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
   const [previewPaper, setPreviewPaper] = useState<PaperRecord | null>(null);
+  const [deletePaper, setDeletePaper] = useState<PaperRecord | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -61,6 +67,27 @@ export function ReadingJournalFeature() {
   const savePaper = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<PaperRecord> }) => peggyApi.updatePaper(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["corpus"] }),
+  });
+
+  useEffect(() => {
+    if (!ready || !userId) return;
+    void peggyApi.migrateCorpusFiles(filterWs || undefined);
+  }, [ready, userId, filterWs]);
+
+  const deleteOneMut = useMutation({
+    mutationFn: (id: number) => peggyApi.deletePaper(id),
+    onSuccess: () => {
+      setDeletePaper(null);
+      queryClient.invalidateQueries({ queryKey: ["corpus"] });
+    },
+  });
+
+  const deleteAllMut = useMutation({
+    mutationFn: () => peggyApi.deleteLiterature(filterWs || undefined),
+    onSuccess: () => {
+      setDeleteAllOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["corpus"] });
+    },
   });
 
   const workspaces = workspacesQuery.data?.workspaces ?? [];
@@ -119,6 +146,15 @@ export function ReadingJournalFeature() {
             ))}
           </Select>
         </FormControl>
+        <Button
+          color="error"
+          variant="outlined"
+          disabled={allPapers.length === 0}
+          onClick={() => setDeleteAllOpen(true)}
+          sx={{ textTransform: "none" }}
+        >
+          {filterWs ? "Delete project literature" : "Delete all literature"}
+        </Button>
       </Stack>
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
@@ -183,6 +219,9 @@ export function ReadingJournalFeature() {
                   >
                     Save notes
                   </Button>
+                  <Button size="small" color="error" variant="outlined" onClick={() => setDeletePaper(paper)}>
+                    Delete
+                  </Button>
                 </Stack>
                 <Button
                   size="small"
@@ -208,6 +247,44 @@ export function ReadingJournalFeature() {
       </Stack>
 
       <CorpusFilePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
+
+      <Dialog open={!!deletePaper} onClose={() => setDeletePaper(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete paper?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Remove <strong>{deletePaper?.title ?? "this paper"}</strong>. The stored file and search vectors are deleted.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeletePaper(null)}>Cancel</Button>
+          <Button
+            color="error"
+            variant="contained"
+            disabled={!deletePaper?.id || deleteOneMut.isPending}
+            onClick={() => deletePaper?.id && deleteOneMut.mutate(deletePaper.id)}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={deleteAllOpen} onClose={() => setDeleteAllOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Delete literature?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {filterWs
+              ? "This removes every literature paper in the selected project, including stored PDFs and search vectors."
+              : "This removes every literature paper across all your projects, including stored PDFs and search vectors."}{" "}
+            Ethics files and sample datasets are not touched.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteAllOpen(false)}>Cancel</Button>
+          <Button color="error" variant="contained" disabled={deleteAllMut.isPending} onClick={() => deleteAllMut.mutate()}>
+            Delete all
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

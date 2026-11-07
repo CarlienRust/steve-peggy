@@ -107,14 +107,17 @@ async def _persist_upload_bytes(
     filename: str | None,
     content_type: str | None,
     raw: bytes,
+    source_type: str = "literature",
 ) -> None:
+    ws = (workspace_id or "").strip() or None
     storage_key = await file_store.put_bytes(
         user_id=user_id,
-        workspace_id=workspace_id,
-        paper_id=paper_id,
+        workspace_id=ws,
+        paper_id=int(paper_id),
         filename=filename or "upload",
         data=raw,
         content_type=content_type,
+        source_type=source_type,
     )
     try:
         await catalog.update_paper(
@@ -145,8 +148,6 @@ async def ingest_upload_bytes(
         record = await catalog.record_paper(
             user_id, "", "", title, "", "", source_type, workspace_id=workspace_id
         )
-        if record["status"] == "duplicate":
-            raise DuplicateDocumentError(record["paper_id"], title)
         paper_id = record["paper_id"]
         await _persist_upload_bytes(
             user_id=user_id,
@@ -155,6 +156,7 @@ async def ingest_upload_bytes(
             filename=filename,
             content_type=content_type,
             raw=raw,
+            source_type=source_type,
         )
         return {"chunks": 0, "paper_id": paper_id, "status": "created"}
     if is_pdf(filename, content_type):
@@ -177,9 +179,21 @@ async def ingest_upload_bytes(
         meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
     if workspace_id:
         meta["workspace_id"] = workspace_id
-    result = await ingest_text_document(
-        text, meta, source_type=source_type, user_id=user_id, workspace_id=workspace_id
-    )
+    try:
+        result = await ingest_text_document(
+            text, meta, source_type=source_type, user_id=user_id, workspace_id=workspace_id
+        )
+    except DuplicateDocumentError as e:
+        await _persist_upload_bytes(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            paper_id=e.paper_id,
+            filename=filename,
+            content_type=content_type,
+            raw=raw,
+            source_type=source_type,
+        )
+        return {"chunks": 0, "paper_id": e.paper_id, "status": "created"}
     await _persist_upload_bytes(
         user_id=user_id,
         workspace_id=workspace_id,
@@ -187,6 +201,7 @@ async def ingest_upload_bytes(
         filename=filename,
         content_type=content_type,
         raw=raw,
+        source_type=source_type,
     )
     return result
 

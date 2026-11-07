@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Autocomplete,
@@ -26,7 +25,6 @@ import {
 } from "@mui/material";
 import { PageHeader } from "@/components/PageHeader";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
-import { peggyApi, queryKeys } from "@/lib/api";
 import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type TestSelector } from "@/lib/analysisTestSelector";
 import { runSuggestedTest } from "@/lib/analysisRun";
 import { profileTable, type ColumnKind } from "@/lib/columnStats";
@@ -64,8 +62,6 @@ export function AnalysisToolFeature() {
     pairing: saved.lastSelector?.pairing ?? "independent",
   });
   const [kindOverrides, setKindOverrides] = useState<Record<string, ColumnKind>>(saved.columnTypes ?? {});
-  const [sampleId, setSampleId] = useState("");
-  const [sampleLoading, setSampleLoading] = useState(false);
   const [outcomeColumn, setOutcomeColumn] = useState("");
   const [guideCols, setGuideCols] = useState<string[]>([]);
   const [whyOpen, setWhyOpen] = useState(false);
@@ -89,13 +85,6 @@ export function AnalysisToolFeature() {
     if (first) setGuideCols([first]);
     setHydrated(true);
   }, [hydrated, saved.adminColumns, saved.fileName, saved.headers, saved.rows]);
-
-  const datasets = useQuery({
-    queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
-    queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
-    enabled: !!activeWorkspace?.id,
-  });
-  const samplePapers = datasets.data?.papers ?? [];
 
   const dataHeaders = useMemo(
     () => headers.filter((h) => !adminCols.includes(h)),
@@ -170,28 +159,6 @@ export function AnalysisToolFeature() {
       return;
     }
     applyParsed(file.name, parsePastedTable(await file.text()));
-  };
-
-  const loadSample = async () => {
-    const id = Number(sampleId);
-    if (!id) return;
-    setParseError(null);
-    setSampleLoading(true);
-    try {
-      const paper = samplePapers.find((p) => p.id === id);
-      const file = await peggyApi.getPaperFile(id);
-      const lower = file.name.toLowerCase();
-      const label = paper?.original_filename || paper?.title || file.name || "Sample dataset";
-      if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
-        applyParsed(label, await parseSavTable(file));
-        return;
-      }
-      applyParsed(label, parsePastedTable(await file.text()));
-    } catch (err) {
-      setParseError(err instanceof Error ? err.message : "Could not load sample file.");
-    } finally {
-      setSampleLoading(false);
-    }
   };
 
   const saveMeta = () => {
@@ -271,35 +238,6 @@ export function AnalysisToolFeature() {
               </Button>
             </DisabledTooltipButton>
           </Paper>
-          {samplePapers.length > 0 ? (
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ sm: "center" }} sx={{ mt: 2 }}>
-              <FormControl size="small" sx={{ minWidth: 260 }} disabled={blocked}>
-                <InputLabel>Sample dataset on this project</InputLabel>
-                <Select
-                  label="Sample dataset on this project"
-                  value={sampleId}
-                  onChange={(e) => setSampleId(e.target.value)}
-                >
-                  {samplePapers.map((p) => (
-                    <MenuItem key={p.id} value={String(p.id)}>
-                      {p.title || `File ${p.id}`}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button
-                variant="outlined"
-                disabled={blocked || !sampleId || sampleLoading}
-                onClick={() => void loadSample()}
-              >
-                {sampleLoading ? "Loading…" : "Use this file"}
-              </Button>
-            </Stack>
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              No sample datasets on this project yet. Upload one on Samples, or add a CSV or SAV above.
-            </Typography>
-          )}
           {parseError ? <Alert severity="error" sx={{ mt: 1.5 }}>{parseError}</Alert> : null}
           {datasetNote ? <Alert severity="info" sx={{ mt: 1.5 }}>{datasetNote}</Alert> : null}
           {fileName ? (

@@ -19,10 +19,26 @@ def uses_supabase_storage() -> bool:
     return bool(config.DATABASE_URL and config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY)
 
 
-def storage_object_path(user_id: str, workspace_id: str | None, paper_id: int, filename: str) -> str:
+_STUDY_DOC_TYPES = frozenset({"sample_datasets", "ethics_documents"})
+
+
+def storage_object_path(
+    workspace_id: str | None,
+    paper_id: int,
+    filename: str,
+    source_type: str = "literature",
+) -> str:
+    """Object key inside bucket peggy-uploads.
+
+    Literature PDFs: `{project_id}/{paper_id}_{filename}`
+    Ethics + sample datasets: `{project_id}/study_docs/{paper_id}_{filename}`
+    """
     safe = _SAFE_NAME.sub("_", (filename or "upload").strip())[:180] or "upload"
-    ws = workspace_id or "none"
-    return f"{user_id}/{ws}/{paper_id}/{safe}"
+    project = (workspace_id or "none").strip() or "none"
+    name = f"{int(paper_id)}_{safe}"
+    if source_type in _STUDY_DOC_TYPES:
+        return f"{project}/study_docs/{name}"
+    return f"{project}/{name}"
 
 
 def _local_root() -> Path:
@@ -46,8 +62,9 @@ async def put_bytes(
     filename: str,
     data: bytes,
     content_type: str | None = None,
+    source_type: str = "literature",
 ) -> str:
-    key = storage_object_path(user_id, workspace_id, paper_id, filename)
+    key = storage_object_path(workspace_id, paper_id, filename, source_type)
     _write_local(key, data)
     if uses_supabase_storage():
         try:
@@ -73,6 +90,26 @@ async def get_bytes(storage_key: str) -> bytes:
     raise FileNotFoundError(key)
 
 
+def _legacy_object_keys(user_id: str, paper: dict) -> list[str]:
+    name = paper.get("original_filename") or "upload"
+    safe = _SAFE_NAME.sub("_", str(name).strip())[:180] or "upload"
+    pid = int(paper["id"])
+    ws = paper.get("workspace_id") or "none"
+    return [f"{user_id}/{ws}/{pid}/{safe}"]
+
+
+def canonical_object_path(paper: dict) -> str:
+    name = paper.get("original_filename") or "upload"
+    st = paper.get("source_type") or "literature"
+    return storage_object_path(paper.get("workspace_id"), int(paper["id"]), str(name), st)
+
+
+def is_canonical_storage_key(storage_key: str | None, paper: dict) -> bool:
+    if not storage_key:
+        return False
+    return _split_key(str(storage_key))[1] == canonical_object_path(paper)
+
+
 async def get_paper_bytes(user_id: str, paper: dict) -> bytes:
     storage_key = paper.get("storage_key")
     if storage_key:
@@ -80,24 +117,99 @@ async def get_paper_bytes(user_id: str, paper: dict) -> bytes:
             return await get_bytes(str(storage_key))
         except FileNotFoundError:
             pass
-    folder = (
-        _local_root()
-        / str(user_id)
-        / str(paper.get("workspace_id") or "none")
-        / str(paper.get("id"))
-    )
-    if folder.is_dir():
-        files = [p for p in folder.iterdir() if p.is_file()]
+    keys = [canonical_object_path(paper), *_legacy_object_keys(user_id, paper)]
+    for key in keys:
+        local_path = _local_root() / key
+        if local_path.is_file():
+            return local_path.read_bytes()
+        if uses_supabase_storage():
+            try:
+                return await _sb_download(key)
+            except FileNotFoundError:
+                pass
+    legacy_dir = _local_root() / str(user_id) / str(paper.get("workspace_id") or "none") / str(int(paper["id"]))
+    if legacy_dir.is_dir():
+        files = [p for p in legacy_dir.iterdir() if p.is_file()]
         if files:
             return files[0].read_bytes()
-    name = paper.get("original_filename") or "upload"
-    key = storage_object_path(user_id, paper.get("workspace_id"), int(paper["id"]), str(name))
-    if uses_supabase_storage():
+    raise FileNotFoundError("Original file not stored")
+
+
+async def migrate_paper_bytes(user_id: str, paper: dict) -> tuple[str | None, bool]:
+    """Copy bytes onto the current path. Returns (storage_key, changed)."""
+    if is_canonical_storage_key(paper.get("storage_key"), paper):
         try:
-            return await _sb_download(key)
+            await get_bytes(str(paper["storage_key"]))
+            return str(paper["storage_key"]), False
         except FileNotFoundError:
             pass
-    raise FileNotFoundError("Original file not stored")
+    try:
+        data = await get_paper_bytes(user_id, paper)
+    except FileNotFoundError:
+        return None, False
+    new_key = await put_bytes(
+        user_id=user_id,
+        workspace_id=paper.get("workspace_id"),
+        paper_id=int(paper["id"]),
+        filename=str(paper.get("original_filename") or "upload"),
+        data=data,
+        content_type=paper.get("content_type"),
+        source_type=paper.get("source_type") or "literature",
+    )
+    old = paper.get("storage_key")
+    new_path = _split_key(new_key)[1]
+    if old and _split_key(str(old))[1] != new_path:
+        await delete_bytes(str(old))
+    for key in _legacy_object_keys(user_id, paper):
+        if key != new_path:
+            await delete_bytes(f"local:{key}")
+            if uses_supabase_storage():
+                await delete_bytes(f"sb:{key}")
+    legacy_dir = _local_root() / str(user_id) / str(paper.get("workspace_id") or "none") / str(int(paper["id"]))
+    if legacy_dir.is_dir():
+        for p in list(legacy_dir.iterdir()):
+            if p.is_file():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+        try:
+            legacy_dir.rmdir()
+        except OSError:
+            pass
+    return new_key, True
+
+
+async def delete_paper_files(user_id: str, paper: dict) -> None:
+    keys = []
+    if paper.get("storage_key"):
+        keys.append(str(paper["storage_key"]))
+    canon = canonical_object_path(paper)
+    keys.append(f"local:{canon}")
+    if uses_supabase_storage():
+        keys.append(f"sb:{canon}")
+    for key in _legacy_object_keys(user_id, paper):
+        keys.append(f"local:{key}")
+        if uses_supabase_storage():
+            keys.append(f"sb:{key}")
+    seen = set()
+    for k in keys:
+        if k in seen:
+            continue
+        seen.add(k)
+        await delete_bytes(k)
+    legacy_dir = _local_root() / str(user_id) / str(paper.get("workspace_id") or "none") / str(int(paper["id"]))
+    if legacy_dir.is_dir():
+        for p in list(legacy_dir.iterdir()):
+            if p.is_file():
+                try:
+                    p.unlink()
+                except OSError:
+                    pass
+        try:
+            legacy_dir.rmdir()
+        except OSError:
+            pass
 
 
 async def delete_bytes(storage_key: str | None) -> None:
@@ -107,10 +219,15 @@ async def delete_bytes(storage_key: str | None) -> None:
     try:
         if kind == "sb":
             await _sb_delete(key)
+            path = _local_root() / key
+            if path.is_file():
+                path.unlink()
             return
         path = _local_root() / key
         if path.is_file():
             path.unlink()
+        if uses_supabase_storage():
+            await _sb_delete(key)
     except Exception:
         logger.warning("file_store delete failed for %s", kind)
 

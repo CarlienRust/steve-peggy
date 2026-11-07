@@ -52,7 +52,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Supabase keep-alive | Done | Weekly GitHub Actions cron |
 | Compare | Done | Literature + own findings retrieval |
 | Researcher profile | Stub | `localStorage` |
-| Corpus delete → Qdrant | Done | Deletes catalog row + matching Qdrant points by `paper_id` or title |
+| Corpus delete → Qdrant | Done | Deletes catalog row, stored file, and matching Qdrant points; bulk literature delete on Literature / Reading journal |
 | Papers `workspace_id` | Done | Migration `010`; ingest + corpus list scoped to active project |
 | Findings summary per workspace | Done | Migration `011`; API + UI scoped per workspace |
 | Gap quick scan (abstracts only) | Done | Toggle on gap analysis; `evidence_basis` + `paper_count` on gaps |

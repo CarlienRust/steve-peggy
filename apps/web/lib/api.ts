@@ -535,6 +535,22 @@ export const peggyApi = {
       method: "DELETE",
     }),
 
+  migrateCorpusFiles: (workspaceId?: string) => {
+    const q = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : "";
+    return apiFetch<{ status: string; moved: number; unchanged: number; missing: number; count: number }>(
+      `/corpus/migrate-files${q}`,
+      { method: "POST" }
+    );
+  },
+
+  deleteLiterature: (workspaceId?: string) => {
+    const params = new URLSearchParams({ source_type: "literature" });
+    if (workspaceId) params.set("workspace_id", workspaceId);
+    return apiFetch<{ status: string; deleted: number; vectors_removed: number }>(`/corpus?${params.toString()}`, {
+      method: "DELETE",
+    });
+  },
+
   listWorkspacePapersSummary: (workspaceId: string, params?: { screeningStatus?: string; q?: string }) => {
     const qs = new URLSearchParams();
     if (params?.screeningStatus) qs.set("screening_status", params.screeningStatus);

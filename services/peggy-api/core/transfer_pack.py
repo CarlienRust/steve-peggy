@@ -176,6 +176,7 @@ async def import_zip(user_id: str, raw: bytes) -> dict:
                         filename=fname,
                         data=data,
                         content_type=paper.get("content_type"),
+                        source_type=st,
                     )
                     extra["storage_key"] = storage_key
                     extra["original_filename"] = paper.get("original_filename") or fname

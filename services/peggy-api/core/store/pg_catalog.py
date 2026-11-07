@@ -1237,6 +1237,15 @@ async def list_calendar_events(user_id: str, workspace_id: str | None = None) ->
     return [_row_to_dict(r) for r in rows]
 
 
+def _as_datetime(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 async def create_calendar_event(user_id: str, fields: dict) -> dict:
     pool = await _pool_conn()
     args = (
@@ -1244,13 +1253,13 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
         fields.get("workspace_id"),
         fields["title"],
         fields.get("kind") or "other",
-        fields["starts_at"],
-        fields.get("ends_at"),
+        _as_datetime(fields["starts_at"]),
+        _as_datetime(fields.get("ends_at")),
         fields.get("notes") or "",
         fields.get("source_type"),
         fields.get("source_id"),
         fields.get("recurrence") or "none",
-        fields.get("recurrence_until"),
+        _as_datetime(fields.get("recurrence_until")),
     )
     async with pool.acquire() as conn:
         try:
@@ -1321,7 +1330,10 @@ async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> di
             set_parts.append(f"{key} = ${i}::uuid")
         else:
             set_parts.append(f"{key} = ${i}")
-        values.append(val)
+        if key in ("starts_at", "ends_at", "recurrence_until"):
+            values.append(_as_datetime(val))
+        else:
+            values.append(val)
         i += 1
     set_parts.append("updated_at = NOW()")
     values.extend([event_id, user_id])

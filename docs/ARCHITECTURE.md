@@ -51,7 +51,7 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 
 Embeddings: `sentence-transformers` locally (hash on Render). Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`. **Sample dataset files are never upserted** into these collections.
 
-Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
+Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Object paths: `{project_id}/{paper_id}_{filename}` for literature PDFs; `{project_id}/study_docs/{paper_id}_{filename}` for ethics PDFs and sample datasets. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
 
 ## LLM providers
 
@@ -80,7 +80,9 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | Endpoint | Purpose |
 |----------|---------|
 | `GET /corpus?source_type=` | List papers (`literature` \| `own_findings` \| `sample_datasets` \| `ethics_documents`) |
-| `GET /corpus/{id}/file` | Owner download of stored original bytes |
+| `GET /corpus/{id}/file` | Owner download of stored original bytes (relocates legacy paths to the current layout) |
+| `POST /corpus/migrate-files` | Copy existing originals onto `{project_id}/` or `{project_id}/study_docs/` and update `storage_key` |
+| `DELETE /corpus?source_type=literature` | Delete all literature for the user (optional `workspace_id`); files + Qdrant |
 | `GET/PATCH/DELETE /corpus/{id}` | CRUD including `notes` and `read_at`; Qdrant purge and file delete |
 
 ### RAG & workflows
@@ -151,7 +153,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry; weekly/monthly/yearly repeat (one stored series, expanded on list) |
-| `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF shows the stored document in an iframe when `storage_key` exists, otherwise extracted text plus DOI/PubMed |
+| `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF; delete one paper or all literature; migrate stored files on load |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
 | `/useful-links` | 06 Useful links | Curated external resources by category |
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
@@ -164,13 +166,13 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
-| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). Original bytes are stored (local disk and, when configured, Supabase Storage). **Preview / Edit / Delete** on each row. Edit can set title, notes, objective tags, and linked status. |
+| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV upload or **Use this file** via `GET /corpus/{id}/file`). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. Switching type to categorical recomputes frequencies. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset** (t-test / Mann–Whitney / chi-square approximations; first guide column = outcome, second = group). Save stores headers/rows in `study_design.analysisTool`. SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV upload on this page). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers/rows in `study_design.analysisTool`. SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
