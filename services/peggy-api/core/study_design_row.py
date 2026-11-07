@@ -48,19 +48,23 @@ def row_to_design(row: dict | None) -> dict:
     return normalize_study_design(payload)
 
 
+def _json_col(value: object) -> str:
+    return json.dumps(value, ensure_ascii=False).replace("\x00", "")
+
+
 def design_to_column_json(design: dict) -> dict[str, str]:
     normalized = normalize_study_design(design)
-    cols = {column: json.dumps(normalized.get(api_key) or {}) for api_key, column in API_SECTIONS}
+    cols = {column: _json_col(normalized.get(api_key) or {}) for api_key, column in API_SECTIONS}
     plan = dict(normalized.get("analysisPlan") or {})
     tool = normalized.get("analysisTool")
     if isinstance(tool, dict) and tool:
         plan["analysisTool"] = tool
-        cols["analysis_plan"] = json.dumps(plan)
+        cols["analysis_plan"] = _json_col(plan)
     proposal = dict(normalized.get("proposal") or {})
     outputs = normalized.get("outputs")
     if isinstance(outputs, dict) and outputs:
         proposal["outputs"] = outputs
-        cols["proposal"] = json.dumps(proposal)
+        cols["proposal"] = _json_col(proposal)
     return cols
 
 

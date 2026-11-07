@@ -144,20 +144,19 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Analysis summaries:** column summaries omit admin-related columns
 
 NEXT Batch to do:
-Reading journal/Preview PDF: [Error] Failed to load resource: the server responded with a status of 500 () (text, line 0)
+Reading journal/Preview PDF: [Error] Failed to load resource: the server responded with a status of 404 () (file, line 0)
 Reading journal: PDF view needs to show the document, not plain text from PDF, like a preview of the actual document. 
 
-Calendar/New event: [Error] Failed to load resource: the server responded with a status of 500 () (events, line 0)
+Calendar/New event: [[Error] Failed to load resource: the server responded with a status of 500 () (events, line 0)
 
-Abstract generation: [Error] Failed to load resource: the server responded with a status of 500 () (conference-abstract, line 0)
+Abstract generation: [Error] Failed to load resource: the server responded with a status of 500 () (e088042b-f8d9-4ab4-8a15-ffaa0234743f, line 0)
+[Error] Unhandled Promise Rejection: PeggyApiError: Internal server error
+	(anonymous function) (7621-4e8e5ae54d9e6566.js:1:932)
 
-STUDY DESIGN/Samples and datasets: Once uploaded, user should still be able to preview the file.
+STUDY DESIGN/Samples and datasets: Once uploaded, user should still be able to preview the file - this was not done. Edit (all columns)/Delete for uploaded file also doesn't work. 
 
-Analysis tool/Use this file: Says uploaded file not found. 
+Analysis tool/Use this file: Says uploaded file not found - still. File not stored. Fix. 
 [Error] Failed to load resource: the server responded with a status of 404 () (file, line 0)
-
-02 DATASET OVERVIEW/Column summaries: Need to do figure out categories/freq for categorical columns
-Full analysis engine (running tests, not only suggesting them)
 
 FUTURE:
 

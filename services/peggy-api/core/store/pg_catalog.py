@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
+
+logger = logging.getLogger(__name__)
 
 import config
 
@@ -28,6 +31,19 @@ async def init_catalog(db_path: str | None = None) -> None:
             # Supabase pooler (PgBouncer transaction mode) rejects asyncpg prepared statements.
             statement_cache_size=0,
         )
+        try:
+            await _migrate_papers_storage()
+        except Exception:
+            logger.exception("Could not add papers storage columns (run 023_papers_storage.sql)")
+
+
+async def _migrate_papers_storage() -> None:
+    if _pool is None:
+        return
+    async with _pool.acquire() as conn:
+        await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS storage_key TEXT")
+        await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS original_filename TEXT")
+        await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS content_type TEXT")
 
 
 async def _pool_conn():
@@ -242,7 +258,13 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
     sql = f"UPDATE papers SET {', '.join(set_parts)} WHERE id = ${n + 1} AND user_id = ${n + 2}::uuid"
     pool = await _pool_conn()
     async with pool.acquire() as conn:
-        await conn.execute(sql, *values)
+        try:
+            await conn.execute(sql, *values)
+        except asyncpg.UndefinedColumnError:
+            await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS storage_key TEXT")
+            await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS original_filename TEXT")
+            await conn.execute("ALTER TABLE papers ADD COLUMN IF NOT EXISTS content_type TEXT")
+            await conn.execute(sql, *values)
     return await get_paper(user_id, paper_id)
 
 
@@ -1251,6 +1273,18 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
                    RETURNING *""",
                 *args[:9],
             )
+        except asyncpg.CheckViolationError:
+            row = await conn.fetchrow(
+                """INSERT INTO user_calendar_events
+                   (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
+                    source_type, source_id, updated_at)
+                   VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
+                           $7, $8, $9, NOW())
+                   RETURNING *""",
+                *args[:9],
+            )
+    if row is None:
+        raise RuntimeError("Calendar insert returned no row")
     return _row_to_dict(row)
 
 

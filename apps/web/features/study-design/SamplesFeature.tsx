@@ -6,9 +6,12 @@ import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
+  Autocomplete,
   Button,
+  Checkbox,
   CircularProgress,
   Divider,
+  FormControlLabel,
   IconButton,
   List,
   ListItem,
@@ -34,16 +37,16 @@ import { CorpusFilePreview } from "@/components/CorpusFilePreview";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
-import { peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
+import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import {
+  findingLinkForPaper,
   linkedDocumentsChanged,
   linkedDocumentsFromPapers,
+  upsertFindingLink,
 } from "@/lib/studyDesign";
-import { parseSavTable } from "@/lib/parseSavTable";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
-import { tableToCsv } from "@/lib/tableToCsv";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
@@ -62,6 +65,9 @@ export function SamplesFeature() {
   const [uploading, setUploading] = useState(false);
   const [editPaperId, setEditPaperId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+  const [editObjectiveIds, setEditObjectiveIds] = useState<string[]>([]);
+  const [editLinked, setEditLinked] = useState(true);
   const [previewPaper, setPreviewPaper] = useState<PaperRecord | null>(null);
   const datasets = useQuery({
     queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
@@ -117,21 +123,7 @@ export function SamplesFeature() {
       const results: UploadResult[] = [];
       for (const file of pdfFiles) {
         try {
-          let toSend = file;
-          const lower = file.name.toLowerCase();
-          if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
-            const parsed = await parseSavTable(file);
-            if ("error" in parsed) {
-              results.push({ name: file.name, ok: false, error: parsed.error });
-              continue;
-            }
-            toSend = new File(
-              [tableToCsv(parsed.headers, parsed.rows)],
-              file.name.replace(/\.z?sav$/i, ".csv"),
-              { type: "text/csv" }
-            );
-          }
-          const res = await peggyApi.uploadDocument(toSend, {
+          const res = await peggyApi.uploadDocument(file, {
             sourceType: "sample_datasets",
             title: file.name.replace(/\.(pdf|csv|tsv|txt|sav|zsav)$/i, ""),
             workspaceId: activeWorkspace?.id,
@@ -156,11 +148,24 @@ export function SamplesFeature() {
   const linkedIds = useMemo(() => new Set((samples.linkedDocuments ?? []).map((d) => d.id)), [samples.linkedDocuments]);
 
   const updateMut = useMutation({
-    mutationFn: ({ id, title }: { id: number; title: string }) => peggyApi.updatePaper(id, { title }),
+    mutationFn: async () => {
+      if (!editPaperId) throw new Error("No dataset selected");
+      await peggyApi.updatePaper(editPaperId, { title: editTitle, notes: editNotes });
+      const links = upsertFindingLink(studyDesign.objectiveLinks?.findingLinks, editPaperId, editObjectiveIds);
+      let linkedDocuments = samples.linkedDocuments ?? [];
+      if (editLinked) {
+        const paper = datasetPapers.find((p) => p.id === editPaperId);
+        const row = { id: editPaperId, title: editTitle, ingestedAt: paper?.ingested_at?.slice(0, 10) };
+        linkedDocuments = [...linkedDocuments.filter((d) => d.id !== editPaperId), row];
+      } else {
+        linkedDocuments = linkedDocuments.filter((d) => d.id !== editPaperId);
+      }
+      await commitSection("samples", { ...samples, linkedDocuments });
+      await commitSection("objectiveLinks", { findingLinks: links });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id) });
       setEditPaperId(null);
-      setEditTitle("");
     },
   });
 
@@ -374,6 +379,11 @@ export function SamplesFeature() {
             </Button>
           </Stack>
 
+          {deleteMut.isError && (
+            <Alert severity="error" sx={{ mx: 2, mb: 1 }}>
+              {formatApiError(deleteMut.error)}
+            </Alert>
+          )}
           {uploadResults.length > 0 && (
             <Stack spacing={1} sx={{ px: 2, pb: 2 }}>
               {uploadResults.map((r) => (
@@ -436,13 +446,17 @@ export function SamplesFeature() {
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ width: 90 }}>
-                          <Typography sx={{ ...monoSx, color: peggyColors.accent, fontSize: 11 }}>None</Typography>
+                          <Typography sx={{ ...monoSx, color: peggyColors.accent, fontSize: 11 }}>
+                            {p.id
+                              ? findingLinkForPaper(studyDesign.objectiveLinks?.findingLinks, p.id).length || "None"
+                              : "None"}
+                          </Typography>
                         </TableCell>
                         <TableCell sx={{ width: 96 }}>
                           <StatusChip tone={linked ? "accent" : "neutral"} label={linked ? "Linked" : "Not linked"} />
                         </TableCell>
-                        <TableCell sx={{ width: 130 }}>
-                          <Stack direction="row" spacing={1} justifyContent="flex-end">
+                        <TableCell sx={{ width: 220, overflow: "visible" }}>
+                          <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap">
                             <Button
                               size="small"
                               variant="text"
@@ -460,6 +474,9 @@ export function SamplesFeature() {
                                 if (!p.id) return;
                                 setEditPaperId(p.id);
                                 setEditTitle(p.title ?? "");
+                                setEditNotes(p.notes ?? "");
+                                setEditObjectiveIds(findingLinkForPaper(studyDesign.objectiveLinks?.findingLinks, p.id));
+                                setEditLinked(linked);
                               }}
                             >
                               Edit
@@ -469,7 +486,10 @@ export function SamplesFeature() {
                               variant="text"
                               sx={{ textTransform: "none", color: peggyColors.accent }}
                               disabled={!p.id || deleteMut.isPending}
-                              onClick={() => p.id && deleteMut.mutate(p.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (p.id) deleteMut.mutate(p.id);
+                              }}
                             >
                               Delete
                             </Button>
@@ -496,7 +516,28 @@ export function SamplesFeature() {
         <DialogTitle>Edit dataset</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField label="Title" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} fullWidth />
+            <TextField label="Dataset" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} fullWidth />
+            <TextField
+              label="Notes"
+              value={editNotes}
+              onChange={(e) => setEditNotes(e.target.value)}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+            <Autocomplete
+              multiple
+              options={(activeWorkspace.objectives ?? []).filter((o) => o.text.trim())}
+              getOptionLabel={(o) => o.text}
+              value={(activeWorkspace.objectives ?? []).filter((o) => editObjectiveIds.includes(o.id))}
+              onChange={(_, value) => setEditObjectiveIds(value.map((o) => o.id))}
+              renderInput={(params) => <TextField {...params} label="Objectives" />}
+            />
+            <FormControlLabel
+              control={<Checkbox checked={editLinked} onChange={(e) => setEditLinked(e.target.checked)} />}
+              label="Linked to this project"
+            />
+            {updateMut.isError ? <Alert severity="error">{formatApiError(updateMut.error)}</Alert> : null}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -504,7 +545,7 @@ export function SamplesFeature() {
           <Button
             variant="contained"
             disabled={!editPaperId || updateMut.isPending}
-            onClick={() => editPaperId && updateMut.mutate({ id: editPaperId, title: editTitle })}
+            onClick={() => updateMut.mutate()}
           >
             Save
           </Button>

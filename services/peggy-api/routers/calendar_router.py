@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -63,10 +63,12 @@ def _parse_recurrence(value: str | None) -> str:
 
 def _parse_when(value: str, label: str) -> str:
     try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
         raise HTTPException(400, f"{label} must be an ISO datetime") from exc
-    return value
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
 
 
 async def _check_workspace(user_id: str, workspace_id: str | None) -> None:
@@ -102,21 +104,24 @@ async def create_event(body: CalendarEventCreate, user: AuthUser = Depends(get_c
     ends_at = _parse_when(body.ends_at, "ends_at") if body.ends_at else None
     recurrence = _parse_recurrence(body.recurrence)
     until = _parse_when(body.recurrence_until, "recurrence_until") if body.recurrence_until else None
-    return await catalog.create_calendar_event(
-        user.id,
-        {
-            "title": body.title.strip(),
-            "kind": kind,
-            "starts_at": starts_at,
-            "ends_at": ends_at,
-            "notes": body.notes or "",
-            "workspace_id": workspace_id,
-            "source_type": body.source_type,
-            "source_id": body.source_id,
-            "recurrence": recurrence,
-            "recurrence_until": until,
-        },
-    )
+    try:
+        return await catalog.create_calendar_event(
+            user.id,
+            {
+                "title": body.title.strip(),
+                "kind": kind,
+                "starts_at": starts_at,
+                "ends_at": ends_at,
+                "notes": body.notes or "",
+                "workspace_id": workspace_id,
+                "source_type": body.source_type,
+                "source_id": body.source_id,
+                "recurrence": recurrence,
+                "recurrence_until": until,
+            },
+        )
+    except Exception as exc:
+        raise HTTPException(400, f"Could not save event: {exc}") from exc
 
 
 @router.patch("/events/{event_id}")

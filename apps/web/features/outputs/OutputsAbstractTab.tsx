@@ -62,11 +62,15 @@ export function OutputsAbstractTab() {
         body: normalized,
       };
       const nextDrafts = [draft, ...drafts];
-      await commitSection("outputs", {
-        ...outputs,
-        abstractDrafts: nextDrafts,
-        activeAbstractId: draft.id,
-      });
+      try {
+        await commitSection("outputs", {
+          ...outputs,
+          abstractDrafts: nextDrafts,
+          activeAbstractId: draft.id,
+        });
+      } catch {
+        /* generate succeeded; persist failure is shown via study-design save errors */
+      }
       setSelectedId(draft.id);
     },
   });

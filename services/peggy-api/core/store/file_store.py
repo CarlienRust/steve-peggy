@@ -31,6 +31,13 @@ def _local_root() -> Path:
     return root
 
 
+def _write_local(key: str, data: bytes) -> Path:
+    path = _local_root() / key
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(data)
+    return path
+
+
 async def put_bytes(
     *,
     user_id: str,
@@ -41,23 +48,56 @@ async def put_bytes(
     content_type: str | None = None,
 ) -> str:
     key = storage_object_path(user_id, workspace_id, paper_id, filename)
+    _write_local(key, data)
     if uses_supabase_storage():
-        await _sb_upload(key, data, content_type or "application/octet-stream")
-        return f"sb:{key}"
-    path = _local_root() / key
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(data)
+        try:
+            await _sb_upload(key, data, content_type or "application/octet-stream")
+            return f"sb:{key}"
+        except Exception:
+            logger.exception("Supabase Storage upload failed; keeping local copy")
     return f"local:{key}"
 
 
 async def get_bytes(storage_key: str) -> bytes:
     kind, key = _split_key(storage_key)
+    local_path = _local_root() / key
+    if local_path.is_file():
+        return local_path.read_bytes()
     if kind == "sb":
-        return await _sb_download(key)
-    path = _local_root() / key
-    if not path.is_file():
-        raise FileNotFoundError(key)
-    return path.read_bytes()
+        data = await _sb_download(key)
+        try:
+            _write_local(key, data)
+        except Exception:
+            pass
+        return data
+    raise FileNotFoundError(key)
+
+
+async def get_paper_bytes(user_id: str, paper: dict) -> bytes:
+    storage_key = paper.get("storage_key")
+    if storage_key:
+        try:
+            return await get_bytes(str(storage_key))
+        except FileNotFoundError:
+            pass
+    folder = (
+        _local_root()
+        / str(user_id)
+        / str(paper.get("workspace_id") or "none")
+        / str(paper.get("id"))
+    )
+    if folder.is_dir():
+        files = [p for p in folder.iterdir() if p.is_file()]
+        if files:
+            return files[0].read_bytes()
+    name = paper.get("original_filename") or "upload"
+    key = storage_object_path(user_id, paper.get("workspace_id"), int(paper["id"]), str(name))
+    if uses_supabase_storage():
+        try:
+            return await _sb_download(key)
+        except FileNotFoundError:
+            pass
+    raise FileNotFoundError("Original file not stored")
 
 
 async def delete_bytes(storage_key: str | None) -> None:
@@ -103,11 +143,13 @@ async def _ensure_bucket(client: httpx.AsyncClient) -> None:
     r = await client.get(f"{_sb_base()}/bucket/{bucket}", headers=_sb_headers())
     if r.status_code == 200:
         return
-    await client.post(
+    created = await client.post(
         f"{_sb_base()}/bucket",
         headers=_sb_headers({"Content-Type": "application/json"}),
         json={"id": bucket, "name": bucket, "public": False},
     )
+    if created.status_code >= 400 and created.status_code != 409:
+        logger.warning("Could not create Storage bucket %s (%s)", bucket, created.status_code)
 
 
 async def _sb_upload(object_path: str, data: bytes, content_type: str) -> None:

@@ -164,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
-| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). Files are stored for the Analysis tool; they are not written to Peggy AI collections. **Preview** loads `GET /corpus/{id}/file` (PDF iframe when the original is stored). |
+| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). Original bytes are stored (local disk and, when configured, Supabase Storage). **Preview / Edit / Delete** on each row. Edit can set title, notes, objective tags, and linked status. |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |

@@ -70,13 +70,11 @@ async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_curre
     paper = await catalog.get_paper(user.id, paper_id)
     if not paper:
         raise HTTPException(404, "Paper not found")
-    storage_key = paper.get("storage_key")
     data = None
-    if storage_key:
-        try:
-            data = await file_store.get_bytes(str(storage_key))
-        except FileNotFoundError:
-            data = None
+    try:
+        data = await file_store.get_paper_bytes(user.id, paper)
+    except FileNotFoundError:
+        data = None
     if data is None:
         try:
             text = qdrant_store.get_paper_text(
@@ -98,6 +96,8 @@ async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_curre
         )
     name = paper.get("original_filename") or paper.get("title") or "download"
     media = paper.get("content_type") or "application/octet-stream"
+    if str(name).lower().endswith(".pdf"):
+        media = "application/pdf"
     return Response(
         content=data,
         media_type=media,
@@ -129,12 +129,17 @@ async def delete_corpus_item(paper_id: int, user: AuthUser = Depends(get_current
     if not paper:
         raise HTTPException(404, "Paper not found")
     source_type = paper.get("source_type") or "literature"
-    purged = qdrant_store.delete_vectors_for_paper(
-        user_id=user.id,
-        source_type=source_type,
-        title=paper.get("title") or "",
-        paper_id=paper_id,
-    )
+    purged = 0
+    if source_type != "sample_datasets":
+        try:
+            purged = qdrant_store.delete_vectors_for_paper(
+                user_id=user.id,
+                source_type=source_type,
+                title=paper.get("title") or "",
+                paper_id=paper_id,
+            )
+        except Exception:
+            purged = 0
     await file_store.delete_bytes(paper.get("storage_key"))
     ok = await catalog.delete_paper(user.id, paper_id)
     if not ok:

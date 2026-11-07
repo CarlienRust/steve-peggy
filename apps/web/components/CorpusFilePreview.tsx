@@ -67,7 +67,7 @@ export function CorpusFilePreview({
         {fileQuery.isLoading ? (
           <CircularProgress size={22} />
         ) : pdf && url ? (
-          <iframe title="PDF preview" src={url} style={{ width: "100%", height: "70vh", border: 0 }} />
+          <iframe title="PDF preview" src={`${url}#toolbar=1`} style={{ width: "100%", height: "70vh", border: 0 }} />
         ) : fileQuery.data && url && !pdf ? (
           <iframe title="File preview" src={url} style={{ width: "100%", height: "50vh", border: 0 }} />
         ) : textQuery.isLoading ? (
