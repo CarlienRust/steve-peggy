@@ -51,7 +51,7 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 
 Embeddings: `sentence-transformers` locally (hash on Render). Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`. **Sample dataset files are never upserted** into these collections.
 
-Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Object paths: `{project_id}/{paper_id}_{filename}` for literature PDFs; `{project_id}/study_docs/{paper_id}_{filename}` for ethics PDFs and sample datasets. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
+Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Object paths: `{project_id}/{filename}` for literature PDFs; `{project_id}/study_docs/{filename}` for ethics PDFs and sample datasets. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
 
 ## LLM providers
 

@@ -29,7 +29,7 @@ import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type Test
 import { runSuggestedTest } from "@/lib/analysisRun";
 import { profileTable, type ColumnKind } from "@/lib/columnStats";
 import { parsePastedTable } from "@/lib/parsePastedTable";
-import { parseSavTable } from "@/lib/parseSavTable";
+import { looksLikeSavFile, parseSavTable } from "@/lib/parseSavTable";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
@@ -150,7 +150,7 @@ export function AnalysisToolFeature() {
     setParseError(null);
     setDatasetNote(null);
     const lower = file.name.toLowerCase();
-    if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+    if (lower.endsWith(".sav") || lower.endsWith(".zsav") || (await looksLikeSavFile(file))) {
       applyParsed(file.name, await parseSavTable(file));
       return;
     }

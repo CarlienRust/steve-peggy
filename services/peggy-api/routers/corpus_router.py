@@ -132,6 +132,8 @@ async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_curre
                 await catalog.update_paper(user.id, paper_id, {"storage_key": new_key})
     except FileNotFoundError:
         data = None
+    if data is None and (paper.get("source_type") or "literature") == "sample_datasets":
+        raise HTTPException(404, "Original file not stored")
     if data is None:
         try:
             text = qdrant_store.get_paper_text(

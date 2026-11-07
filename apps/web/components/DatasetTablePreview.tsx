@@ -19,7 +19,7 @@ import {
 } from "@mui/material";
 import { formatApiError, peggyApi, type PaperRecord } from "@/lib/api";
 import { parsePastedTable } from "@/lib/parsePastedTable";
-import { parseSavTable } from "@/lib/parseSavTable";
+import { datasetFileName, looksLikeSavFile, parseSavTable } from "@/lib/parseSavTable";
 
 const PREVIEW_ROWS = 20;
 
@@ -33,19 +33,22 @@ export function DatasetTablePreview({
   const query = useQuery({
     queryKey: ["dataset-table-preview", paper?.id],
     queryFn: async () => {
-      const file = await peggyApi.getPaperFile(paper!.id!);
-      const lower = file.name.toLowerCase();
-      if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+      const raw = await peggyApi.getPaperFile(paper!.id!);
+      const name = datasetFileName(paper!, raw);
+      const file = new File([raw], name, { type: raw.type || paper?.content_type || "application/octet-stream" });
+      const lower = name.toLowerCase();
+      const sav = lower.endsWith(".sav") || lower.endsWith(".zsav") || (await looksLikeSavFile(file));
+      if (sav) {
         const parsed = await parseSavTable(file);
         if ("error" in parsed) throw new Error(parsed.error);
-        return { name: file.name, headers: parsed.headers, rows: parsed.rows, warning: parsed.warning };
+        return { name, headers: parsed.headers, rows: parsed.rows, warning: parsed.warning };
       }
-      if (lower.endsWith(".pdf")) {
+      if (lower.endsWith(".pdf") || file.type === "application/pdf") {
         throw new Error("This is a PDF. Upload CSV, TSV, TXT, or SAV to preview a data table.");
       }
       const parsed = parsePastedTable(await file.text());
       if ("error" in parsed) throw new Error(parsed.error);
-      return { name: file.name, headers: parsed.headers, rows: parsed.rows, warning: parsed.warning };
+      return { name, headers: parsed.headers, rows: parsed.rows, warning: parsed.warning };
     },
     enabled: !!paper?.id,
     retry: false,
@@ -88,7 +91,7 @@ export function DatasetTablePreview({
                     <TableRow key={i}>
                       {headers.map((_, c) => (
                         <TableCell key={c} sx={{ whiteSpace: "nowrap" }}>
-                          {row[c]}
+                          {row[c] ?? ""}
                         </TableCell>
                       ))}
                     </TableRow>

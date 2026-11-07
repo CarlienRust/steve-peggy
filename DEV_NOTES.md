@@ -144,15 +144,8 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Analysis summaries:** column summaries omit admin-related columns
 
 NEXT Batch to do:
-Reading journal/Preview PDF: Re-ingested files but did not help with preview - still original file not stored error
 
-Calendar/New event: Could not save event: invalid input for query argument $5: '2026-11-12T20:00:00+00:00' (expected a datetime.date or datetime.datetime instance, got 'str')
-
-STUDY DESIGN/Samples and datasets: Preview of file must actually be similar to the table shown after upload in Analysis tool
-
-STUDY DESIGN/Ethics: remove view file option
-
-Analysis tool/Use this file: Remove this feature to use the file uploaded in Study design
+Analysis tool preview dataset upload correctly, but format of data file for preview on Sample and Design does not - weird output and icons. Already requested these should be similar, so don't understand why Sample and Design doesn't work. 
 
 FUTURE:
 

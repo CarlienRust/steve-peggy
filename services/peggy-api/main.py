@@ -84,6 +84,7 @@ app.add_middleware(
     allow_methods=["*"],
     # Wildcard headers break credentialed preflight (browser gets 400, no Allow-Origin).
     allow_headers=["Authorization", "Content-Type", "Accept", "Origin", "X-Requested-With"],
+    expose_headers=["Content-Disposition"],
 )
 
 

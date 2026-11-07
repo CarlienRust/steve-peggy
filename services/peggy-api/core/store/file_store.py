@@ -30,15 +30,15 @@ def storage_object_path(
 ) -> str:
     """Object key inside bucket peggy-uploads.
 
-    Literature PDFs: `{project_id}/{paper_id}_{filename}`
-    Ethics + sample datasets: `{project_id}/study_docs/{paper_id}_{filename}`
+    Literature PDFs: `{project_id}/{filename}`
+    Ethics + sample datasets: `{project_id}/study_docs/{filename}`
     """
     safe = _SAFE_NAME.sub("_", (filename or "upload").strip())[:180] or "upload"
     project = (workspace_id or "none").strip() or "none"
-    name = f"{int(paper_id)}_{safe}"
+    _ = paper_id
     if source_type in _STUDY_DOC_TYPES:
-        return f"{project}/study_docs/{name}"
-    return f"{project}/{name}"
+        return f"{project}/study_docs/{safe}"
+    return f"{project}/{safe}"
 
 
 def _local_root() -> Path:
@@ -95,7 +95,18 @@ def _legacy_object_keys(user_id: str, paper: dict) -> list[str]:
     safe = _SAFE_NAME.sub("_", str(name).strip())[:180] or "upload"
     pid = int(paper["id"])
     ws = paper.get("workspace_id") or "none"
-    return [f"{user_id}/{ws}/{pid}/{safe}"]
+    st = paper.get("source_type") or "literature"
+    prefixed = f"{pid}_{safe}"
+    keys = [
+        f"{user_id}/{ws}/{pid}/{safe}",
+        f"{ws}/{prefixed}",
+        f"{ws}/study_docs/{prefixed}",
+    ]
+    if st in _STUDY_DOC_TYPES:
+        keys.append(f"{ws}/{safe}")
+    else:
+        keys.append(f"{ws}/study_docs/{safe}")
+    return keys
 
 
 def canonical_object_path(paper: dict) -> str:

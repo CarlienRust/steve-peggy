@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -74,6 +74,11 @@ export function SamplesFeature() {
     queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
     enabled: !!activeWorkspace?.id,
   });
+
+  useEffect(() => {
+    if (!activeWorkspace?.id) return;
+    void peggyApi.migrateCorpusFiles(activeWorkspace.id);
+  }, [activeWorkspace?.id]);
   const datasetPapers = datasets.data?.papers ?? [];
   const uploadsChanged = linkedDocumentsChanged(samples.linkedDocuments, datasetPapers);
   const dirty = isSectionDirty("samples") || uploadsChanged;

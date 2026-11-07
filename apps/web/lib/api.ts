@@ -330,6 +330,7 @@ export type PaperRecord = {
   auto_extraction_count?: number;
   storage_key?: string | null;
   original_filename?: string | null;
+  content_type?: string | null;
 };
 
 export type CalendarEventKind =

@@ -42,7 +42,7 @@ def test_local_file_store_roundtrip(tmp_path, monkeypatch):
     assert key.startswith("local:")
     data = asyncio.run(file_store.get_bytes(key))
     assert data == b"a,b\n1,2\n"
-    assert (Path(tmp_path) / "w1" / "9_table.csv").is_file()
+    assert (Path(tmp_path) / "w1" / "table.csv").is_file()
 
 
 def test_study_docs_path(tmp_path, monkeypatch):
@@ -59,7 +59,7 @@ def test_study_docs_path(tmp_path, monkeypatch):
         )
     )
     assert "study_docs" in key
-    assert (Path(tmp_path) / "w1" / "study_docs" / "3_cohort.sav").is_file()
+    assert (Path(tmp_path) / "w1" / "study_docs" / "cohort.sav").is_file()
 
 
 def test_migrate_legacy_path_and_delete(tmp_path, monkeypatch):
@@ -78,8 +78,8 @@ def test_migrate_legacy_path_and_delete(tmp_path, monkeypatch):
     }
     key, changed = asyncio.run(file_store.migrate_paper_bytes("u1", paper))
     assert changed
-    assert key == "local:w1/4_old.pdf"
-    assert (Path(tmp_path) / "w1" / "4_old.pdf").read_bytes() == b"%PDF-legacy"
+    assert key == "local:w1/old.pdf"
+    assert (Path(tmp_path) / "w1" / "old.pdf").read_bytes() == b"%PDF-legacy"
     assert not legacy.exists()
     asyncio.run(file_store.delete_paper_files("u1", {**paper, "storage_key": key}))
-    assert not (Path(tmp_path) / "w1" / "4_old.pdf").exists()
+    assert not (Path(tmp_path) / "w1" / "old.pdf").exists()
