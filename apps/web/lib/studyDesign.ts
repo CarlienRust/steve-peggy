@@ -160,7 +160,10 @@ export type StudyDesignOutputs = {
 
 export type AnalysisToolMeta = {
   fileName?: string;
+  headers?: string[];
+  rows?: string[][];
   columnTypes?: Record<string, "continuous" | "categorical">;
+  adminColumns?: string[];
   lastSelector?: {
     outcome?: "continuous" | "ordinal" | "categorical";
     groups?: "1" | "2" | "3plus";

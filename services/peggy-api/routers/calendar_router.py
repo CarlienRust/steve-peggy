@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core.auth.deps import AuthUser, get_current_user
+from core.calendar_recurrence import RECURRENCE_VALUES, expand_calendar_events
 from core.limits import enforce_text_length
 from core.safety.phi_guard import assert_no_phi
 from core.store import catalog
@@ -36,6 +37,8 @@ class CalendarEventCreate(BaseModel):
     workspace_id: Optional[str] = None
     source_type: Optional[str] = None
     source_id: Optional[str] = None
+    recurrence: str = "none"
+    recurrence_until: Optional[str] = None
 
 
 class CalendarEventUpdate(BaseModel):
@@ -47,6 +50,15 @@ class CalendarEventUpdate(BaseModel):
     workspace_id: Optional[str] = None
     source_type: Optional[str] = None
     source_id: Optional[str] = None
+    recurrence: Optional[str] = None
+    recurrence_until: Optional[str] = None
+
+
+def _parse_recurrence(value: str | None) -> str:
+    rec = (value or "none").strip() or "none"
+    if rec not in RECURRENCE_VALUES:
+        raise HTTPException(400, "Invalid recurrence")
+    return rec
 
 
 def _parse_when(value: str, label: str) -> str:
@@ -72,7 +84,8 @@ async def list_events(
 ):
     await _check_workspace(user.id, workspace_id)
     events = await catalog.list_calendar_events(user.id, workspace_id=workspace_id)
-    return {"events": events, "count": len(events)}
+    expanded = expand_calendar_events(events)
+    return {"events": expanded, "count": len(expanded)}
 
 
 @router.post("/events")
@@ -86,6 +99,8 @@ async def create_event(body: CalendarEventCreate, user: AuthUser = Depends(get_c
     await _check_workspace(user.id, body.workspace_id)
     starts_at = _parse_when(body.starts_at, "starts_at")
     ends_at = _parse_when(body.ends_at, "ends_at") if body.ends_at else None
+    recurrence = _parse_recurrence(body.recurrence)
+    until = _parse_when(body.recurrence_until, "recurrence_until") if body.recurrence_until else None
     return await catalog.create_calendar_event(
         user.id,
         {
@@ -97,6 +112,8 @@ async def create_event(body: CalendarEventCreate, user: AuthUser = Depends(get_c
             "workspace_id": body.workspace_id,
             "source_type": body.source_type,
             "source_id": body.source_id,
+            "recurrence": recurrence,
+            "recurrence_until": until,
         },
     )
 
@@ -119,6 +136,10 @@ async def patch_event(
         fields["ends_at"] = _parse_when(str(fields["ends_at"]), "ends_at")
     if "title" in fields and isinstance(fields["title"], str):
         fields["title"] = fields["title"].strip()
+    if "recurrence" in fields:
+        fields["recurrence"] = _parse_recurrence(fields.get("recurrence"))
+    if "recurrence_until" in fields and fields["recurrence_until"]:
+        fields["recurrence_until"] = _parse_when(str(fields["recurrence_until"]), "recurrence_until")
     updated = await catalog.update_calendar_event(user.id, event_id, fields)
     if not updated:
         raise HTTPException(404, "Event not found")

@@ -1,4 +1,19 @@
-from core.objectives import AIM_LINK_ID, PROJECT_LINK_ID, normalize_objectives, reconcile_objective_links, valid_link_ids
+from core.objectives import (
+    AIM_LINK_ID,
+    PROJECT_LINK_ID,
+    normalize_objectives,
+    objective_texts,
+    reconcile_objective_links,
+    valid_link_ids,
+)
+
+
+def test_normalize_keeps_empty_draft_rows():
+    out = normalize_objectives([{"id": "blank", "text": "", "status": "draft"}])
+    assert len(out) == 1
+    assert out[0]["id"] == "blank"
+    assert out[0]["text"] == ""
+    assert objective_texts(out) == []
 
 
 def test_reconcile_strips_orphan_objective_ids():

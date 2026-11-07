@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -85,6 +87,23 @@ EXTRACTION_MODULES = [
 
 # When false on Render, /health returns minimal status (no LLM/limits detail).
 PUBLIC_HEALTH_DETAIL = os.getenv("PUBLIC_HEALTH_DETAIL", "false").lower() in ("1", "true", "yes")
+
+# Swagger / OpenAPI. Default off when AUTH_REQUIRED (Render). Local solo keeps /docs.
+_expose_docs_raw = os.getenv("EXPOSE_API_DOCS")
+if _expose_docs_raw is None or not _expose_docs_raw.strip():
+    EXPOSE_API_DOCS = not AUTH_REQUIRED
+else:
+    EXPOSE_API_DOCS = _expose_docs_raw.lower() in ("1", "true", "yes")
+
+
+def qdrant_https_requires_key(url: str | None = None, api_key: str | None = None) -> bool:
+    host = (url if url is not None else QDRANT_URL or "").strip().lower()
+    key = api_key if api_key is not None else QDRANT_API_KEY
+    if not host.startswith("https://"):
+        return False
+    if "localhost" in host or "127.0.0.1" in host:
+        return False
+    return not bool(key)
 
 GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
 GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")

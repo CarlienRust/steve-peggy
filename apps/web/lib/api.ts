@@ -347,6 +347,9 @@ export type CalendarEvent = {
   notes?: string;
   source_type?: string | null;
   source_id?: string | null;
+  recurrence?: "none" | "weekly" | "monthly" | "yearly";
+  recurrence_until?: string | null;
+  occurrence_index?: number;
   created_at?: string;
   updated_at?: string;
 };
@@ -470,6 +473,8 @@ export const peggyApi = {
     workspace_id?: string | null;
     source_type?: string | null;
     source_id?: string | null;
+    recurrence?: "none" | "weekly" | "monthly" | "yearly";
+    recurrence_until?: string | null;
   }) => apiFetch<CalendarEvent>("/calendar/events", { method: "POST", body: JSON.stringify(body) }),
 
   updateCalendarEvent: (id: string, body: Partial<CalendarEvent>) =>

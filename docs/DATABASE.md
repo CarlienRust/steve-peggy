@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `021_lab_book.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `022_calendar_recurrence.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -79,7 +79,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
 
-Analysis tool metadata is `study_design.analysisTool` (`fileName`, `columnTypes`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). The CSV/SAV itself is not saved. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`) can be loaded into the analysis tool via paper text parse, or the user can upload a new CSV/TSV/SAV in the browser.
+Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `rows`, `columnTypes`, `adminColumns`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). Save configuration persists the parsed table so the overview can reload. Sample files uploaded on Study design → Samples (`papers.source_type = sample_datasets`; PDF/CSV/TSV/SAV) can also be loaded via paper text parse.
 
 ## Entity relationships (Postgres / SQLite)
 

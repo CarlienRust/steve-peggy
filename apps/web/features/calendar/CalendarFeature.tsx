@@ -70,6 +70,8 @@ function sameDay(iso: string, date: Date) {
   return d.getFullYear() === date.getFullYear() && d.getMonth() === date.getMonth() && d.getDate() === date.getDate();
 }
 
+type Recurrence = "none" | "weekly" | "monthly" | "yearly";
+
 type Draft = {
   title: string;
   kind: CalendarEventKind;
@@ -77,6 +79,8 @@ type Draft = {
   ends_at: string;
   notes: string;
   workspace_id: string;
+  recurrence: Recurrence;
+  recurrence_until: string;
 };
 
 const emptyDraft = (): Draft => ({
@@ -86,6 +90,8 @@ const emptyDraft = (): Draft => ({
   ends_at: "",
   notes: "",
   workspace_id: "",
+  recurrence: "none",
+  recurrence_until: "",
 });
 
 export function CalendarFeature() {
@@ -128,6 +134,8 @@ export function CalendarFeature() {
         ends_at: draft.ends_at ? fromLocalInput(draft.ends_at) : null,
         notes: draft.notes,
         workspace_id: draft.workspace_id || null,
+        recurrence: draft.recurrence,
+        recurrence_until: draft.recurrence_until ? fromLocalInput(draft.recurrence_until) : null,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["calendar"] });
@@ -320,7 +328,7 @@ export function CalendarFeature() {
                       .filter((ev) => sameDay(ev.starts_at, cell.date as Date))
                       .slice(0, 3)
                       .map((ev) => (
-                        <Typography key={ev.id} variant="caption" noWrap display="block">
+                        <Typography key={`${ev.id}-${ev.starts_at}`} variant="caption" noWrap display="block">
                           {ev.title}
                         </Typography>
                       ))
@@ -341,7 +349,7 @@ export function CalendarFeature() {
           })
           .map((ev: CalendarEvent) => (
             <Stack
-              key={ev.id}
+              key={`${ev.id}-${ev.starts_at}`}
               direction="row"
               spacing={1}
               alignItems="center"
@@ -350,11 +358,13 @@ export function CalendarFeature() {
               <Box sx={{ flex: 1, minWidth: 0 }}>
                 <Typography fontWeight={600}>{ev.title}</Typography>
                 <Typography variant="caption" color="text.secondary">
-                  {ev.kind} · {new Date(ev.starts_at).toLocaleString()}
+                  {ev.kind}
+                  {ev.recurrence && ev.recurrence !== "none" ? ` · ${ev.recurrence}` : ""} ·{" "}
+                  {new Date(ev.starts_at).toLocaleString()}
                 </Typography>
               </Box>
               <Button size="small" color="warning" onClick={() => deleteEvent.mutate(ev.id)}>
-                Delete
+                {ev.recurrence && ev.recurrence !== "none" ? "Delete series" : "Delete"}
               </Button>
             </Stack>
           ))}
@@ -398,6 +408,29 @@ export function CalendarFeature() {
               onChange={(e) => setDraft({ ...draft, ends_at: e.target.value })}
               InputLabelProps={{ shrink: true }}
             />
+            <FormControl fullWidth>
+              <InputLabel>Repeats</InputLabel>
+              <Select
+                label="Repeats"
+                value={draft.recurrence}
+                onChange={(e) => setDraft({ ...draft, recurrence: e.target.value as Recurrence })}
+              >
+                <MenuItem value="none">Does not repeat</MenuItem>
+                <MenuItem value="weekly">Weekly</MenuItem>
+                <MenuItem value="monthly">Monthly</MenuItem>
+                <MenuItem value="yearly">Yearly</MenuItem>
+              </Select>
+            </FormControl>
+            {draft.recurrence !== "none" ? (
+              <TextField
+                label="Repeat until"
+                type="datetime-local"
+                value={draft.recurrence_until}
+                onChange={(e) => setDraft({ ...draft, recurrence_until: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+                helperText="Leave empty to show up to two years of weekly dates."
+              />
+            ) : null}
             <FormControl fullWidth>
               <InputLabel>Project</InputLabel>
               <Select

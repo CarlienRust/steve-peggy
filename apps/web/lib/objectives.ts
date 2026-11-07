@@ -60,7 +60,6 @@ export function normalizeObjectives(raw: unknown): WorkspaceObjective[] {
     }
     if (item && typeof item === "object" && "text" in item) {
       const text = String((item as WorkspaceObjective).text ?? "").trim();
-      if (!text) continue;
       const id = String((item as WorkspaceObjective).id ?? crypto.randomUUID());
       const rawStatus = String((item as WorkspaceObjective).status ?? "").toLowerCase().trim();
       const status: ObjectiveStatus =

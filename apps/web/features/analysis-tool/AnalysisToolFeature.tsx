@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
+  Chip,
   FormControl,
   InputLabel,
   MenuItem,
@@ -15,7 +17,9 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableContainer,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -37,6 +41,8 @@ function kindToOutcome(kind: ColumnKind | undefined): OutcomeType {
   return "continuous";
 }
 
+const PAGE_SIZE = 20;
+
 export function AnalysisToolFeature() {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, commitSection, isSaving } = useStudyDesign(activeWorkspace?.id);
@@ -44,8 +50,9 @@ export function AnalysisToolFeature() {
   const saved = studyDesign.analysisTool ?? {};
 
   const [fileName, setFileName] = useState(saved.fileName ?? "");
-  const [headers, setHeaders] = useState<string[]>([]);
-  const [rows, setRows] = useState<string[][]>([]);
+  const [headers, setHeaders] = useState<string[]>(saved.headers ?? []);
+  const [rows, setRows] = useState<string[][]>(saved.rows ?? []);
+  const [hydrated, setHydrated] = useState(!!saved.headers?.length);
   const [search, setSearch] = useState("");
   const [columnFilter, setColumnFilter] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -59,8 +66,27 @@ export function AnalysisToolFeature() {
   const [sampleId, setSampleId] = useState("");
   const [sampleLoading, setSampleLoading] = useState(false);
   const [outcomeColumn, setOutcomeColumn] = useState("");
+  const [guideCols, setGuideCols] = useState<string[]>([]);
   const [whyOpen, setWhyOpen] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [adminCols, setAdminCols] = useState<string[]>(saved.adminColumns ?? []);
+  const [page, setPage] = useState(0);
+  const [summaryCols, setSummaryCols] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (hydrated) return;
+    if (!saved.headers?.length) return;
+    setFileName(saved.fileName ?? "");
+    setHeaders(saved.headers);
+    setRows(saved.rows ?? []);
+    setAdminCols(saved.adminColumns ?? []);
+    setSummaryCols(saved.headers.slice(0, Math.min(3, saved.headers.length)));
+    const first =
+      saved.headers.find((h) => !(saved.adminColumns ?? []).includes(h)) ?? saved.headers[0] ?? "";
+    setOutcomeColumn(first);
+    if (first) setGuideCols([first]);
+    setHydrated(true);
+  }, [hydrated, saved.adminColumns, saved.fileName, saved.headers, saved.rows]);
 
   const datasets = useQuery({
     queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
@@ -68,6 +94,11 @@ export function AnalysisToolFeature() {
     enabled: !!activeWorkspace?.id,
   });
   const samplePapers = datasets.data?.papers ?? [];
+
+  const dataHeaders = useMemo(
+    () => headers.filter((h) => !adminCols.includes(h)),
+    [headers, adminCols]
+  );
 
   const profiles = useMemo(() => {
     const base = profileTable(headers, rows);
@@ -77,22 +108,31 @@ export function AnalysisToolFeature() {
     });
   }, [headers, rows, kindOverrides]);
 
+  const dataProfiles = useMemo(
+    () => profiles.filter((p) => dataHeaders.includes(p.name)),
+    [profiles, dataHeaders]
+  );
+
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return rows.filter((row) => {
-      if (q && !row.some((c) => c.toLowerCase().includes(q))) return false;
-      if (columnFilter) {
-        const idx = headers.indexOf(columnFilter);
-        if (idx >= 0 && !row[idx]?.trim()) return false;
-      }
-      return true;
-    });
+    return rows
+      .map((row, index) => ({ row, index }))
+      .filter(({ row }) => {
+        if (q && !row.some((c) => c.toLowerCase().includes(q))) return false;
+        if (columnFilter) {
+          const idx = headers.indexOf(columnFilter);
+          if (idx >= 0 && !row[idx]?.trim()) return false;
+        }
+        return true;
+      });
   }, [rows, search, columnFilter, headers]);
 
+  const pageRows = filteredRows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
   const outcomeProfile =
-    (outcomeColumn ? profiles.find((p) => p.name === outcomeColumn) : undefined) ??
-    profiles.find((p) => p.kind === "continuous") ??
-    profiles[0];
+    (outcomeColumn ? dataProfiles.find((p) => p.name === outcomeColumn) : undefined) ??
+    dataProfiles.find((p) => p.kind === "continuous") ??
+    dataProfiles[0];
   const suggestion = suggestTest(selector, outcomeProfile?.parametricHint);
 
   const applyParsed = (name: string, parsed: ReturnType<typeof parsePastedTable>) => {
@@ -104,11 +144,15 @@ export function AnalysisToolFeature() {
     setFileName(name);
     setHeaders(parsed.headers);
     setRows(parsed.rows);
+    setAdminCols([]);
+    setPage(0);
+    setSummaryCols(parsed.headers.slice(0, Math.min(3, parsed.headers.length)));
     const inferred: Record<string, ColumnKind> = {};
     for (const p of profileTable(parsed.headers, parsed.rows)) inferred[p.name] = p.kind;
     setKindOverrides(inferred);
     const first = parsed.headers[0] ?? "";
     setOutcomeColumn(first);
+    setGuideCols(first ? [first] : []);
     if (first && inferred[first]) {
       setSelector((s) => ({ ...s, outcome: kindToOutcome(inferred[first]) }));
     }
@@ -150,7 +194,10 @@ export function AnalysisToolFeature() {
     for (const p of profiles) columnTypes[p.name] = p.kind;
     void commitSection("analysisTool", {
       fileName,
+      headers,
+      rows,
       columnTypes,
+      adminColumns: adminCols,
       lastSelector: selector,
     });
   };
@@ -207,10 +254,10 @@ export function AnalysisToolFeature() {
             }}
           >
             <Typography fontWeight={600} sx={{ mb: 0.5 }}>
-              Upload CSV dataset
+              Upload dataset
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Drag and drop or browse files. CSV, TSV, or SPSS SAV. Peggy does not store the file.
+              Drag and drop or browse files. CSV, TSV, or SPSS SAV. Save configuration to keep the file on this project.
             </Typography>
             <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
               <Button component="label" variant="contained" disabled={blocked}>
@@ -252,90 +299,65 @@ export function AnalysisToolFeature() {
           {datasetNote ? <Alert severity="info" sx={{ mt: 1.5 }}>{datasetNote}</Alert> : null}
           {fileName ? (
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Loaded: {fileName} ({rows.length} rows). File stays in this browser session.
-            </Typography>
-          ) : saved.fileName ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Last saved file name: {saved.fileName} (reload the CSV to see the table).
+              Loaded: {fileName} ({rows.length} rows). Click Save configuration to store this dataset on the project.
             </Typography>
           ) : null}
         </Box>
 
         <Box>
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>02 Test configuration</Typography>
+          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>02 Dataset overview</Typography>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
             <Stack spacing={2}>
-              <FormControl size="small" fullWidth disabled={headers.length === 0}>
-                <InputLabel>Outcome variable</InputLabel>
-                <Select
-                  label="Outcome variable"
-                  value={outcomeColumn}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setOutcomeColumn(name);
-                    const kind = profiles.find((p) => p.name === name)?.kind;
-                    setSelector((s) => ({ ...s, outcome: kindToOutcome(kind) }));
-                  }}
-                >
-                  {headers.map((h) => (
-                    <MenuItem key={h} value={h}>
-                      {h}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Groups</InputLabel>
-                <Select
-                  label="Groups"
-                  value={selector.groups}
-                  onChange={(e) => setSelector({ ...selector, groups: e.target.value as GroupCount })}
-                >
-                  <MenuItem value="1">1</MenuItem>
-                  <MenuItem value="2">2</MenuItem>
-                  <MenuItem value="3plus">3 or more</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Study design</InputLabel>
-                <Select
-                  label="Study design"
-                  value={selector.pairing}
-                  onChange={(e) => setSelector({ ...selector, pairing: e.target.value as Pairing })}
-                >
-                  <MenuItem value="independent">Independent</MenuItem>
-                  <MenuItem value="paired">Paired / repeated</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Outcome type</InputLabel>
-                <Select
-                  label="Outcome type"
-                  value={selector.outcome}
-                  onChange={(e) => setSelector({ ...selector, outcome: e.target.value as OutcomeType })}
-                >
-                  <MenuItem value="continuous">Continuous</MenuItem>
-                  <MenuItem value="ordinal">Ordinal</MenuItem>
-                  <MenuItem value="categorical">Categorical</MenuItem>
-                </Select>
-              </FormControl>
-
-              <Typography variant="subtitle2">Additional settings</Typography>
               {headers.length > 0 ? (
                 <>
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={headers}
+                    value={adminCols}
+                    onChange={(_, value) => {
+                      setAdminCols(value);
+                      if (outcomeColumn && value.includes(outcomeColumn)) {
+                        const next = headers.find((h) => !value.includes(h)) ?? "";
+                        setOutcomeColumn(next);
+                        const kind = profiles.find((p) => p.name === next)?.kind;
+                        if (kind) setSelector((s) => ({ ...s, outcome: kindToOutcome(kind) }));
+                      }
+                    }}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, i) => <Chip {...getTagProps({ index: i })} key={option} label={option} size="small" />)
+                    }
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Admin-related columns"
+                        placeholder="IDs, interviewer fields, not for tests"
+                      />
+                    )}
+                  />
+                  <Typography variant="body2" color="text.secondary">
+                    Outcome and suggested tests use participant columns only ({dataHeaders.length} of {headers.length}).
+                    Admin columns stay in the table.
+                  </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <TextField
                       size="small"
                       label="Search rows"
                       value={search}
-                      onChange={(e) => setSearch(e.target.value)}
+                      onChange={(e) => {
+                        setSearch(e.target.value);
+                        setPage(0);
+                      }}
                     />
                     <FormControl size="small" sx={{ minWidth: 180 }}>
                       <InputLabel>Require column</InputLabel>
                       <Select
                         label="Require column"
                         value={columnFilter}
-                        onChange={(e) => setColumnFilter(e.target.value)}
+                        onChange={(e) => {
+                          setColumnFilter(e.target.value);
+                          setPage(0);
+                        }}
                       >
                         <MenuItem value="">None</MenuItem>
                         {headers.map((h) => (
@@ -346,28 +368,61 @@ export function AnalysisToolFeature() {
                       </Select>
                     </FormControl>
                   </Stack>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        {headers.map((h) => (
-                          <TableCell key={h}>{h}</TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {filteredRows.slice(0, 80).map((row, i) => (
-                        <TableRow key={i}>
-                          {headers.map((_, c) => (
-                            <TableCell key={c}>{row[c]}</TableCell>
+                  <TableContainer sx={{ maxHeight: 360, border: 1, borderColor: "divider", borderRadius: 1 }}>
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>#</TableCell>
+                          {headers.map((h) => (
+                            <TableCell key={h} sx={{ whiteSpace: "nowrap" }}>
+                              {h}
+                              {adminCols.includes(h) ? (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Admin
+                                </Typography>
+                              ) : null}
+                            </TableCell>
                           ))}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                  {filteredRows.length > 80 ? (
-                    <Typography variant="caption">Showing first 80 of {filteredRows.length} matching rows.</Typography>
-                  ) : null}
-                  {profiles.map((p) => (
+                      </TableHead>
+                      <TableBody>
+                        {pageRows.map(({ row, index }) => (
+                          <TableRow key={index} hover>
+                            <TableCell>{index + 1}</TableCell>
+                            {headers.map((_, c) => (
+                              <TableCell key={c} sx={{ whiteSpace: "nowrap" }}>
+                                {row[c]}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                  <TablePagination
+                    component="div"
+                    count={filteredRows.length}
+                    page={page}
+                    onPageChange={(_, next) => setPage(next)}
+                    rowsPerPage={PAGE_SIZE}
+                    rowsPerPageOptions={[PAGE_SIZE]}
+                  />
+                  <Autocomplete
+                    multiple
+                    size="small"
+                    options={headers}
+                    value={summaryCols}
+                    onChange={(_, value) => setSummaryCols(value)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, i) => <Chip {...getTagProps({ index: i })} key={option} label={option} size="small" />)
+                    }
+                    renderInput={(params) => (
+                      <TextField {...params} label="Column summaries to show" placeholder="Choose columns" />
+                    )}
+                  />
+                  {profiles
+                    .filter((p) => summaryCols.includes(p.name))
+                    .map((p) => (
                     <Stack key={p.name} spacing={0.5} sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5 }}>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Typography fontWeight={600}>{p.name}</Typography>
@@ -417,20 +472,83 @@ export function AnalysisToolFeature() {
         <Box>
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>03 Analysis guidance</Typography>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Suggested test
-            </Typography>
-            <Typography fontWeight={600} sx={{ mt: 0.5 }}>
-              {suggestion.test}
-            </Typography>
-            {whyOpen ? (
-              <Typography variant="body2" sx={{ mt: 1 }}>
-                {suggestion.why} Peggy does not run the test.
+            <Stack spacing={2}>
+              <Autocomplete
+                multiple
+                size="small"
+                options={dataHeaders}
+                value={guideCols.filter((c) => dataHeaders.includes(c))}
+                onChange={(_, value) => {
+                  setGuideCols(value);
+                  const first = value[0] ?? "";
+                  setOutcomeColumn(first);
+                  const kind = profiles.find((p) => p.name === first)?.kind;
+                  if (kind) setSelector((s) => ({ ...s, outcome: kindToOutcome(kind) }));
+                }}
+                disabled={dataHeaders.length === 0}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, i) => <Chip {...getTagProps({ index: i })} key={option} label={option} size="small" />)
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Columns to guide the test"
+                    placeholder="Select participant columns"
+                    helperText="Peggy uses these columns to suggest a test. Admin columns are excluded."
+                  />
+                )}
+              />
+              <FormControl size="small" fullWidth>
+                <InputLabel>Groups</InputLabel>
+                <Select
+                  label="Groups"
+                  value={selector.groups}
+                  onChange={(e) => setSelector({ ...selector, groups: e.target.value as GroupCount })}
+                >
+                  <MenuItem value="1">1</MenuItem>
+                  <MenuItem value="2">2</MenuItem>
+                  <MenuItem value="3plus">3 or more</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Study design</InputLabel>
+                <Select
+                  label="Study design"
+                  value={selector.pairing}
+                  onChange={(e) => setSelector({ ...selector, pairing: e.target.value as Pairing })}
+                >
+                  <MenuItem value="independent">Independent</MenuItem>
+                  <MenuItem value="paired">Paired / repeated</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth>
+                <InputLabel>Outcome type</InputLabel>
+                <Select
+                  label="Outcome type"
+                  value={selector.outcome}
+                  onChange={(e) => setSelector({ ...selector, outcome: e.target.value as OutcomeType })}
+                >
+                  <MenuItem value="continuous">Continuous</MenuItem>
+                  <MenuItem value="ordinal">Ordinal</MenuItem>
+                  <MenuItem value="categorical">Categorical</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="body2" color="text.secondary">
+                Suggested test
               </Typography>
-            ) : null}
-            <Button size="small" variant="outlined" sx={{ mt: 1.5 }} onClick={() => setWhyOpen((v) => !v)}>
-              Why this test?
-            </Button>
+              <Typography fontWeight={600}>
+                {suggestion.test}
+              </Typography>
+              {whyOpen ? (
+                <Typography variant="body2">
+                  {suggestion.why}
+                  {guideCols.length ? ` Columns: ${guideCols.join(", ")}.` : ""} Peggy does not run the test.
+                </Typography>
+              ) : null}
+              <Button size="small" variant="outlined" onClick={() => setWhyOpen((v) => !v)}>
+                Why this test?
+              </Button>
+            </Stack>
           </Paper>
         </Box>
 

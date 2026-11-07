@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 import config
+from core.auth.deps import AuthUser, get_current_user
 from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
 from core.store.qdrant_store import embedding_mode, get_client
 
@@ -10,7 +11,7 @@ router = APIRouter(prefix="/setup", tags=["setup"])
 
 
 @router.get("/checks")
-async def setup_checks():
+async def setup_checks(_user: AuthUser = Depends(get_current_user)):
     """Return deterministic setup checks with copy/paste fix commands (Figma /setup)."""
     checks: list[dict] = []
 

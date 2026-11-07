@@ -14,7 +14,7 @@ OBJECTIVE_STATUSES = ("draft", "defined", "revised", "dropped")
 
 
 def objective_texts(raw: Any) -> list[str]:
-    return [o["text"] for o in normalize_objectives(raw)]
+    return [o["text"] for o in normalize_objectives(raw) if o.get("text")]
 
 
 def _normalize_tasks(raw: Any) -> list[dict]:
@@ -49,8 +49,6 @@ def normalize_objectives(raw: Any) -> list[dict]:
             continue
         if isinstance(item, dict):
             text = str(item.get("text") or "").strip()
-            if not text:
-                continue
             oid = str(item.get("id") or uuid.uuid4())
             status = str(item.get("status") or "draft").strip().lower()
             # Back-compat for older workspaces/UI

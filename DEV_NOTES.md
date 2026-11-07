@@ -117,7 +117,7 @@ ISSUES (2026-03-24 batch 7 — done):
 
 ## Batch 13 — calendar, reading journal, lab book
 
-- **Calendar:** `/calendar` (home sidebar), `user_calendar_events` (019), CRUD, project filter, add from aims/objectives/steps/ethics expiry
+- **Calendar:** `/calendar` (home sidebar), `user_calendar_events` (019 + 022 recurrence weekly/monthly/yearly)
 - **Reading journal:** `/reading-journal` (home sidebar), `papers.notes` + `read_at` (020); list is `source_type=literature` only
 - **Lab book:** `/lab-book` (project sidebar), `lab_book_entries` (021)
 - **Analysis tool:** `/analysis-tool` CSV/TSV/SAV in browser or reuse `sample_datasets` from Samples; descriptives, Shapiro-like W', test selector; save `analysisTool` metadata only. SAV parsed client-side (`@irbisadm/statfmt`).
@@ -126,11 +126,16 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Reading journal:** To read / Completed stats; search and chips; PMID + project on cards
 - **Analysis tool:** Numbered dataset / configuration / guidance layout; same CSV + sample-dataset behaviour
 - **Abstract versions:** `study_design.outputs` nested in the proposal JSON column so latest generate persists
+- **Reading journal:** Preview PDF (extracted text + DOI/PubMed)
+- **Outputs:** Start from results / generate / import disabled until `own_findings` exist; tables and abstract versions stay on the project
+- **Analysis tool:** 02 Dataset overview; 03 column-guided test; Save stores `headers`/`rows`
+- **Samples:** PDF, CSV, TSV, SAV (SAV converted to CSV on ingest)
+- **Add objective:** blank draft rows stay in the editor (normalize no longer drops empty text)
+
+**Hosted stack:** Render API + Qdrant Cloud (`QDRANT_URL` + `QDRANT_API_KEY`). FastAPI `/docs` off when auth is on. `/setup/checks` requires JWT. In-app banners no longer link public GitHub LOCAL.md. GitHub repo must stay **private** for markdown in `docs/` to stay off the public web.
 
 NEXT:
 Full analysis engine (running tests, not only suggesting them)
-Calendar - recurring feature
-
 
 FUTURE:
 
@@ -146,10 +151,12 @@ Extraction of pdfs:
 [Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
 Interal server error for calendar upload of event
 
-Security: Want to transition back to using quandrant and render api. Info used in Peggy shouldn't compromise user data or research data. All documentation should be safely behind the auth wall.
-
 Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
 
 Data/Files already present: Need to plan and execute a way to use files and documnet user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
 
 In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. 
+
+Meeting scheduler
+
+Reading journal: PDF view needs to show the document, not plain text from PDF, like a preview of the actual document. 

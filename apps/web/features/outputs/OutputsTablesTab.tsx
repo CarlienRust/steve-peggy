@@ -16,6 +16,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { TableEditorDialog } from "@/features/outputs/TableEditorDialog";
@@ -137,14 +138,18 @@ export function OutputsTablesTab() {
         >
           Paste new table
         </Button>
-        <Button
-          variant="outlined"
-          disabled={importHtml.isPending || !findings.data?.papers?.length}
-          sx={{ textTransform: "none" }}
-          onClick={() => importHtml.mutate()}
+        <DisabledTooltipButton
+          title={findings.data?.papers?.length ? "" : "Upload results on Our findings before importing tables"}
         >
-          {importHtml.isPending ? <CircularProgress size={20} /> : "Import from findings HTML"}
-        </Button>
+          <Button
+            variant="outlined"
+            disabled={importHtml.isPending || !findings.data?.papers?.length}
+            sx={{ textTransform: "none" }}
+            onClick={() => importHtml.mutate()}
+          >
+            {importHtml.isPending ? <CircularProgress size={20} /> : "Import from findings HTML"}
+          </Button>
+        </DisabledTooltipButton>
       </Stack>
 
       {importHtml.isError && <Alert severity="error">{(importHtml.error as Error).message}</Alert>}

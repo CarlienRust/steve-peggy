@@ -395,6 +395,14 @@ async def _migrate_user_calendar_events(db: aiosqlite.Connection) -> None:
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_user_calendar_events_user_starts ON user_calendar_events (user_id, starts_at)"
     )
+    try:
+        await db.execute("ALTER TABLE user_calendar_events ADD COLUMN recurrence TEXT NOT NULL DEFAULT 'none'")
+    except Exception:
+        pass
+    try:
+        await db.execute("ALTER TABLE user_calendar_events ADD COLUMN recurrence_until TEXT")
+    except Exception:
+        pass
 
 
 async def _migrate_lab_book_entries(db: aiosqlite.Connection) -> None:
@@ -1507,8 +1515,8 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
         await db.execute(
             """INSERT INTO user_calendar_events
                (id, user_id, workspace_id, title, kind, starts_at, ends_at, notes,
-                source_type, source_id, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                source_type, source_id, recurrence, recurrence_until, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 event_id,
                 user_id,
@@ -1520,6 +1528,8 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
                 fields.get("notes") or "",
                 fields.get("source_type"),
                 fields.get("source_id"),
+                fields.get("recurrence") or "none",
+                fields.get("recurrence_until"),
                 now,
                 now,
             ),
@@ -1543,6 +1553,8 @@ async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> di
         "workspace_id",
         "source_type",
         "source_id",
+        "recurrence",
+        "recurrence_until",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
@@ -14,7 +14,8 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
-import { formatApiError, peggyApi } from "@/lib/api";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { formatApiError, peggyApi, queryKeys } from "@/lib/api";
 import { hasAbstractSections, normalizeWorkflowBody } from "@/lib/normalizeWorkflowBody";
 import type { AbstractDraft } from "@/lib/studyDesign";
 import { useStudyDesign } from "@/lib/useStudyDesign";
@@ -27,6 +28,12 @@ export function OutputsAbstractTab() {
   const drafts = outputs.abstractDrafts ?? [];
   const [minWords, setMinWords] = useState(250);
   const [selectedId, setSelectedId] = useState<string | null>(outputs.activeAbstractId ?? drafts[0]?.id ?? null);
+  const findings = useQuery({
+    queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("own_findings", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const hasResults = (findings.data?.papers?.length ?? 0) > 0;
 
   useEffect(() => {
     if (outputs.activeAbstractId) setSelectedId(outputs.activeAbstractId);
@@ -64,11 +71,8 @@ export function OutputsAbstractTab() {
     },
   });
 
-  const pendingBody = generate.data?.body
-    ? normalizeWorkflowBody(generate.data.body as Record<string, unknown>)
-    : undefined;
-  const body = pendingBody ?? normalizeWorkflowBody(selected?.body);
-  const panelTitle = pendingBody && generate.isSuccess ? "Latest generation" : selected?.label;
+  const body = normalizeWorkflowBody(selected?.body);
+  const panelTitle = selected?.label;
 
   const removeDraft = async (id: string) => {
     const next = drafts.filter((d) => d.id !== id);
@@ -101,14 +105,18 @@ export function OutputsAbstractTab() {
             inputProps={{ min: 100, max: 600, step: 25 }}
             sx={{ width: { sm: 160 } }}
           />
-          <Button
-            variant="contained"
-            disabled={generate.isPending || savingSection === "outputs"}
-            onClick={() => generate.mutate()}
-            sx={{ textTransform: "none" }}
+          <DisabledTooltipButton
+            title={hasResults ? "" : "Upload results on Our findings before generating an abstract"}
           >
-            {generate.isPending ? <CircularProgress size={22} color="inherit" /> : "Generate new version"}
-          </Button>
+            <Button
+              variant="contained"
+              disabled={!hasResults || generate.isPending || savingSection === "outputs"}
+              onClick={() => generate.mutate()}
+              sx={{ textTransform: "none" }}
+            >
+              {generate.isPending ? <CircularProgress size={22} color="inherit" /> : "Generate new version"}
+            </Button>
+          </DisabledTooltipButton>
         </Stack>
         {generate.isError && <Alert severity="error" sx={{ mt: 2 }}>{formatApiError(generate.error)}</Alert>}
       </Paper>
@@ -136,7 +144,7 @@ export function OutputsAbstractTab() {
           mode="conference_abstract"
           title={panelTitle ?? "Abstract"}
           body={body}
-          hasUnsavedResult={!!pendingBody && !selected}
+          hasUnsavedResult={false}
           hasSavedResult={!!selected}
         />
       ) : null}

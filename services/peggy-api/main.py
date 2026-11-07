@@ -52,6 +52,8 @@ async def _warm_up_services() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if config.qdrant_https_requires_key():
+        raise RuntimeError("QDRANT_API_KEY is required when QDRANT_URL is HTTPS (Qdrant Cloud).")
     print(f"[Peggy] CORS origins: {config.CORS_ORIGINS}")
     try:
         await asyncio.wait_for(init_catalog(), timeout=20)
@@ -65,7 +67,15 @@ async def lifespan(app: FastAPI):
         await warm_task
 
 
-app = FastAPI(title="Peggy Research Assistant API", version="2.0.0", lifespan=lifespan)
+_docs = "/docs" if config.EXPOSE_API_DOCS else None
+app = FastAPI(
+    title="Peggy Research Assistant API",
+    version="2.0.0",
+    lifespan=lifespan,
+    docs_url=_docs,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
+)
 
 app.add_middleware(
     CORSMiddleware,

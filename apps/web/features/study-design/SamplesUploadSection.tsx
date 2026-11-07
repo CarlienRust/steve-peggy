@@ -25,6 +25,8 @@ import {
   Typography,
 } from "@mui/material";
 import { peggyApi, queryKeys } from "@/lib/api";
+import { parseSavTable } from "@/lib/parseSavTable";
+import { tableToCsv } from "@/lib/tableToCsv";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
@@ -50,9 +52,23 @@ export function SamplesUploadSection() {
       const results: UploadResult[] = [];
       for (const file of files) {
         try {
-          const res = await peggyApi.uploadDocument(file, {
+          let toSend = file;
+          const lower = file.name.toLowerCase();
+          if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+            const parsed = await parseSavTable(file);
+            if ("error" in parsed) {
+              results.push({ name: file.name, ok: false, error: parsed.error });
+              continue;
+            }
+            toSend = new File(
+              [tableToCsv(parsed.headers, parsed.rows)],
+              file.name.replace(/\.z?sav$/i, ".csv"),
+              { type: "text/csv" }
+            );
+          }
+          const res = await peggyApi.uploadDocument(toSend, {
             sourceType: "sample_datasets",
-            title: file.name.replace(/\.pdf$/i, ""),
+            title: file.name.replace(/\.(pdf|csv|tsv|txt|sav|zsav)$/i, ""),
             workspaceId: activeWorkspace?.id,
           });
           if (res.status === "duplicate") {
@@ -75,10 +91,21 @@ export function SamplesUploadSection() {
     },
   });
 
-  const addPdfFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfs = Array.from(incoming).filter(
-      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
+  const allowed = (f: File) => {
+    const n = f.name.toLowerCase();
+    return (
+      f.type === "application/pdf" ||
+      n.endsWith(".pdf") ||
+      n.endsWith(".csv") ||
+      n.endsWith(".tsv") ||
+      n.endsWith(".txt") ||
+      n.endsWith(".sav") ||
+      n.endsWith(".zsav")
     );
+  };
+
+  const addPdfFiles = useCallback((incoming: FileList | File[]) => {
+    const pdfs = Array.from(incoming).filter(allowed);
     if (pdfs.length === 0) return;
     setPdfFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
@@ -103,8 +130,8 @@ export function SamplesUploadSection() {
     <Stack spacing={2}>
       <Typography variant="subtitle2">Dataset files (optional)</Typography>
       <Typography variant="body2" color="text.secondary">
-        Upload data dictionaries, cohort summaries, or protocol PDFs. Files stay private to your account but may
-        contain sensitive information — confirm ethics approval before uploading.
+        Upload data dictionaries, cohort summaries, protocol PDFs, or table files (CSV, TSV, SPSS SAV). Files stay
+        private to your account but may contain sensitive information — confirm ethics approval before uploading.
       </Typography>
 
       <Paper
@@ -124,17 +151,17 @@ export function SamplesUploadSection() {
       >
         <UploadFileIcon sx={{ fontSize: 36, color: "text.secondary", mb: 1 }} />
         <Typography variant="body2" fontWeight={500}>
-          Drop PDFs here or click to browse
+          Drop files here or click to browse
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
-          .pdf only
+          PDF, CSV, TSV, or SPSS SAV
         </Typography>
       </Paper>
 
       <input
         ref={fileInputRef}
         type="file"
-        accept="application/pdf,.pdf"
+        accept="application/pdf,.pdf,.csv,.tsv,.txt,.sav,.zsav"
         multiple
         hidden
         onChange={onFileInputChange}

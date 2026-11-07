@@ -51,6 +51,16 @@ Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` on Render for consis
 | `GET /limits` | No | Static tier caps only |
 | `GET /health` | No | On Render, minimal `{ status, qdrant }` unless `PUBLIC_HEALTH_DETAIL=true` |
 | `GET /usage` | Yes | Per-user quota |
+| `GET /setup/checks` | Yes | Setup diagnostics (JWT when `AUTH_REQUIRED`) |
+| `/docs`, `/redoc`, `/openapi.json` | Off when `AUTH_REQUIRED` | Set `EXPOSE_API_DOCS=true` only for local debugging |
+
+Operator markdown in this git repo is only private if the **GitHub repository is private**. In-app Help and FastAPI Swagger are not public on Render. Do not paste env values or corpus excerpts into public issues.
+
+## Hosted vectors and API (Qdrant Cloud + Render)
+
+Production uses Render for `peggy-api` and Qdrant Cloud for embeddings. Chunks are filtered by JWT `sub` (`user_id` payload). HTTPS Qdrant URLs require `QDRANT_API_KEY` at API startup. Catalog stays on Supabase Postgres with the same user scope.
+
+Cloud LLM (Gemini on Render) still sends prompt text to Google. Keep identifiable research data out of chat and uploads. Prompts instruct the model not to train on or republish user content; provider account settings still apply.
 
 ## Client storage
 

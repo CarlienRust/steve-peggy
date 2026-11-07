@@ -691,6 +691,8 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     enabled_modules = fields.get("enabled_modules", existing.get("enabled_modules", []))
     privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
     last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
+    if last_opened_at == "":
+        last_opened_at = None
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -1213,9 +1215,9 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
         row = await conn.fetchrow(
             """INSERT INTO user_calendar_events
                (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
-                source_type, source_id, updated_at)
+                source_type, source_id, recurrence, recurrence_until, updated_at)
                VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
-                       $7, $8, $9, NOW())
+                       $7, $8, $9, $10, $11::timestamptz, NOW())
                RETURNING *""",
             user_id,
             fields.get("workspace_id"),
@@ -1226,6 +1228,8 @@ async def create_calendar_event(user_id: str, fields: dict) -> dict:
             fields.get("notes") or "",
             fields.get("source_type"),
             fields.get("source_id"),
+            fields.get("recurrence") or "none",
+            fields.get("recurrence_until"),
         )
     return _row_to_dict(row)
 
@@ -1240,6 +1244,8 @@ async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> di
         "workspace_id",
         "source_type",
         "source_id",
+        "recurrence",
+        "recurrence_until",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -1255,7 +1261,7 @@ async def update_calendar_event(user_id: str, event_id: str, fields: dict) -> di
     values: list[Any] = []
     i = 1
     for key, val in updates.items():
-        if key in ("starts_at", "ends_at") and val:
+        if key in ("starts_at", "ends_at", "recurrence_until"):
             set_parts.append(f"{key} = ${i}::timestamptz")
         elif key == "workspace_id":
             set_parts.append(f"{key} = ${i}::uuid")

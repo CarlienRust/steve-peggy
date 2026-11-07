@@ -144,8 +144,8 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
-| `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry (user picks the date) |
-| `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID |
+| `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry; weekly/monthly/yearly repeat (one stored series, expanded on list) |
+| `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF (extracted text plus DOI/PubMed) |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
 | `/useful-links` | 06 Useful links | Curated external resources by category |
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
@@ -158,19 +158,19 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
-| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF upload (`sample_datasets`; confirm at own risk) |
+| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). SAV is converted to CSV text before ingest so Analysis tool can reuse it. |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV drop/browse or `sample_datasets`), 02 test configuration, 03 suggested test; save `analysisTool` metadata only. SAV is parsed by `POST /api/parse-sav` (not stored). |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV or `sample_datasets`). 02 Dataset overview: admin columns, paginated table, types, descriptives. 03 Analysis guidance: pick participant columns, groups/design, suggested test. Save stores headers/rows in `study_design.analysisTool` (nested in `analysis_plan`). SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 05 · Comparison | Finding vs ingested literature (not other findings sets) |
-| `/outputs` | 06 · Outputs | Tabs: Figures (external tools), Tables (manual; paste Word HTML/`<tr`/`mso-`, TSV, 2+ space columns, pipes, CSV; HTML import), Abstract (each generate is a saved version in `study_design.outputs`, nested in the proposal JSON column) |
+| `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. |
 | `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
 | `/chat` | 08 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |
 | `/login` | — | Supabase email magic link |
@@ -181,7 +181,7 @@ Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/s
 
 | Location | Shape | Notes |
 |----------|-------|-------|
-| `workspaces.objectives` | `{ id, text, status: "draft" \| "defined" \| "revised" \| "dropped" }[]` | Legacy `string[]` and `status: open|done` are normalized on read/write (open→draft, done→defined) |
+| `workspaces.objectives` | `{ id, text, status: "draft" \| "defined" \| "revised" \| "dropped" }[]` | Legacy `string[]` and `status: open|done` are normalized on read/write (open→draft, done→defined). Empty draft rows are kept in the editor so **Add objective** can show a blank field; Save still drops blank text. |
 | `methodsPlan.steps` / `analysisPlan.steps` | `{ id, title, objectiveIds[] }[]` | `objectiveIds` may include `"aim"` |
 | `study_design.objective_links` | `{ findingLinks: { paperId, objectiveIds[] }[] }` | Tags on `own_findings` papers; orphans pruned on delete |
 | `objective_history` | `{ workspace_id, objective_id, old_text, new_text, old_status, new_status, reason, actor, created_at }[]` | Append-only audit trail when objectives change |
@@ -226,7 +226,7 @@ Protected routes require Supabase session (middleware). All API routes except `/
 
 Native (default): [LOCAL.md](LOCAL.md). Optional: [DOCKER.md](DOCKER.md).
 
-- API: http://localhost:8000/docs  
+- API: http://localhost:8000/docs (local only; disabled on Render when `AUTH_REQUIRED`)  
 - Web: http://localhost:3000  
 - Smoke: `./scripts/smoke-local.sh`
 

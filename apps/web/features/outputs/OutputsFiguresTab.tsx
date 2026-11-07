@@ -1,9 +1,26 @@
 "use client";
 
 import NextLink from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Link, Paper, Stack, Typography } from "@mui/material";
+import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { peggyApi, queryKeys } from "@/lib/api";
+import { useWorkspace } from "@/lib/workspaceContext";
 
 export function OutputsFiguresTab() {
+  const { activeWorkspace } = useWorkspace();
+  const findings = useQuery({
+    queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("own_findings", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const hasResults = (findings.data?.papers?.length ?? 0) > 0;
+  const disabledReason = !activeWorkspace
+    ? "Select a project first"
+    : !hasResults
+      ? "Upload results on Our findings before starting from them"
+      : "";
+
   return (
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
@@ -23,11 +40,19 @@ export function OutputsFiguresTab() {
           Start from your results
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Upload de-identified findings, then build charts in your preferred tool.
+          Uses findings already uploaded on this project. Upload de-identified results first if this is disabled.
         </Typography>
-        <Button component={NextLink} href="/results/findings" variant="outlined" sx={{ textTransform: "none" }}>
-          Upload and summary
-        </Button>
+        <DisabledTooltipButton title={disabledReason}>
+          {hasResults ? (
+            <Button component={NextLink} href="/results/findings" variant="outlined" sx={{ textTransform: "none" }}>
+              Use uploaded results
+            </Button>
+          ) : (
+            <Button variant="outlined" disabled sx={{ textTransform: "none" }}>
+              Use uploaded results
+            </Button>
+          )}
+        </DisabledTooltipButton>
       </Paper>
 
       <Alert severity="info">

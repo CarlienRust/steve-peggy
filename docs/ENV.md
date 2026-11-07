@@ -66,6 +66,7 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `DATABASE_URL` | Auth + Render | — | Supabase pooler URI |
 | `SUPABASE_JWT_SECRET` | If `AUTH_REQUIRED=true` | — | JWT Secret from API settings |
 | `AUTH_REQUIRED` | No | `false` in tests | `true` for real Supabase auth |
+| `EXPOSE_API_DOCS` | No | `true` when auth is off | Swagger `/docs`. Leave `false` on Render |
 | `LLM_PROVIDER` | No | `ollama` locally; `gemini` when `RENDER=true` | |
 | `GEMINI_API_KEY` | If gemini | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | |
@@ -99,7 +100,7 @@ Full list: [`services/peggy-api/.env.example`](../services/peggy-api/.env.exampl
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | **Yes** | `http://localhost:8000` **or** `https://….onrender.com` (one only) |
+| `NEXT_PUBLIC_API_URL` | **Yes** | Local: `http://localhost:8000`. Production: Render URL only |
 | `NEXT_PUBLIC_SUPABASE_URL` | Auth | Project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Auth | Anon/publishable key |
 

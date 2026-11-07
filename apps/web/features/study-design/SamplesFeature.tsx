@@ -40,7 +40,9 @@ import {
   linkedDocumentsChanged,
   linkedDocumentsFromPapers,
 } from "@/lib/studyDesign";
+import { parseSavTable } from "@/lib/parseSavTable";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
+import { tableToCsv } from "@/lib/tableToCsv";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
@@ -76,9 +78,18 @@ export function SamplesFeature() {
     commitSection("samples", { ...samples, linkedDocuments: linkedDocumentsFromPapers(datasetPapers) });
 
   const addPdfFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfs = Array.from(incoming).filter(
-      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf")
-    );
+    const pdfs = Array.from(incoming).filter((f) => {
+      const n = f.name.toLowerCase();
+      return (
+        f.type === "application/pdf" ||
+        n.endsWith(".pdf") ||
+        n.endsWith(".csv") ||
+        n.endsWith(".tsv") ||
+        n.endsWith(".txt") ||
+        n.endsWith(".sav") ||
+        n.endsWith(".zsav")
+      );
+    });
     if (pdfs.length === 0) return;
     setPdfFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
@@ -104,9 +115,23 @@ export function SamplesFeature() {
       const results: UploadResult[] = [];
       for (const file of pdfFiles) {
         try {
-          const res = await peggyApi.uploadDocument(file, {
+          let toSend = file;
+          const lower = file.name.toLowerCase();
+          if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+            const parsed = await parseSavTable(file);
+            if ("error" in parsed) {
+              results.push({ name: file.name, ok: false, error: parsed.error });
+              continue;
+            }
+            toSend = new File(
+              [tableToCsv(parsed.headers, parsed.rows)],
+              file.name.replace(/\.z?sav$/i, ".csv"),
+              { type: "text/csv" }
+            );
+          }
+          const res = await peggyApi.uploadDocument(toSend, {
             sourceType: "sample_datasets",
-            title: file.name.replace(/\.pdf$/i, ""),
+            title: file.name.replace(/\.(pdf|csv|tsv|txt|sav|zsav)$/i, ""),
             workspaceId: activeWorkspace?.id,
           });
           if (res.status === "duplicate") {
@@ -294,7 +319,7 @@ export function SamplesFeature() {
                 Sample datasets
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Optional. De-identified files only. Confirm at your own risk.
+                Optional. De-identified PDF, CSV, TSV, or SPSS SAV. Confirm at your own risk.
               </Typography>
             </Stack>
             <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: "none" }}>
@@ -306,7 +331,7 @@ export function SamplesFeature() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,.csv,.tsv,.txt,.sav,.zsav"
             multiple
             hidden
             onChange={onFileInputChange}

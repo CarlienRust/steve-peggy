@@ -1,5 +1,7 @@
 # Scale path — Milestone 1 vs 2
 
+Hosted production is **Milestone 2** (Render API + Qdrant Cloud). Keep the GitHub repo private if operator docs must stay off the public web.
+
 ## Milestone 1 (implemented)
 
 | Layer | Where |

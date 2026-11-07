@@ -41,10 +41,10 @@ sequenceDiagram
 
 | Milestone | Where full Peggy runs | Vercel role |
 |-----------|-------------------------|-------------|
-| **1 (now)** | localhost (API `:8000`, Qdrant `:6333`, `npm run dev`) | Auth/login shell + local-dev banner |
-| **2 (later)** | Public API host + Qdrant Cloud | Full app against hosted API |
+| **1 (local)** | localhost (API `:8000`, Qdrant `:6333`, `npm run dev`) | Auth/login shell; solo local skips sign-in |
+| **2 (hosted)** | Render API + Qdrant Cloud | Full app; Vercel `NEXT_PUBLIC_API_URL` = Render URL |
 
-Vercel cannot call `localhost:8000`. On the deployed URL users can sign in/out; corpus/chat/ingest require the local stack until Milestone 2.
+Vercel cannot call `localhost:8000`. Hosted use needs Render env from `.env.render.example` and Qdrant Cloud URL + API key.
 
 ## GitHub OAuth (optional)
 
