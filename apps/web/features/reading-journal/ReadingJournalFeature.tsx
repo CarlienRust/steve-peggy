@@ -7,15 +7,9 @@ import {
   Box,
   Button,
   Chip,
-  CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   FormControl,
   Grid,
   InputLabel,
-  Link,
   MenuItem,
   Paper,
   Select,
@@ -24,6 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
+import { CorpusFilePreview } from "@/components/CorpusFilePreview";
 import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
@@ -51,12 +46,6 @@ export function ReadingJournalFeature() {
   const [search, setSearch] = useState("");
   const [notesDraft, setNotesDraft] = useState<Record<number, string>>({});
   const [previewPaper, setPreviewPaper] = useState<PaperRecord | null>(null);
-
-  const previewText = useQuery({
-    queryKey: ["paper-text", previewPaper?.id],
-    queryFn: () => peggyApi.getPaperText(previewPaper!.id!),
-    enabled: !!previewPaper?.id,
-  });
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -218,36 +207,7 @@ export function ReadingJournalFeature() {
         ) : null}
       </Stack>
 
-      <Dialog open={!!previewPaper} onClose={() => setPreviewPaper(null)} maxWidth="md" fullWidth>
-        <DialogTitle>{previewPaper?.title || "Preview"}</DialogTitle>
-        <DialogContent dividers>
-          {previewPaper?.doi ? (
-            <Typography variant="body2" sx={{ mb: 1.5 }}>
-              <Link href={`https://doi.org/${previewPaper.doi}`} target="_blank" rel="noreferrer">
-                Open publisher / PDF
-              </Link>
-            </Typography>
-          ) : previewPaper?.pmid ? (
-            <Typography variant="body2" sx={{ mb: 1.5 }}>
-              <Link href={`https://pubmed.ncbi.nlm.nih.gov/${previewPaper.pmid}/`} target="_blank" rel="noreferrer">
-                Open on PubMed
-              </Link>
-            </Typography>
-          ) : null}
-          {previewText.isLoading ? (
-            <CircularProgress size={22} />
-          ) : previewText.isError ? (
-            <Alert severity="error">{formatApiError(previewText.error)}</Alert>
-          ) : (
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
-              {previewText.data?.text?.trim() || "No extracted text for this paper."}
-            </Typography>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewPaper(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      <CorpusFilePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
     </Box>
   );
 }

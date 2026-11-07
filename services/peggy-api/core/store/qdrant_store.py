@@ -393,13 +393,19 @@ def get_paper_text(
             break
         for point in records:
             p = point.payload or {}
-            matched = p.get("paper_id") == paper_id
+            matched = p.get("paper_id") == paper_id or str(p.get("paper_id") or "") == str(paper_id)
             if not matched and norm_title:
                 pt = " ".join((p.get("title") or "").lower().split())
                 matched = pt == norm_title
             if matched and p.get("text"):
-                page = int(p.get("page") or p.get("pages") or 0)
-                idx = int(p.get("chunk_index") or 0)
+                try:
+                    page = int(p.get("page") or 0)
+                except (TypeError, ValueError):
+                    page = 0
+                try:
+                    idx = int(p.get("chunk_index") or 0)
+                except (TypeError, ValueError):
+                    idx = 0
                 parts.append((page, idx, str(p["text"])))
         if offset is None:
             break

@@ -1217,26 +1217,40 @@ async def list_calendar_events(user_id: str, workspace_id: str | None = None) ->
 
 async def create_calendar_event(user_id: str, fields: dict) -> dict:
     pool = await _pool_conn()
+    args = (
+        user_id,
+        fields.get("workspace_id"),
+        fields["title"],
+        fields.get("kind") or "other",
+        fields["starts_at"],
+        fields.get("ends_at"),
+        fields.get("notes") or "",
+        fields.get("source_type"),
+        fields.get("source_id"),
+        fields.get("recurrence") or "none",
+        fields.get("recurrence_until"),
+    )
     async with pool.acquire() as conn:
-        row = await conn.fetchrow(
-            """INSERT INTO user_calendar_events
-               (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
-                source_type, source_id, recurrence, recurrence_until, updated_at)
-               VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
-                       $7, $8, $9, $10, $11::timestamptz, NOW())
-               RETURNING *""",
-            user_id,
-            fields.get("workspace_id"),
-            fields["title"],
-            fields.get("kind") or "other",
-            fields["starts_at"],
-            fields.get("ends_at"),
-            fields.get("notes") or "",
-            fields.get("source_type"),
-            fields.get("source_id"),
-            fields.get("recurrence") or "none",
-            fields.get("recurrence_until"),
-        )
+        try:
+            row = await conn.fetchrow(
+                """INSERT INTO user_calendar_events
+                   (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
+                    source_type, source_id, recurrence, recurrence_until, updated_at)
+                   VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
+                           $7, $8, $9, $10, $11::timestamptz, NOW())
+                   RETURNING *""",
+                *args,
+            )
+        except asyncpg.UndefinedColumnError:
+            row = await conn.fetchrow(
+                """INSERT INTO user_calendar_events
+                   (user_id, workspace_id, title, kind, starts_at, ends_at, notes,
+                    source_type, source_id, updated_at)
+                   VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz,
+                           $7, $8, $9, NOW())
+                   RETURNING *""",
+                *args[:9],
+            )
     return _row_to_dict(row)
 
 

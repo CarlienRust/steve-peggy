@@ -30,10 +30,11 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { CorpusFilePreview } from "@/components/CorpusFilePreview";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
-import { peggyApi, queryKeys } from "@/lib/api";
+import { peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import {
@@ -61,6 +62,7 @@ export function SamplesFeature() {
   const [uploading, setUploading] = useState(false);
   const [editPaperId, setEditPaperId] = useState<number | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [previewPaper, setPreviewPaper] = useState<PaperRecord | null>(null);
   const datasets = useQuery({
     queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
     queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
@@ -425,7 +427,7 @@ export function SamplesFeature() {
                         </TableCell>
                         <TableCell sx={{ width: 90 }}>
                           <Typography variant="body2" color="text.secondary">
-                            PDF
+                            {(p.original_filename || p.title || "file").split(".").pop()?.toUpperCase() || "FILE"}
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ width: 90 }}>
@@ -441,6 +443,15 @@ export function SamplesFeature() {
                         </TableCell>
                         <TableCell sx={{ width: 130 }}>
                           <Stack direction="row" spacing={1} justifyContent="flex-end">
+                            <Button
+                              size="small"
+                              variant="text"
+                              sx={{ textTransform: "none", color: peggyColors.accent }}
+                              disabled={!p.id}
+                              onClick={() => setPreviewPaper(p)}
+                            >
+                              Preview
+                            </Button>
                             <Button
                               size="small"
                               variant="text"
@@ -499,6 +510,7 @@ export function SamplesFeature() {
           </Button>
         </DialogActions>
       </Dialog>
+      <CorpusFilePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
     </>
   );
 }

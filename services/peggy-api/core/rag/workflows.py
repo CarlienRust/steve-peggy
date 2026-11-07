@@ -606,16 +606,26 @@ async def run_conference_abstract(
         logger.exception("conference-abstract Qdrant search failed")
         sources = []
     target = max(100, min(int(min_words), 600))
-    llm = get_llm()
-    raw = await llm.complete(
-        prompts.build_system_prompt(),
-        prompts.conference_abstract_prompt(ctx, summary, points, target),
-        json_mode=True,
-    )
-    body = _parse_json(raw)
+    body: dict = {}
+    try:
+        llm = get_llm()
+        raw = await llm.complete(
+            prompts.build_system_prompt(),
+            prompts.conference_abstract_prompt(ctx, summary, points, target),
+            json_mode=True,
+        )
+        parsed = _parse_json(raw)
+        body = parsed if isinstance(parsed, dict) else {"raw": parsed}
+    except Exception:
+        logger.exception("conference-abstract LLM failed")
+        body = {
+            "full_text": "Abstract generation failed. Try again.",
+            "word_count": 0,
+            "limitations": ["The language model did not return a usable abstract."],
+        }
     return {
         "body": body,
         "sources": sources,
         "confidence": _confidence(sources),
-        "limitations": _limitations_from_body(body, sources),
+        "limitations": _limitations_from_body(body if isinstance(body, dict) else {}, sources),
     }

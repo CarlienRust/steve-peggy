@@ -143,9 +143,20 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Calendar create:** empty `workspace_id` treated as none; invalid local datetime rejected in the UI
 - **Analysis summaries:** column summaries omit admin-related columns
 
-
-
 NEXT Batch to do:
+Reading journal/Preview PDF: [Error] Failed to load resource: the server responded with a status of 500 () (text, line 0)
+Reading journal: PDF view needs to show the document, not plain text from PDF, like a preview of the actual document. 
+
+Calendar/New event: [Error] Failed to load resource: the server responded with a status of 500 () (events, line 0)
+
+Abstract generation: [Error] Failed to load resource: the server responded with a status of 500 () (conference-abstract, line 0)
+
+STUDY DESIGN/Samples and datasets: Once uploaded, user should still be able to preview the file.
+
+Analysis tool/Use this file: Says uploaded file not found. 
+[Error] Failed to load resource: the server responded with a status of 404 () (file, line 0)
+
+02 DATASET OVERVIEW/Column summaries: Need to do figure out categories/freq for categorical columns
 Full analysis engine (running tests, not only suggesting them)
 
 FUTURE:
@@ -162,5 +173,3 @@ In research groups, there might already be specific SOPs or published methods th
 Meeting scheduler/Doodle
 
 Invite collaborators/share project with other user
-
-Reading journal: PDF view needs to show the document, not plain text from PDF, like a preview of the actual document. 

@@ -53,12 +53,15 @@ async def get_corpus_item_text(paper_id: int, user: AuthUser = Depends(get_curre
     if not paper:
         raise HTTPException(404, "Paper not found")
     source_type = paper.get("source_type") or "literature"
-    text = qdrant_store.get_paper_text(
-        paper_id=paper_id,
-        source_type=source_type,
-        user_id=user.id,
-        title=paper.get("title") or "",
-    )
+    try:
+        text = qdrant_store.get_paper_text(
+            paper_id=paper_id,
+            source_type=source_type,
+            user_id=user.id,
+            title=paper.get("title") or "",
+        )
+    except Exception:
+        text = ""
     return {"paper_id": paper_id, "title": paper.get("title"), "text": text}
 
 
@@ -68,12 +71,31 @@ async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_curre
     if not paper:
         raise HTTPException(404, "Paper not found")
     storage_key = paper.get("storage_key")
-    if not storage_key:
-        raise HTTPException(404, "Original file not stored")
-    try:
-        data = await file_store.get_bytes(str(storage_key))
-    except FileNotFoundError:
-        raise HTTPException(404, "Original file not stored")
+    data = None
+    if storage_key:
+        try:
+            data = await file_store.get_bytes(str(storage_key))
+        except FileNotFoundError:
+            data = None
+    if data is None:
+        try:
+            text = qdrant_store.get_paper_text(
+                paper_id=paper_id,
+                source_type=paper.get("source_type") or "literature",
+                user_id=user.id,
+                title=paper.get("title") or "",
+            )
+        except Exception:
+            text = ""
+        if not (text or "").strip():
+            raise HTTPException(404, "Original file not stored")
+        data = text.encode("utf-8")
+        name = paper.get("original_filename") or paper.get("title") or "download.txt"
+        return Response(
+            content=data,
+            media_type="text/plain; charset=utf-8",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(str(name))}"},
+        )
     name = paper.get("original_filename") or paper.get("title") or "download"
     media = paper.get("content_type") or "application/octet-stream"
     return Response(

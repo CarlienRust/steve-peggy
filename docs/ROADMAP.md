@@ -84,7 +84,7 @@ Living backlog. **Goal:** evidence-grounded synthesis from literature + own find
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
 | Ethics renewal reminders | Partial | Calendar “Add from this project” can create an `ethics_renewal` event from `expiryDate` |
 | Calendar | Done | `/calendar` — user events, project filter, add from aims/objectives/steps |
-| Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at`; extracted-text preview plus DOI/PubMed |
+| Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at`; stored-PDF iframe preview when the file exists, else extracted text plus DOI/PubMed |
 | Lab book | Done | `/lab-book` — per-project notes |
 | Analysis tool | Done | `/analysis-tool` — CSV/SAV, stored table on save, dataset overview, column-guided test suggestion |
 | Dashboard demo placeholders | Partial |

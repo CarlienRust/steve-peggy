@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type TestSelector } from "@/lib/analysisTestSelector";
+import { runSuggestedTest } from "@/lib/analysisRun";
 import { profileTable, type ColumnKind } from "@/lib/columnStats";
 import { parsePastedTable } from "@/lib/parsePastedTable";
 import { parseSavTable } from "@/lib/parseSavTable";
@@ -72,6 +73,7 @@ export function AnalysisToolFeature() {
   const [adminCols, setAdminCols] = useState<string[]>(saved.adminColumns ?? []);
   const [page, setPage] = useState(0);
   const [summaryCols, setSummaryCols] = useState<string[]>([]);
+  const [runResult, setRunResult] = useState<string | null>(null);
 
   useEffect(() => {
     if (hydrated) return;
@@ -100,13 +102,10 @@ export function AnalysisToolFeature() {
     [headers, adminCols]
   );
 
-  const profiles = useMemo(() => {
-    const base = profileTable(headers, rows);
-    return base.map((p) => {
-      const override = kindOverrides[p.name];
-      return override && override !== p.kind ? { ...p, kind: override } : p;
-    });
-  }, [headers, rows, kindOverrides]);
+  const profiles = useMemo(
+    () => profileTable(headers, rows, kindOverrides),
+    [headers, rows, kindOverrides]
+  );
 
   const dataProfiles = useMemo(
     () => profiles.filter((p) => dataHeaders.includes(p.name)),
@@ -464,10 +463,16 @@ export function AnalysisToolFeature() {
                           {` → ${p.parametricHint === "parametric" ? "parametric tests OK" : p.parametricHint === "nonparametric" ? "prefer non-parametric" : ""}`}
                         </Typography>
                       ) : (
-                        <Typography variant="body2">
-                          n={p.n} missing={p.missing}. Frequencies:{" "}
-                          {(p.frequencies ?? []).map((f) => `${f.value} (${f.count})`).join("; ") || "none"}
-                        </Typography>
+                        <Stack spacing={0.5}>
+                          <Typography variant="body2">
+                            n={p.n} missing={p.missing}. Categories: {(p.frequencies ?? []).length}.
+                          </Typography>
+                          {(p.frequencies ?? []).map((f) => (
+                            <Typography key={f.value} variant="body2">
+                              {f.value || "(blank)"} — {f.count} ({p.n ? ((100 * f.count) / p.n).toFixed(1) : "0"}%)
+                            </Typography>
+                          ))}
+                        </Stack>
                       )}
                     </Stack>
                   ))}
@@ -554,12 +559,33 @@ export function AnalysisToolFeature() {
               {whyOpen ? (
                 <Typography variant="body2">
                   {suggestion.why}
-                  {guideCols.length ? ` Columns: ${guideCols.join(", ")}.` : ""} Peggy does not run the test.
+                  {guideCols.length ? ` Columns: ${guideCols.join(", ")}.` : ""}
                 </Typography>
               ) : null}
               <Button size="small" variant="outlined" onClick={() => setWhyOpen((v) => !v)}>
                 Why this test?
               </Button>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={!outcomeColumn || rows.length === 0}
+                onClick={() => {
+                  const oi = headers.indexOf(outcomeColumn);
+                  const gi = guideCols[1] ? headers.indexOf(guideCols[1]) : -1;
+                  const outcomeVals = rows.map((r) => (oi >= 0 ? r[oi] ?? "" : ""));
+                  const groupVals = gi >= 0 ? rows.map((r) => r[gi] ?? "") : undefined;
+                  const result = runSuggestedTest(suggestion, outcomeVals, groupVals);
+                  setRunResult(result.summary);
+                  setWhyOpen(true);
+                }}
+              >
+                Run on this dataset
+              </Button>
+              {runResult ? <Typography variant="body2">{runResult}</Typography> : null}
+              <Typography variant="caption" color="text.secondary">
+                Uses the first selected guide column as the outcome and the second as the grouping column when present.
+                p-values are normal approximations, not a full stats package.
+              </Typography>
             </Stack>
           </Paper>
         </Box>

@@ -130,10 +130,10 @@ function invNorm(p: number): number {
   );
 }
 
-export function profileColumn(name: string, values: string[]): ColumnProfile {
+export function profileColumn(name: string, values: string[], kindOverride?: ColumnKind): ColumnProfile {
   const missing = values.filter((v) => !v.trim()).length;
   const filled = values.filter((v) => v.trim());
-  const kind = inferColumnKind(values);
+  const kind = kindOverride ?? inferColumnKind(values);
   if (kind === "categorical") {
     const counts = new Map<string, number>();
     for (const v of filled) counts.set(v, (counts.get(v) ?? 0) + 1);
@@ -168,6 +168,10 @@ export function profileColumn(name: string, values: string[]): ColumnProfile {
   };
 }
 
-export function profileTable(headers: string[], rows: string[][]): ColumnProfile[] {
-  return headers.map((name, i) => profileColumn(name, rows.map((r) => r[i] ?? "")));
+export function profileTable(
+  headers: string[],
+  rows: string[][],
+  kindOverrides?: Record<string, ColumnKind>
+): ColumnProfile[] {
+  return headers.map((name, i) => profileColumn(name, rows.map((r) => r[i] ?? ""), kindOverrides?.[name]));
 }
