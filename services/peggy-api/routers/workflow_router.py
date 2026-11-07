@@ -38,7 +38,7 @@ class GapRequest(BaseModel):
 class CompareRequest(BaseModel):
     finding: str
     workspace_id: Optional[str] = None
-    source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings", "sample_datasets"])
+    source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings"])
     include_live: bool = False
 
 

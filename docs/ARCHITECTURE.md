@@ -23,6 +23,7 @@ legacy/                   Archived — do not import
 | Literature search | `/validate/literature` | `literature` | `peggy_literature` |
 | Our findings (summary) | `/results/findings` | `own_findings` | `peggy_own_findings` |
 | Findings | `/results/findings` | `own_findings` | `peggy_own_findings` |
+| Sample datasets | `/study-design/samples`, `/analysis-tool` | `sample_datasets` | **Not indexed** (file + catalog only) |
 
 Catalog dedup: same PMID, DOI, or normalized title within a `user_id` + `source_type` → skip insert (`duplicate` response).
 
@@ -44,11 +45,13 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 
 | Collection | Purpose |
 |------------|---------|
-| `peggy_literature` | PubMed + literature PDFs |
+| `peggy_literature` | PubMed + literature PDFs (payload `source_type=literature`; ethics PDFs may share this collection with `source_type=ethics_documents`) |
 | `peggy_own_findings` | Narrative findings, research PDFs, and HTML reports (text extracted) |
 | `chat_history_logs` | Reserved for cross-session semantic memory (unused) |
 
-Embeddings: `sentence-transformers` locally. Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id` in payload.
+Embeddings: `sentence-transformers` locally (hash on Render). Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`. **Sample dataset files are never upserted** into these collections.
+
+Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
 
 ## LLM providers
 
@@ -76,8 +79,9 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 
 | Endpoint | Purpose |
 |----------|---------|
-| `GET /corpus?source_type=` | List papers (`literature` \| `own_findings`) |
-| `GET/PATCH/DELETE /corpus/{id}` | CRUD including `notes` and `read_at`; Qdrant purge on delete |
+| `GET /corpus?source_type=` | List papers (`literature` \| `own_findings` \| `sample_datasets` \| `ethics_documents`) |
+| `GET /corpus/{id}/file` | Owner download of stored original bytes |
+| `GET/PATCH/DELETE /corpus/{id}` | CRUD including `notes` and `read_at`; Qdrant purge and file delete |
 
 ### RAG & workflows
 
@@ -119,7 +123,9 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/study-design/methods-plan` | Methods review or suggest (`mode`: review \| suggest) |
 | `POST /workflows/study-design/analysis-plan` | Analysis review or suggest (`adhoc_tests` plus saved `analysisPlan.adhocAnalyses`) |
 | `POST /workflows/study-design/proposal` | 1–2 page proposal from workspace study design + literature |
-| `POST /workflows/compare` | Finding vs literature; optional `workspace_id` injects study design + plans; retrieval includes `sample_datasets` |
+| `POST /workflows/compare` | Finding vs literature; optional `workspace_id` injects study design + plans; retrieval is literature + own findings only |
+| `GET /workspaces/{id}/transfer-pack` | ZIP: export JSON + original files + chunk texts (no vectors) |
+| `POST /workspaces/import-pack` | Import ZIP as a new project for the signed-in user |
 | `POST /workflows/future-design` | Study design draft (API only) |
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |
 | `POST /feedback` | Correction queue (API only) |
@@ -152,19 +158,19 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
 | `/setup/step-*` | — | New-project wizard (uses HomeAppShell) |
-| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON** (`GET /workspaces/{id}/export`) |
+| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON**, **Download transfer pack**, **Import transfer pack** |
 | `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
-| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). SAV is converted to CSV text before ingest so Analysis tool can reuse it. |
+| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). Files are stored for the Analysis tool; they are not written to Peggy AI collections. |
 | `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
 | `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV or `sample_datasets`). 02 Dataset overview: admin columns, paginated table, types, descriptives (summaries exclude admin columns). 03 Analysis guidance: pick participant columns, groups/design, suggested test. Save stores headers/rows in `study_design.analysisTool` (nested in `analysis_plan`). SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV upload or **Use this file** via `GET /corpus/{id}/file`). 02 Dataset overview: admin columns, paginated table, types, descriptives (summaries exclude admin columns). 03 Analysis guidance: pick participant columns, groups/design, suggested test. Save stores headers/rows in `study_design.analysisTool` (nested in `analysis_plan`). SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
@@ -208,6 +214,7 @@ Protected routes require Supabase session (middleware). All API routes except `/
 | API | localhost `:8000` | Railway / Render / Fly |
 | Vectors | Local Qdrant | Qdrant Cloud |
 | Catalog + auth | Supabase — [DATABASE.md](DATABASE.md), [AUTH.md](AUTH.md) |
+| Original files | Local `UPLOAD_DIR` | Supabase Storage `peggy-uploads` |
 | Jobs | Inngest (optional) | Inngest (optional) |
 | Cache | Upstash Redis (optional) | Upstash Redis (optional) |
 

@@ -64,6 +64,10 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `QDRANT_API_KEY` | Qdrant Cloud | — | Required with cloud HTTPS URL |
 | `SQLITE_DB` | Local only | `./data/peggy.db` | Ignored when `DATABASE_URL` set |
 | `DATABASE_URL` | Auth + Render | — | Supabase pooler URI |
+| `SUPABASE_URL` | Hosted files + JWT JWKS | — | Project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Hosted file store | — | API only; private Storage `peggy-uploads` |
+| `UPLOAD_DIR` | Solo files | `data/uploads` | Local original PDFs/datasets |
+| `STORAGE_BUCKET` | Hosted files | `peggy-uploads` | Private bucket name |
 | `SUPABASE_JWT_SECRET` | If `AUTH_REQUIRED=true` | — | JWT Secret from API settings |
 | `AUTH_REQUIRED` | No | `false` in tests | `true` for real Supabase auth |
 | `EXPOSE_API_DOCS` | No | `true` when auth is off | Swagger `/docs`. Leave `false` on Render |

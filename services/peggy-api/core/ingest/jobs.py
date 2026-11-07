@@ -11,7 +11,7 @@ from core.ingest.chunker import chunk_text, paper_to_chunks
 from core.ingest.html_text import extract_text_from_html, is_html
 from core.ingest.pdf import extract_text_from_pdf, is_pdf
 from core.ingest.pubmed import fetch_by_pmid, resolve_doi, search_pubmed
-from core.store import catalog, qdrant_store
+from core.store import catalog, file_store, qdrant_store
 
 
 @dataclass
@@ -89,6 +89,41 @@ def schedule_ingest(job_id: str, payload: dict) -> None:
     asyncio.create_task(run_ingest_job(job_id, payload))
 
 
+class DuplicateDocumentError(Exception):
+    def __init__(self, paper_id: int, title: str):
+        self.paper_id = paper_id
+        self.title = title
+        super().__init__(f"Already ingested: {title}")
+
+
+async def _persist_upload_bytes(
+    *,
+    user_id: str,
+    workspace_id: str | None,
+    paper_id: int,
+    filename: str | None,
+    content_type: str | None,
+    raw: bytes,
+) -> None:
+    storage_key = await file_store.put_bytes(
+        user_id=user_id,
+        workspace_id=workspace_id,
+        paper_id=paper_id,
+        filename=filename or "upload",
+        data=raw,
+        content_type=content_type,
+    )
+    await catalog.update_paper(
+        user_id,
+        paper_id,
+        {
+            "storage_key": storage_key,
+            "original_filename": filename or "",
+            "content_type": content_type or "",
+        },
+    )
+
+
 async def ingest_upload_bytes(
     raw: bytes,
     filename: str | None,
@@ -100,6 +135,22 @@ async def ingest_upload_bytes(
 ) -> dict:
     """Ingest uploaded file bytes (PDF, HTML, or UTF-8 text/markdown)."""
     doc_id = filename or title
+    if source_type == "sample_datasets":
+        record = await catalog.record_paper(
+            user_id, "", "", title, "", "", source_type, workspace_id=workspace_id
+        )
+        if record["status"] == "duplicate":
+            raise DuplicateDocumentError(record["paper_id"], title)
+        paper_id = record["paper_id"]
+        await _persist_upload_bytes(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            paper_id=paper_id,
+            filename=filename,
+            content_type=content_type,
+            raw=raw,
+        )
+        return {"chunks": 0, "paper_id": paper_id, "status": "created"}
     if is_pdf(filename, content_type):
         try:
             text, pages = extract_text_from_pdf(raw)
@@ -120,16 +171,18 @@ async def ingest_upload_bytes(
         meta = {"doc_id": doc_id, "title": title, "filename": doc_id}
     if workspace_id:
         meta["workspace_id"] = workspace_id
-    return await ingest_text_document(
+    result = await ingest_text_document(
         text, meta, source_type=source_type, user_id=user_id, workspace_id=workspace_id
     )
-
-
-class DuplicateDocumentError(Exception):
-    def __init__(self, paper_id: int, title: str):
-        self.paper_id = paper_id
-        self.title = title
-        super().__init__(f"Already ingested: {title}")
+    await _persist_upload_bytes(
+        user_id=user_id,
+        workspace_id=workspace_id,
+        paper_id=result["paper_id"],
+        filename=filename,
+        content_type=content_type,
+        raw=raw,
+    )
+    return result
 
 
 async def ingest_text_document(

@@ -328,6 +328,8 @@ export type PaperRecord = {
   extraction_review_status?: "not_extracted" | "needs_review" | "reviewed";
   extraction_count?: number;
   auto_extraction_count?: number;
+  storage_key?: string | null;
+  original_filename?: string | null;
 };
 
 export type CalendarEventKind =
@@ -440,6 +442,21 @@ export const peggyApi = {
 
   getPaperText: (id: number) =>
     apiFetch<{ paper_id: number; title: string; text: string }>(`/corpus/${id}/text`),
+
+  getPaperFile: async (id: number) => {
+    const headers = await authHeaders("");
+    const res = await fetch(`${API_URL}/corpus/${id}/file`, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    const blob = await res.blob();
+    const disp = res.headers.get("Content-Disposition") || "";
+    const star = /filename\*=UTF-8''([^;]+)/i.exec(disp);
+    const plain = /filename="?([^";]+)"?/i.exec(disp);
+    const name = decodeURIComponent(star?.[1] || plain?.[1] || `paper-${id}`);
+    return new File([blob], name, { type: blob.type || "application/octet-stream" });
+  },
 
   discoverSuggestions: (workspaceId?: string) => {
     const q = workspaceId ? `?workspace_id=${encodeURIComponent(workspaceId)}` : "";
@@ -721,7 +738,7 @@ export const peggyApi = {
       method: "POST",
       body: JSON.stringify({
         finding,
-        source_types: options?.sourceTypes ?? ["literature", "own_findings", "sample_datasets"],
+        source_types: options?.sourceTypes ?? ["literature", "own_findings"],
         workspace_id: options?.workspaceId ?? null,
         include_live: options?.includeLive ?? false,
       }),
@@ -850,6 +867,31 @@ export const peggyApi = {
       extractions: unknown[];
       findings_summary: Record<string, unknown> | null;
     }>(`/workspaces/${workspaceId}/export`),
+
+  downloadTransferPack: async (workspaceId: string) => {
+    const headers = await authHeaders("");
+    const res = await fetch(`${API_URL}/workspaces/${workspaceId}/transfer-pack`, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    const blob = await res.blob();
+    const disp = res.headers.get("Content-Disposition") || "";
+    const match = /filename="?([^";]+)"?/i.exec(disp);
+    return { blob, filename: match?.[1] || "peggy-transfer.zip" };
+  },
+
+  importTransferPack: async (file: File) => {
+    const headers = await authHeaders("");
+    const body = new FormData();
+    body.append("file", file);
+    const res = await fetch(`${API_URL}/workspaces/import-pack`, { method: "POST", headers, body });
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    return res.json() as Promise<{ workspace: Workspace; papers_imported: number }>;
+  },
 
   getStudyDesign: (workspaceId: string) =>
     apiFetch<{ study_design: import("@/lib/studyDesign").StudyDesignData }>(

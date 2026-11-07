@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `022_calendar_recurrence.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `023_papers_storage.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -63,6 +63,8 @@ Analysis plan JSON may include `covariateEntries[]` (`description`, `scope` proj
 Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspaces/{id}/extractions`, `GET /extraction-modules`). All extraction routes call `assert_workspace_owner` (same as other workspace-scoped reads/writes).
 
 **Project export (no vectors):** `GET /workspaces/{workspace_id}/export` returns JSON (`format: peggy-project-export`, `version: 1`) with workspace row, `study_design`, paper metadata (literature + own findings), all `extractions` rows, and `findings_summary`. Used from the dashboard for supervisor review / backup.
+
+**Transfer pack:** `GET /workspaces/{id}/transfer-pack` returns a ZIP (`manifest.json`, `chunks.json`, `files/{paper_id}/…`). `POST /workspaces/import-pack` recreates the project for the JWT user: new paper ids, files under the new owner path, Qdrant upsert of literature/findings/ethics **chunk texts** using the current embedder (hash on Render may differ from local sentence-transformers). Sample datasets restore files only. `023_papers_storage.sql` adds `papers.storage_key`, `original_filename`, `content_type`. Hosted files go in private Storage bucket `peggy-uploads` (path `{user_id}/{workspace_id}/{paper_id}/{filename}`); solo mode writes `UPLOAD_DIR`.
 
 `013_workspace_project_fields.sql` adds Figma-aligned project fields on `workspaces`:
 - `resources JSONB`, `settings JSONB`, `enabled_modules JSONB`

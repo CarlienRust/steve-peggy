@@ -225,6 +225,9 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
         "screening_status",
         "notes",
         "read_at",
+        "storage_key",
+        "original_filename",
+        "content_type",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

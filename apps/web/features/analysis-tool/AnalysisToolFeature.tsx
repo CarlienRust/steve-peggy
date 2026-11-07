@@ -180,8 +180,14 @@ export function AnalysisToolFeature() {
     setSampleLoading(true);
     try {
       const paper = samplePapers.find((p) => p.id === id);
-      const text = await peggyApi.getPaperText(id);
-      applyParsed(paper?.title || "Sample dataset", parsePastedTable(text.text || ""));
+      const file = await peggyApi.getPaperFile(id);
+      const lower = file.name.toLowerCase();
+      const label = paper?.original_filename || paper?.title || file.name || "Sample dataset";
+      if (lower.endsWith(".sav") || lower.endsWith(".zsav")) {
+        applyParsed(label, await parseSavTable(file));
+        return;
+      }
+      applyParsed(label, parsePastedTable(await file.text()));
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Could not load sample file.");
     } finally {

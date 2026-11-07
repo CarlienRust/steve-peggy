@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Controller, useForm } from "react-hook-form";
 import {
   Alert,
@@ -34,6 +34,7 @@ type WorkspaceEditDialogProps = {
 export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onSaved }: WorkspaceEditDialogProps) {
   const queryClient = useQueryClient();
   const { userId } = useAuthSession();
+  const packInputRef = useRef<HTMLInputElement>(null);
   const {
     control,
     handleSubmit,
@@ -85,6 +86,34 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
     },
   });
 
+  const transferMutation = useMutation({
+    mutationFn: async () => {
+      if (!workspace) throw new Error("No project selected");
+      return peggyApi.downloadTransferPack(workspace.id);
+    },
+    onSuccess: ({ blob, filename }) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const importPackMutation = useMutation({
+    mutationFn: (file: File) => peggyApi.importTransferPack(file),
+    onSuccess: () => {
+      if (userId) {
+        void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+      } else {
+        void queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      }
+    },
+  });
+
   const onSubmit = handleSubmit((values) => saveMutation.mutate(values));
 
   return (
@@ -130,18 +159,51 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
             />
             {saveMutation.isError && <Alert severity="error">{formatApiError(saveMutation.error)}</Alert>}
             {exportMutation.isError && <Alert severity="error">{formatApiError(exportMutation.error)}</Alert>}
+            {transferMutation.isError && <Alert severity="error">{formatApiError(transferMutation.error)}</Alert>}
+            {importPackMutation.isError && <Alert severity="error">{formatApiError(importPackMutation.error)}</Alert>}
+            {importPackMutation.isSuccess && (
+              <Alert severity="success">Imported “{importPackMutation.data.workspace.title}”.</Alert>
+            )}
             {errors.root && <Alert severity="error">{errors.root.message}</Alert>}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ flexWrap: "wrap", gap: 1, px: 3, pb: 2 }}>
+          <input
+            ref={packInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            hidden
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) importPackMutation.mutate(file);
+            }}
+          />
           <Button
+            type="button"
             onClick={() => exportMutation.mutate()}
             disabled={exportMutation.isPending}
             sx={{ mr: "auto", textTransform: "none" }}
           >
             {exportMutation.isPending ? "Exporting…" : "Export project JSON"}
           </Button>
-          <Button onClick={onClose}>Cancel</Button>
+          <Button
+            type="button"
+            onClick={() => transferMutation.mutate()}
+            disabled={transferMutation.isPending}
+            sx={{ textTransform: "none" }}
+          >
+            {transferMutation.isPending ? "Packing…" : "Download transfer pack"}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => packInputRef.current?.click()}
+            disabled={importPackMutation.isPending}
+            sx={{ textTransform: "none" }}
+          >
+            {importPackMutation.isPending ? "Importing…" : "Import transfer pack"}
+          </Button>
+          <Button type="button" onClick={onClose}>Cancel</Button>
           <Button type="submit" variant="contained" disabled={saveMutation.isPending}>
             {saveMutation.isPending ? "Saving…" : "Save"}
           </Button>

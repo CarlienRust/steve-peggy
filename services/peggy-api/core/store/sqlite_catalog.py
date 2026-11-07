@@ -180,6 +180,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_papers_journal_notes(db)
         await _migrate_user_calendar_events(db)
         await _migrate_lab_book_entries(db)
+        await _migrate_papers_storage(db)
         await db.commit()
 
 
@@ -422,6 +423,14 @@ async def _migrate_lab_book_entries(db: aiosqlite.Connection) -> None:
     )
 
 
+async def _migrate_papers_storage(db: aiosqlite.Connection) -> None:
+    for col in ("storage_key", "original_filename", "content_type"):
+        try:
+            await db.execute(f"ALTER TABLE papers ADD COLUMN {col} TEXT")
+        except Exception:
+            pass
+
+
 def _parse_study_design(d: dict) -> dict:
     from core.study_design_merge import normalize_study_design
 
@@ -624,6 +633,9 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
         "screening_status",
         "notes",
         "read_at",
+        "storage_key",
+        "original_filename",
+        "content_type",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

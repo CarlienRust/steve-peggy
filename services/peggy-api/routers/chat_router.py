@@ -52,7 +52,7 @@ async def chat(body: ChatRequest, user: AuthUser = Depends(get_current_user)):
     if intent == "compare":
         result = await run_compare(
             body.query,
-            source_types=body.source_types or ["literature", "own_findings", "sample_datasets"],
+            source_types=body.source_types or ["literature", "own_findings"],
             user_id=user.id,
             workspace_id=body.workspace_id,
         )

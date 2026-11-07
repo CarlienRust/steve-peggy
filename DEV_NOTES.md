@@ -145,7 +145,7 @@ ISSUES (2026-03-24 batch 7 — done):
 
 
 
-NEXT:
+NEXT Batch to do:
 Full analysis engine (running tests, not only suggesting them)
 
 FUTURE:

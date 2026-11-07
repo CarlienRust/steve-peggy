@@ -54,7 +54,7 @@ Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` on Render for consis
 | `GET /setup/checks` | Yes | Setup diagnostics (JWT when `AUTH_REQUIRED`) |
 | `/docs`, `/redoc`, `/openapi.json` | Off when `AUTH_REQUIRED` | Set `EXPOSE_API_DOCS=true` only for local debugging |
 
-Operator markdown in this git repo is only private if the **GitHub repository is private**. In-app Help and FastAPI Swagger are not public on Render. Do not paste env values or corpus excerpts into public issues.
+Operator markdown in this git repo is only private if the **GitHub repository is private**. Making the repo public is an operator choice and exposes `docs/` markdown. Peggy does not force GitHub privacy and does not sync corpus files to GitHub except the existing optional README/`docs/*.md` project sync. In-app Help and FastAPI Swagger are not public on Render. Do not paste env values or corpus excerpts into public issues.
 
 ## Hosted vectors and API (Qdrant Cloud + Render)
 
@@ -62,10 +62,17 @@ Production uses Render for `peggy-api` and Qdrant Cloud for embeddings. Chunks a
 
 Cloud LLM (Gemini on Render) still sends prompt text to Google. Keep identifiable research data out of chat and uploads. Prompts instruct the model not to train on or republish user content; provider account settings still apply.
 
+## Original files and sample datasets
+
+- Literature and own-findings **text chunks** go to Qdrant for Peggy AI. Search filters `source_type` to those two.
+- **Sample datasets** (CSV/SAV/PDF) are catalog rows plus stored bytes. They are not upserted into `peggy_literature` / `peggy_own_findings`. The Analysis tool loads them via `GET /corpus/{id}/file`.
+- Hosted originals use **Supabase Storage** (private bucket, service role on the API). Solo local uses disk `UPLOAD_DIR`. Do not log file bytes.
+- Downloads require the same JWT owner as the papers row.
+
 ## Client storage
 
 - JWT: Supabase session cookies + Bearer to API — **not** stored in `localStorage`.
-- `localStorage` / cookies: workspace ID and UI preferences only.
+- `localStorage` / cookies: workspace ID and UI preferences only. Never files or corpus.
 
 ## Dependency audits
 

@@ -1,9 +1,12 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 
 from core.auth.deps import AuthUser, get_current_user
-from core.store import catalog, qdrant_store
+from core.store import catalog, file_store, qdrant_store
 
 router = APIRouter(prefix="/corpus", tags=["corpus"])
 
@@ -59,6 +62,29 @@ async def get_corpus_item_text(paper_id: int, user: AuthUser = Depends(get_curre
     return {"paper_id": paper_id, "title": paper.get("title"), "text": text}
 
 
+@router.get("/{paper_id}/file")
+async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_current_user)):
+    paper = await catalog.get_paper(user.id, paper_id)
+    if not paper:
+        raise HTTPException(404, "Paper not found")
+    storage_key = paper.get("storage_key")
+    if not storage_key:
+        raise HTTPException(404, "Original file not stored")
+    try:
+        data = await file_store.get_bytes(str(storage_key))
+    except FileNotFoundError:
+        raise HTTPException(404, "Original file not stored")
+    name = paper.get("original_filename") or paper.get("title") or "download"
+    media = paper.get("content_type") or "application/octet-stream"
+    return Response(
+        content=data,
+        media_type=media,
+        headers={
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(str(name))}",
+        },
+    )
+
+
 @router.patch("/{paper_id}")
 async def update_corpus_item(paper_id: int, body: PaperUpdate, user: AuthUser = Depends(get_current_user)):
     from core.limits import enforce_text_length
@@ -87,6 +113,7 @@ async def delete_corpus_item(paper_id: int, user: AuthUser = Depends(get_current
         title=paper.get("title") or "",
         paper_id=paper_id,
     )
+    await file_store.delete_bytes(paper.get("storage_key"))
     ok = await catalog.delete_paper(user.id, paper_id)
     if not ok:
         raise HTTPException(404, "Paper not found")

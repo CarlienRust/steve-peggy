@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import zipfile
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from typing import Any, Optional
 
@@ -393,6 +396,40 @@ async def export_workspace(workspace_id: str, user: AuthUser = Depends(get_curre
         "extractions": extractions,
         "findings_summary": findings_summary,
     }
+
+
+@router.get("/{workspace_id}/transfer-pack")
+async def download_transfer_pack(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    from core.transfer_pack import build_zip
+    from core.workspace_guard import assert_workspace_owner
+
+    ws = await assert_workspace_owner(user.id, workspace_id)
+    raw = await build_zip(user.id, workspace_id, ws)
+    slug = "".join(c if c.isalnum() or c in "-_" else "-" for c in (ws.get("title") or "project"))[:48]
+    return Response(
+        content=raw,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{slug}-peggy-transfer.zip"'},
+    )
+
+
+@router.post("/import-pack")
+async def import_transfer_pack(
+    file: UploadFile = File(...),
+    user: AuthUser = Depends(get_current_user),
+):
+    from core.transfer_pack import import_zip
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(400, "Empty file")
+    try:
+        result = await import_zip(user.id, raw)
+    except zipfile.BadZipFile:
+        raise HTTPException(400, "Not a ZIP file")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return result
 
 
 @router.patch("/{workspace_id}/study-design")

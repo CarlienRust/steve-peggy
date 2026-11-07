@@ -46,7 +46,7 @@ const SECTION_LABELS: Record<ProjectContextSection, string> = {
 
 export function ProjectContextImport({
   onImport,
-  sections = ["samples", "methods", "analysis", "findings", "datasets"],
+  sections = ["samples", "methods", "analysis", "findings"],
   showAutoContextNote = false,
 }: ProjectContextImportProps) {
   const { activeWorkspace } = useWorkspace();

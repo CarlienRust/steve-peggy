@@ -31,6 +31,10 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 SUPABASE_URL = os.getenv("SUPABASE_URL", "")
 # JWT Secret from Supabase Settings → API (not the anon/publishable key).
 SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET", "")
+SUPABASE_SERVICE_ROLE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY", "")
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", str(BASE_DIR / "data" / "uploads"))
+STORAGE_BUCKET = os.getenv("STORAGE_BUCKET", "peggy-uploads")
+LLM_SOURCE_TYPES = ("literature", "own_findings")
 _AUTH_DEFAULT = "true" if os.getenv("RENDER") else "false"
 AUTH_REQUIRED = os.getenv("AUTH_REQUIRED", _AUTH_DEFAULT).lower() in ("1", "true", "yes")
 NCBI_EMAIL = os.getenv("NCBI_EMAIL", "peggy@example.com")

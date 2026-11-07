@@ -68,7 +68,7 @@ SSE events: `step_start`, `tool_call`, `tool_result`, `final` (with full `AgentR
 
 | Tool | Wraps | Notes |
 |------|--------|-------|
-| `search_corpus` | `qdrant_store.search()` | Primary retrieval |
+| `search_corpus` | `qdrant_store.search()` | Primary retrieval; `sample_datasets` are stripped from `source_types` |
 | `list_corpus` | `catalog.list_papers()` | Metadata only |
 | `search_pubmed` | `search_pubmed()` | PMIDs only — **no auto-ingest** |
 | `get_paper_metadata` | `fetch_by_pmid()` + catalog | |
@@ -106,6 +106,7 @@ For agent development, use `LLM_PROVIDER=ollama` locally or `gemini` on Render (
 - `max_steps=6` hard cap → `truncated: true` + partial answer
 - Only registered tools execute; unknown names error
 - Persona agent block in `persona_config.json`; `build_agent_system_prompt()` in `prompts.py`
+- Sample dataset files are not in Qdrant literature/findings collections. Ask Peggy import defaults omit dataset PDFs. Cohort form fields on Samples may still appear in project context.
 
 Study-design `POST /workflows/study-design/analysis-plan` is still single-shot (not the agent loop). Review and suggest prompts include sensitivity / ad hoc tests from the request and from saved `analysisPlan.adhocAnalyses`.
 

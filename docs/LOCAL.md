@@ -45,7 +45,7 @@ NEXT_PUBLIC_SOLO_LOCAL=true
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-**Solo mode** skips Supabase sign-in. The API uses `dev-user` and SQLite. No cloud API or Qdrant required.
+**Solo mode** skips Supabase sign-in. The API uses `dev-user` and SQLite. No cloud API or Qdrant required. Original uploads are stored under `services/peggy-api/data/uploads` (gitignored). To move a project to hosted Peggy, use **Download transfer pack** locally and **Import transfer pack** on the hosted API.
 
 **Signed-in local** (your current web setup): set `NEXT_PUBLIC_SOLO_LOCAL=false` in `.env.local` and on the API:
 

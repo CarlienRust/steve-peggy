@@ -107,10 +107,24 @@ def collection_for_source(source_type: str) -> str:
     return config.COLLECTION_OWN_FINDINGS if source_type == "own_findings" else config.COLLECTION_LITERATURE
 
 
-def _user_filter(user_id: str, workspace_id: str | None = None) -> Filter:
+def sanitize_llm_source_types(source_types: list[str] | None) -> list[str]:
+    allowed = set(config.LLM_SOURCE_TYPES)
+    if not source_types:
+        return list(config.LLM_SOURCE_TYPES)
+    out = [st for st in source_types if st in allowed]
+    return out or list(config.LLM_SOURCE_TYPES)
+
+
+def _user_filter(
+    user_id: str,
+    workspace_id: str | None = None,
+    source_type: str | None = None,
+) -> Filter:
     must = [FieldCondition(key="user_id", match=MatchValue(value=user_id))]
     if workspace_id:
         must.append(FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)))
+    if source_type:
+        must.append(FieldCondition(key="source_type", match=MatchValue(value=source_type)))
     return Filter(must=must)
 
 
@@ -120,6 +134,8 @@ def upsert_chunks(
     user_id: str = "dev-user",
     workspace_id: str | None = None,
 ) -> int:
+    if source_type == "sample_datasets":
+        return 0
     if not chunks:
         return 0
     # region agent log
@@ -197,7 +213,7 @@ def search(
     )
     client = get_client()
     vector = embed_query(query)
-    source_types = source_types or ["literature", "own_findings"]
+    source_types = sanitize_llm_source_types(source_types)
     hits: list[dict] = []
     for st in source_types:
         collection = collection_for_source(st)
@@ -210,13 +226,15 @@ def search(
                 limit=limit,
                 score_threshold=threshold,
                 with_payload=True,
-                query_filter=_user_filter(user_id, workspace_id),
+                query_filter=_user_filter(user_id, workspace_id, source_type=st),
             )
         except Exception as exc:
             logger.warning("Qdrant search failed for %s: %s", collection, exc)
             continue
         for hit in response.points:
             p = hit.payload or {}
+            if p.get("source_type") and p.get("source_type") != st:
+                continue
             if workspace_id and p.get("workspace_id") not in (workspace_id, None):
                 continue
             pmid = p.get("pmid")
@@ -305,6 +323,46 @@ def scroll_texts(source_type: str = "literature", limit: int = 500, user_id: str
         if offset is None:
             break
     return texts
+
+
+def list_paper_chunks(
+    *,
+    paper_id: int,
+    source_type: str,
+    user_id: str,
+) -> list[dict[str, Any]]:
+    """Chunk texts (no vectors) for a paper, used by transfer-pack export."""
+    if source_type == "sample_datasets":
+        return []
+    client = get_client()
+    collection = collection_for_source(source_type)
+    if not client.collection_exists(collection):
+        return []
+    rows: list[dict[str, Any]] = []
+    offset = None
+    while True:
+        records, offset = client.scroll(
+            collection_name=collection,
+            limit=100,
+            offset=offset,
+            with_payload=True,
+            with_vectors=False,
+            scroll_filter=_user_filter(user_id, source_type=source_type),
+        )
+        if not records:
+            break
+        for point in records:
+            p = point.payload or {}
+            if p.get("paper_id") != paper_id:
+                continue
+            text = (p.get("text") or "").strip()
+            if not text:
+                continue
+            meta = {k: v for k, v in p.items() if k not in ("text", "user_id")}
+            rows.append({"text": text, "metadata": meta})
+        if offset is None:
+            break
+    return rows
 
 
 def get_paper_text(
