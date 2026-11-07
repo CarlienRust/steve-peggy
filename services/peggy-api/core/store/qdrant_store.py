@@ -203,27 +203,33 @@ def search(
         collection = collection_for_source(st)
         if not client.collection_exists(collection):
             continue
-        response = client.query_points(
-            collection_name=collection,
-            query=vector,
-            limit=limit,
-            score_threshold=threshold,
-            with_payload=True,
-            query_filter=_user_filter(user_id, workspace_id),
-        )
+        try:
+            response = client.query_points(
+                collection_name=collection,
+                query=vector,
+                limit=limit,
+                score_threshold=threshold,
+                with_payload=True,
+                query_filter=_user_filter(user_id, workspace_id),
+            )
+        except Exception as exc:
+            logger.warning("Qdrant search failed for %s: %s", collection, exc)
+            continue
         for hit in response.points:
             p = hit.payload or {}
             if workspace_id and p.get("workspace_id") not in (workspace_id, None):
                 continue
+            pmid = p.get("pmid")
+            year = p.get("year")
             hits.append({
-                "chunk_id": p.get("chunk_id", str(hit.id)),
-                "title": p.get("title", "Unknown"),
-                "authors": p.get("authors", ""),
-                "year": p.get("year", ""),
-                "excerpt": p.get("text", "")[:400],
+                "chunk_id": str(p.get("chunk_id") or hit.id),
+                "title": str(p.get("title") or "Unknown"),
+                "authors": str(p.get("authors") or ""),
+                "year": "" if year is None else str(year),
+                "excerpt": str(p.get("text") or "")[:400],
                 "relevance_score": float(hit.score),
-                "source_type": p.get("source_type", st),
-                "pmid": p.get("pmid"),
+                "source_type": str(p.get("source_type") or st),
+                "pmid": None if pmid is None or pmid == "" else str(pmid),
             })
     hits.sort(key=lambda x: x["relevance_score"], reverse=True)
     return hits[:limit]

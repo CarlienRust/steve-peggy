@@ -4,10 +4,12 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Alert,
   Button,
+  Checkbox,
   CircularProgress,
   Drawer,
   Divider,
   FormControl,
+  FormControlLabel,
   InputLabel,
   MenuItem,
   Paper,
@@ -27,6 +29,7 @@ export function CompareFeature() {
   const [finding, setFinding] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<number | "">("");
   const [usedOpen, setUsedOpen] = useState(false);
+  const [includeLive, setIncludeLive] = useState(false);
 
   const findings = useQuery({
     queryKey: queryKeys.corpus("own_findings", activeWorkspace?.id),
@@ -40,6 +43,7 @@ export function CompareFeature() {
       peggyApi.compare(f, {
         workspaceId: activeWorkspace?.id,
         sourceTypes: ["literature"],
+        includeLive,
       }),
   });
 
@@ -79,6 +83,10 @@ export function CompareFeature() {
         </FormControl>
         <StatusChip tone="neutral" label={`${Math.max(0, compare.data?.sources?.length ?? 0)} sources`} />
         <div style={{ flex: 1 }} />
+        <FormControlLabel
+          control={<Checkbox checked={includeLive} onChange={(e) => setIncludeLive(e.target.checked)} size="small" />}
+          label="Include live literature (not only this corpus)"
+        />
         <Button
           variant="outlined"
           disabled={!finding.trim() || compare.isPending}

@@ -164,12 +164,12 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV or `sample_datasets`). 02 Dataset overview: admin columns, paginated table, types, descriptives. 03 Analysis guidance: pick participant columns, groups/design, suggested test. Save stores headers/rows in `study_design.analysisTool` (nested in `analysis_plan`). SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset (CSV/TSV/SAV or `sample_datasets`). 02 Dataset overview: admin columns, paginated table, types, descriptives (summaries exclude admin columns). 03 Analysis guidance: pick participant columns, groups/design, suggested test. Save stores headers/rows in `study_design.analysisTool` (nested in `analysis_plan`). SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Our findings | Summary of uploaded findings so far (`GET/POST /workflows/findings-summary`) |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
-| `/results/comparison` | 05 · Comparison | Finding vs ingested literature (not other findings sets) |
+| `/results/comparison` | 05 · Comparison | Finding vs ingested literature; optional live PubMed/OpenAlex/Europe PMC abstracts (`include_live`) |
 | `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. |
 | `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
 | `/chat` | 08 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |

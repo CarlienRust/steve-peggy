@@ -52,7 +52,11 @@ function toLocalInput(iso?: string | null) {
 }
 
 function fromLocalInput(value: string) {
-  return new Date(value).toISOString();
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    throw new Error("Enter a valid date and time");
+  }
+  return d.toISOString();
 }
 
 function monthCells(year: number, month: number) {

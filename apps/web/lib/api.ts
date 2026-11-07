@@ -293,10 +293,16 @@ export function formatApiError(err: unknown): string {
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = await authHeaders();
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: { ...headers, ...init?.headers },
-  });
+  const send = () =>
+    fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: { ...headers, ...init?.headers },
+    });
+  let res = await send();
+  if (res.status === 503) {
+    await new Promise((r) => setTimeout(r, 1500));
+    res = await send();
+  }
   if (!res.ok) {
     const text = await res.text();
     await throwApiError(res, text);
@@ -709,7 +715,7 @@ export const peggyApi = {
 
   compare: (
     finding: string,
-    options?: { sourceTypes?: string[]; workspaceId?: string }
+    options?: { sourceTypes?: string[]; workspaceId?: string; includeLive?: boolean }
   ) =>
     apiFetch<WorkflowResponse>("/workflows/compare", {
       method: "POST",
@@ -717,6 +723,7 @@ export const peggyApi = {
         finding,
         source_types: options?.sourceTypes ?? ["literature", "own_findings", "sample_datasets"],
         workspace_id: options?.workspaceId ?? null,
+        include_live: options?.includeLive ?? false,
       }),
     }),
 
@@ -762,28 +769,6 @@ export const peggyApi = {
     const res = await fetch(`${API_URL}/ingest/upload`, { method: "POST", headers, body: form });
     if (!res.ok) {
       const text = await res.text();
-      // #region agent log
-      fetch("http://127.0.0.1:7290/ingest/db2becdf-6fe6-4671-adb8-08ab727906fc", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "84965e" },
-        body: JSON.stringify({
-          sessionId: "84965e",
-          location: "api.ts:uploadDocument",
-          message: "upload HTTP error",
-          data: {
-            status: res.status,
-            bodyPreview: text.slice(0, 300),
-            workspaceId: options?.workspaceId ?? null,
-            sourceType: options?.sourceType ?? "literature",
-            fileName: file.name,
-            fileSize: file.size,
-          },
-          timestamp: Date.now(),
-          hypothesisId: "E",
-          runId: "pre-fix",
-        }),
-      }).catch(() => {});
-      // #endregion
       await throwApiError(res, text);
     }
     return res.json() as Promise<UploadResponse>;

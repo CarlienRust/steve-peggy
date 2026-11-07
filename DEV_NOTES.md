@@ -132,7 +132,18 @@ ISSUES (2026-03-24 batch 7 — done):
 - **Samples:** PDF, CSV, TSV, SAV (SAV converted to CSV on ingest)
 - **Add objective:** blank draft rows stay in the editor (normalize no longer drops empty text)
 
+## Batch 14 — server api, abstract gen, pdf extration
+
 **Hosted stack:** Render API + Qdrant Cloud (`QDRANT_URL` + `QDRANT_API_KEY`). FastAPI `/docs` off when auth is on. `/setup/checks` requires JWT. In-app banners no longer link public GitHub LOCAL.md. GitHub repo must stay **private** for markdown in `docs/` to stay off the public web.
+- **Conference abstract:** citation fields coerced; Qdrant search failure no longer 500s the generate call
+- **Extract jobs on Postgres:** `create_job` restored (it had been left inside `count_papers` and never ran)
+- **PDF upload console 7290:** leftover debug ingest fetch removed
+- **Comparison:** optional live literature (PubMed / Europe PMC / OpenAlex) besides the corpus
+- **API 503:** one retry after 1.5s (Render cold start)
+- **Calendar create:** empty `workspace_id` treated as none; invalid local datetime rejected in the UI
+- **Analysis summaries:** column summaries omit admin-related columns
+
+
 
 NEXT:
 Full analysis engine (running tests, not only suggesting them)
@@ -141,15 +152,6 @@ FUTURE:
 
 **Still open:**
 - GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
-- Literature **extraction job** 500 (needs API logs)
-- Comparison vs **live internet** (not in corpus yet)
-- 503 login / workspace 500 errors (runtime)
-
-Extraction of pdfs:
-[Error] Fetch API cannot load http://127.0.0.1:7290/ingest/db2becdf-6fe6-4671-adb8-08ab727906fc due to access control checks.
-[Error] Failed to load resource: Could not connect to the server. (db2becdf-6fe6-4671-adb8-08ab727906fc, line 0)
-[Error] Failed to load resource: the server responded with a status of 500 (Internal Server Error) (extract, line 0)
-Interal server error for calendar upload of event
 
 Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
 
@@ -157,6 +159,8 @@ Data/Files already present: Need to plan and execute a way to use files and docu
 
 In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. 
 
-Meeting scheduler
+Meeting scheduler/Doodle
+
+Invite collaborators/share project with other user
 
 Reading journal: PDF view needs to show the document, not plain text from PDF, like a preview of the actual document. 

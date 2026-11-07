@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import datetime, timezone
 
@@ -10,6 +11,8 @@ from core.llm.provider import get_llm
 from core.rag import prompts
 from core.rag.limitation_utils import normalize_limitations
 from core.store import catalog, qdrant_store
+
+logger = logging.getLogger(__name__)
 
 
 def _confidence(sources: list[dict]) -> str:
@@ -206,11 +209,34 @@ async def run_compare(
     source_types: list[str] | None = None,
     user_id: str = "dev-user",
     workspace_id: str | None = None,
+    include_live: bool = False,
 ) -> dict:
     from core.project_context import load_project_context
+    from core.ingest.discovery import discover_literature
 
     st = source_types or ["literature"]
-    sources = qdrant_store.search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id)
+    try:
+        sources = qdrant_store.search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id)
+    except Exception:
+        logger.exception("compare Qdrant search failed")
+        sources = []
+    if include_live:
+        workspace_aim = None
+        if workspace_id:
+            ws = await catalog.get_workspace(user_id, workspace_id)
+            workspace_aim = (ws or {}).get("aim") or None
+        disc = await discover_literature(
+            topic=finding[:400],
+            max_results=20,
+            user_id=user_id,
+            workspace_aim=workspace_aim,
+        )
+        seen = {s.get("pmid") or s.get("title") for s in sources}
+        for extra in _discovery_candidates_to_sources(disc.get("candidates") or []):
+            key = extra.get("pmid") or extra.get("title")
+            if key and key not in seen:
+                sources.append(extra)
+                seen.add(key)
     project_context = await load_project_context(user_id, workspace_id)
     llm = get_llm()
     raw = await llm.complete(
@@ -569,7 +595,16 @@ async def run_conference_abstract(
     raw_points = findings.get("points") or []
     points = [str(p).strip() for p in raw_points if str(p).strip()] if isinstance(raw_points, list) else []
     query = ws.get("aim") or ws.get("title") or "research results"
-    sources = qdrant_store.search(query, source_types=["literature", "own_findings"], user_id=user_id, workspace_id=workspace_id)
+    try:
+        sources = qdrant_store.search(
+            query,
+            source_types=["literature", "own_findings"],
+            user_id=user_id,
+            workspace_id=workspace_id,
+        )
+    except Exception:
+        logger.exception("conference-abstract Qdrant search failed")
+        sources = []
     target = max(100, min(int(min_words), 600))
     llm = get_llm()
     raw = await llm.complete(

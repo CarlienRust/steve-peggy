@@ -47,12 +47,21 @@ async def extract_paper_fields(
     paper_id = int(paper["id"])
     source_type = paper.get("source_type") or "literature"
     title = paper.get("title") or "Untitled"
-    text = qdrant_store.get_paper_text(
-        paper_id=paper_id,
-        source_type=source_type,
-        user_id=user_id,
-        title=title,
-    )
+    try:
+        text = qdrant_store.get_paper_text(
+            paper_id=paper_id,
+            source_type=source_type,
+            user_id=user_id,
+            title=title,
+        )
+    except Exception:
+        return {
+            "paper_id": paper_id,
+            "title": title,
+            "status": "skipped",
+            "reason": "qdrant_unavailable",
+            "fields_written": 0,
+        }
     if not text.strip():
         return {
             "paper_id": paper_id,

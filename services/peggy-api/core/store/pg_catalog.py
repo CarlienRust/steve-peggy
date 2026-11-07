@@ -408,6 +408,9 @@ async def count_papers(user_id: str) -> int:
             user_id,
         )
         return int(row["n"]) if row else 0
+
+
+async def create_job(user_id: str, payload: dict) -> str:
     job_id = str(uuid.uuid4())
     pool = await _pool_conn()
     async with pool.acquire() as conn:

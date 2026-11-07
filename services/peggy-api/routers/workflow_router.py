@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -37,6 +39,7 @@ class CompareRequest(BaseModel):
     finding: str
     workspace_id: Optional[str] = None
     source_types: list[str] = Field(default_factory=lambda: ["literature", "own_findings", "sample_datasets"])
+    include_live: bool = False
 
 
 class FutureDesignRequest(BaseModel):
@@ -91,10 +94,29 @@ class StudyPlanRequest(BaseModel):
 
 
 def _wrap(result: dict) -> WorkflowResponse:
+    sources: list[SourceCitation] = []
+    for raw in result.get("sources") or []:
+        if not isinstance(raw, dict):
+            continue
+        try:
+            sources.append(
+                SourceCitation(
+                    chunk_id=str(raw.get("chunk_id") or ""),
+                    title=str(raw.get("title") or ""),
+                    authors=str(raw.get("authors") or ""),
+                    year="" if raw.get("year") is None else str(raw.get("year")),
+                    excerpt=str(raw.get("excerpt") or ""),
+                    relevance_score=float(raw.get("relevance_score") or 0),
+                    source_type=str(raw.get("source_type") or "literature"),
+                    pmid=None if raw.get("pmid") in (None, "") else str(raw.get("pmid")),
+                )
+            )
+        except (TypeError, ValueError):
+            continue
     return WorkflowResponse(
-        body=result["body"],
-        sources=[SourceCitation(**s) for s in result["sources"]],
-        confidence=result["confidence"],
+        body=result.get("body") or {},
+        sources=sources,
+        confidence=result.get("confidence") or "low",
         limitations=normalize_limitations(result.get("limitations")),
     )
 
@@ -203,6 +225,7 @@ async def compare(body: CompareRequest, user: AuthUser = Depends(get_current_use
             body.source_types,
             user_id=user.id,
             workspace_id=body.workspace_id,
+            include_live=body.include_live,
         )
     )
 

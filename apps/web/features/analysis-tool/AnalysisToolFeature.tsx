@@ -317,6 +317,7 @@ export function AnalysisToolFeature() {
                     value={adminCols}
                     onChange={(_, value) => {
                       setAdminCols(value);
+                      setSummaryCols((prev) => prev.filter((c) => !value.includes(c)));
                       if (outcomeColumn && value.includes(outcomeColumn)) {
                         const next = headers.find((h) => !value.includes(h)) ?? "";
                         setOutcomeColumn(next);
@@ -410,18 +411,23 @@ export function AnalysisToolFeature() {
                   <Autocomplete
                     multiple
                     size="small"
-                    options={headers}
-                    value={summaryCols}
-                    onChange={(_, value) => setSummaryCols(value)}
+                    options={dataHeaders}
+                    value={summaryCols.filter((c) => dataHeaders.includes(c))}
+                    onChange={(_, value) => setSummaryCols(value.filter((c) => !adminCols.includes(c)))}
                     renderTags={(value, getTagProps) =>
                       value.map((option, i) => <Chip {...getTagProps({ index: i })} key={option} label={option} size="small" />)
                     }
                     renderInput={(params) => (
-                      <TextField {...params} label="Column summaries to show" placeholder="Choose columns" />
+                      <TextField
+                        {...params}
+                        label="Column summaries to show"
+                        placeholder="Participant columns only"
+                        helperText="Admin-related columns are excluded."
+                      />
                     )}
                   />
                   {profiles
-                    .filter((p) => summaryCols.includes(p.name))
+                    .filter((p) => summaryCols.includes(p.name) && dataHeaders.includes(p.name))
                     .map((p) => (
                     <Stack key={p.name} spacing={0.5} sx={{ border: 1, borderColor: "divider", borderRadius: 1, p: 1.5 }}>
                       <Stack direction="row" spacing={1} alignItems="center">

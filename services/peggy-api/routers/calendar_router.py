@@ -96,7 +96,8 @@ async def create_event(body: CalendarEventCreate, user: AuthUser = Depends(get_c
     enforce_text_length(body.notes, max_len=4000, label="Notes")
     if body.notes:
         assert_no_phi(body.notes, label="Calendar notes")
-    await _check_workspace(user.id, body.workspace_id)
+    workspace_id = (body.workspace_id or "").strip() or None
+    await _check_workspace(user.id, workspace_id)
     starts_at = _parse_when(body.starts_at, "starts_at")
     ends_at = _parse_when(body.ends_at, "ends_at") if body.ends_at else None
     recurrence = _parse_recurrence(body.recurrence)
@@ -109,7 +110,7 @@ async def create_event(body: CalendarEventCreate, user: AuthUser = Depends(get_c
             "starts_at": starts_at,
             "ends_at": ends_at,
             "notes": body.notes or "",
-            "workspace_id": body.workspace_id,
+            "workspace_id": workspace_id,
             "source_type": body.source_type,
             "source_id": body.source_id,
             "recurrence": recurrence,
