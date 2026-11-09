@@ -97,7 +97,7 @@ export default function NewProjectPage() {
               />
               <ChoiceCard
                 title="Strict (AI help off)"
-                description="Use this only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search and saved records still work. You can switch back to Standard later in project settings."
+                description="Use this only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search and saved records still work. You can switch back to Standard later from your profile menu under Peggy AI settings."
                 selected={privacy === "strict"}
                 onSelect={() => setPrivacy("strict")}
                 tag={{ label: "No project AI", tone: "neutral" }}

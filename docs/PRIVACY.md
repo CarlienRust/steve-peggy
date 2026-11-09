@@ -29,6 +29,8 @@ Analysis table rows stay in IndexedDB on the researcher’s browser (“stored i
 - **standard (default for new projects):** Ask Peggy and planners stay on. Project text may go to the configured provider. Turn off training in that provider account (table below). Peggy cannot verify the setting.
 - **strict (AI help off):** no LLM on class B or D. Retrieval and structured features still run. Use this only when the project must not send aim, plans, findings, or dataset summaries to a hosted model.
 
+Set the mode on create (setup step 4 or New project). Change it later from the profile menu at the bottom of the sidebar: **Peggy AI settings** (after Update profile and Settings). That dialog is per active project. There is no separate project-settings page.
+
 Peggy cannot see your Google (or other) account. Turn off training or activity yourself.
 
 ## Free-tier training opt-out

@@ -16,8 +16,10 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PersonOutlineIcon from "@mui/icons-material/PersonOutline";
+import PsychologyOutlinedIcon from "@mui/icons-material/PsychologyOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
+import { PeggyAiSettingsDialog } from "@/components/PeggyAiSettingsDialog";
 import { monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/authContext";
@@ -50,6 +52,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
   });
 
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const logout = async () => {
     saveActiveWorkspaceId(null);
@@ -107,7 +110,19 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
             </ListItemIcon>
             Settings
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setAiOpen(true);
+            }}
+          >
+            <ListItemIcon>
+              <PsychologyOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            Peggy AI settings
+          </MenuItem>
         </Menu>
+        <PeggyAiSettingsDialog open={aiOpen} onClose={() => setAiOpen(false)} />
         <Tooltip title="Tips for navigation, validate, and chat">
           <Button
             fullWidth
@@ -194,7 +209,19 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
             </ListItemIcon>
             Settings
           </MenuItem>
+          <MenuItem
+            onClick={() => {
+              setMenuAnchor(null);
+              setAiOpen(true);
+            }}
+          >
+            <ListItemIcon>
+              <PsychologyOutlinedIcon fontSize="small" />
+            </ListItemIcon>
+            Peggy AI settings
+          </MenuItem>
         </Menu>
+        <PeggyAiSettingsDialog open={aiOpen} onClose={() => setAiOpen(false)} />
 
         {showSwitchProject ? (
           <Tooltip title="Return to Home and pick another project">

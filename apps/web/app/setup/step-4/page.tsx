@@ -82,7 +82,7 @@ export default function SetupStep4Page() {
               selected={state.privacy_mode === "strict" || state.privacy_mode === "local_only"}
               title="Strict (AI help off)"
               tag={<Chip label="No project AI" size="small" sx={{ borderRadius: 999 }} />}
-              description="Use only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search still works. You can switch to Standard later."
+              description="Use only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search still works. You can switch to Standard later from your profile menu under Peggy AI settings."
               onClick={() => setState({ privacy_mode: "strict" })}
             />
             <ChoiceCard
