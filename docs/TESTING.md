@@ -33,7 +33,7 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_isolation_canary.py` | Qdrant filter includes user + workspace |
 | Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; legacy file migrate + delete |
 | Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
-| Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue |
+| Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue (`workspace_id` required on chat/gap/agent) |
 | Integration | `test_study_design.py` | GET/PATCH study-design; ethics/methods workflows |
 | Integration | `test_upload.py` | PDF upload + duplicate response |
 | Integration | `test_qdrant_search.py` | `query_points` contract; optional live Qdrant |
@@ -59,7 +59,7 @@ pytest -m "not integration"
 
 **Not implemented yet.** Planned: Vitest + React Testing Library for `lib/api.ts`, `SourceCards`, ingest forms.
 
-CI today: `npm run build` only (see `.github/workflows/test.yml`).
+CI today: `npm ci` then `npm run build` (see `.github/workflows/test.yml`). Keep `package-lock.json` in sync with `package.json` (includes `@playwright/test` for `npm run test:e2e`).
 
 ## CI (GitHub Actions)
 

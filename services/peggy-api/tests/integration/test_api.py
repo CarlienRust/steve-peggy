@@ -37,12 +37,22 @@ async def test_ingest_pubmed_queues_job(client):
     assert data["status"] == "queued"
 
 
+async def _create_workspace(client):
+    r = await client.post("/workspaces", json={"title": "Study A", "aim": "Test aim"})
+    assert r.status_code == 200
+    return r.json()["id"]
+
+
 @pytest.mark.asyncio
 async def test_chat_returns_schema(client):
+    ws_id = await _create_workspace(client)
     with patch("core.rag.workflows.qdrant_store.search", return_value=[]):
         with patch("core.rag.workflows.get_llm") as mock_llm:
             mock_llm.return_value.complete = AsyncMock(return_value="Test answer.")
-            r = await client.post("/chat", json={"query": "What is known?", "client_id": "test"})
+            r = await client.post(
+                "/chat",
+                json={"query": "What is known?", "mode": "chat", "workspace_id": ws_id},
+            )
     assert r.status_code == 200
     data = r.json()
     assert data.get("mode") == "chat"
@@ -59,7 +69,10 @@ async def test_gap_analysis_returns_structured_body(client):
             mock_llm.return_value.complete = AsyncMock(
                 return_value='{"gaps": [{"topic": "t", "status": "understudied", "evidence_for": "a", "evidence_against": "b", "suggested_study": "c"}], "summary": "s"}'
             )
-            r = await client.post("/workflows/gap-analysis", json={"query": "microbiome gaps"})
+            r = await client.post(
+                "/workflows/gap-analysis",
+                json={"query": "microbiome gaps", "workspace_id": await _create_workspace(client)},
+            )
     assert r.status_code == 200
     data = r.json()
     assert "body" in data
@@ -77,7 +90,12 @@ async def test_agent_run_returns_schema(client):
         )
         r = await client.post(
             "/agent/run",
-            json={"query": "What is in the corpus?", "session_id": "test-sess", "client_id": "test"},
+            json={
+                "query": "What is in the corpus?",
+                "session_id": "test-sess",
+                "client_id": "test",
+                "workspace_id": await _create_workspace(client),
+            },
         )
     assert r.status_code == 200
     data = r.json()
