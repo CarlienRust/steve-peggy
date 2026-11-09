@@ -20,7 +20,7 @@ export function PageHeader({
   compact = false,
 }: PageHeaderProps) {
   return (
-    <Stack spacing={compact ? 0.75 : 1.5} sx={{ mb: compact ? 2 : 4, width: "100%", maxWidth: compact ? 640 : undefined }}>
+    <Stack spacing={compact ? 0.75 : 1.5} sx={{ mb: compact ? 2 : 4, width: "100%", maxWidth: compact ? 640 : 960 }}>
       {eyebrow && !compact && <Typography sx={eyebrowSx}>{eyebrow}</Typography>}
       <Typography variant={compact ? "h2" : "h1"} sx={compact ? pageTitleCompactSx : pageTitleSx}>
         {title}

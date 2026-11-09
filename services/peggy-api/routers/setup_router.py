@@ -29,7 +29,7 @@ async def setup_checks(_user: AuthUser = Depends(get_current_user)):
             "label": "Qdrant reachable",
             "status": "ok" if qdrant_ok else "error",
             "detail": qdrant_detail or ("ok" if qdrant_ok else "Could not connect to Qdrant"),
-            "fixCommand": "./scripts/start-qdrant.sh",
+            "fixCommand": "" if config.AUTH_REQUIRED else "./scripts/start-qdrant.sh",
         }
     )
 
@@ -66,7 +66,7 @@ async def setup_checks(_user: AuthUser = Depends(get_current_user)):
                 "label": "Ollama reachable",
                 "status": "ok" if ok else "error",
                 "detail": "ok" if ok else "Ollama is not responding on the configured URL",
-                "fixCommand": "ollama serve",
+                "fixCommand": "" if config.AUTH_REQUIRED else "ollama serve",
             }
         )
     else:

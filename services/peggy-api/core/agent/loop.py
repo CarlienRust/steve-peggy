@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
 
+import config
 from core.agent import memory, tools
 from core.agent.memory import ensure_session
 from core.llm.provider import FinalAnswer, LLMProviderError, ToolCall, ToolResponse, get_llm
@@ -143,14 +146,23 @@ async def _agent_events(
 ) -> AsyncIterator[dict]:
     from core.project_context import load_project_context
 
-    await ensure_session(session_id, user_id)
+    await ensure_session(session_id, user_id, workspace_id)
     source_types = source_types or ["literature", "own_findings"]
     ctx = {
         "source_types": source_types,
         "query": query,
         "user_id": user_id,
         "workspace_id": workspace_id,
+        "privacy_mode": "standard",
     }
+    if workspace_id:
+        from core.safety.policy import CLASS_B, set_policy_context
+        from core.store import catalog as _catalog
+
+        ws = await _catalog.get_workspace(user_id, workspace_id)
+        if ws:
+            ctx["privacy_mode"] = ws.get("privacy_mode") or "standard"
+            set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
 
     history = await memory.load(session_id, user_id)
     tool_defs = tools.tool_schemas_for_mode(mode)
@@ -179,6 +191,8 @@ async def _agent_events(
     body: Any = None
     step_num = 0
     truncated = False
+    seen_calls: set[str] = set()
+    token_used = 0
 
     yield {"type": "step_start", "step": 0, "summary": "Planning response"}
 
@@ -220,7 +234,24 @@ async def _agent_events(
         tools_used.append(tool_name)
         yield {"type": "tool_call", "step": step_num, "tool": tool_name, "arguments": response.arguments}
 
-        result = await tools.execute_tool(tool_name, response.arguments, ctx)
+        call_key = hashlib.sha256(
+            f"{tool_name}:{json.dumps(response.arguments, sort_keys=True, default=str)}".encode()
+        ).hexdigest()
+        if call_key in seen_calls:
+            result = {"result": None, "source_ids": [], "confidence": 0.0, "error": "repeat_call"}
+        else:
+            seen_calls.add(call_key)
+            try:
+                result = await asyncio.wait_for(
+                    tools.execute_tool(tool_name, response.arguments, ctx),
+                    timeout=config.AGENT_TOOL_TIMEOUT_SEC,
+                )
+            except asyncio.TimeoutError:
+                result = {"result": None, "source_ids": [], "confidence": 0.0, "error": "timeout"}
+        token_used += len(json.dumps(result, default=str)) // 4
+        if token_used > config.AGENT_TOKEN_BUDGET:
+            truncated = True
+            break
         tool_confidences.append(float(result.get("confidence", 0)))
         if tool_name == "search_corpus":
             chunks = (result.get("result") or {}).get("chunks", [])

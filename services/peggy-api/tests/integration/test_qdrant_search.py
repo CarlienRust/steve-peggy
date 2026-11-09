@@ -11,6 +11,17 @@ import config
 from core.store import qdrant_store
 
 
+def test_search_requires_workspace_id():
+    with pytest.raises(TypeError):
+        qdrant_store.search("q", user_id="u1")  # type: ignore[call-arg]
+
+
+def test_user_filter_always_includes_workspace():
+    f = qdrant_store._user_filter("u1", "w1")
+    keys = [c.key for c in f.must]
+    assert keys == ["user_id", "workspace_id"] or set(keys) >= {"user_id", "workspace_id"}
+
+
 def _scored_point(
     *,
     point_id: str = "pt-1",
@@ -31,6 +42,8 @@ def _scored_point(
             "authors": "Rust et al.",
             "year": "2025",
             "pmid": "12345",
+            "workspace_id": "w1",
+            "user_id": "u1",
         },
     )
 
@@ -67,7 +80,9 @@ def test_search_calls_query_points_not_search(mock_get_client, _mock_embed, _moc
         },
     )
 
-    hits = qdrant_store.search("microbiome diabetes", source_types=["literature"])
+    hits = qdrant_store.search(
+        "microbiome diabetes", source_types=["literature"], user_id="u1", workspace_id="w1"
+    )
 
     mock_get_client.return_value.query_points.assert_called_once()
     mock_get_client.return_value.search.assert_not_called()
@@ -98,7 +113,7 @@ def test_search_merges_source_types_and_sorts_by_score(mock_get_client, _mock_em
         },
     )
 
-    hits = qdrant_store.search("butyrate", limit=5)
+    hits = qdrant_store.search("butyrate", limit=5, user_id="u1", workspace_id="w1")
 
     assert mock_get_client.return_value.query_points.call_count == 2
     assert hits[0]["chunk_id"] == "own-1"
@@ -115,7 +130,9 @@ def test_search_skips_missing_collection(mock_get_client, _mock_embed, _mock_ini
         points_by_collection={config.COLLECTION_LITERATURE: [_scored_point()]},
     )
 
-    hits = qdrant_store.search("query", source_types=["literature", "own_findings"])
+    hits = qdrant_store.search(
+        "query", source_types=["literature", "own_findings"], user_id="u1", workspace_id="w1"
+    )
 
     assert mock_get_client.return_value.query_points.call_count == 1
     assert len(hits) == 1
@@ -139,7 +156,9 @@ def test_search_live_qdrant_when_running(_mock_embed, _mock_init):
     ):
         pytest.skip("peggy_literature collection empty — ingest test PDFs first")
 
-    hits = qdrant_store.search("microbiome", source_types=["literature"], limit=3)
+    hits = qdrant_store.search(
+        "microbiome", source_types=["literature"], limit=3, user_id="u1", workspace_id="w1"
+    )
     assert isinstance(hits, list)
     client = qdrant_store.get_client()
     assert hasattr(client, "query_points")

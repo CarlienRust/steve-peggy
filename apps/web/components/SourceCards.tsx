@@ -34,6 +34,24 @@ export function SourceCards({
             <Typography variant="body2" sx={{ fontWeight: 500 }}>
               {s.title} ({s.year}) — {s.relevance_score.toFixed(2)}
             </Typography>
+            <Stack direction="row" spacing={0.5} sx={{ ml: 1 }} flexWrap="wrap">
+              <Chip
+                size="small"
+                label={
+                  s.is_retracted
+                    ? "Retracted"
+                    : s.peer_review_status === "peer_reviewed"
+                      ? "Peer-reviewed"
+                      : s.peer_review_status === "preprint"
+                        ? "Preprint"
+                        : "Unverified"
+                }
+              />
+              <Chip size="small" variant="outlined" label={s.full_text ? "Full text" : "Abstract only"} />
+              {s.publication_types?.[0] ? (
+                <Chip size="small" variant="outlined" label={s.publication_types[0]} />
+              ) : null}
+            </Stack>
           </AccordionSummary>
           <AccordionDetails>
             <Typography variant="caption" color="text.secondary" display="block">

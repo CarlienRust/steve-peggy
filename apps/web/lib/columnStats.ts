@@ -1,13 +1,20 @@
 export type ColumnKind = "continuous" | "categorical";
 
+export function formatSuppressedCount(n: number, threshold: number): string {
+  if (n > 0 && n < threshold) return `<${threshold}`;
+  return String(n);
+}
+
 export type ColumnProfile = {
   name: string;
   kind: ColumnKind;
   n: number;
   missing: number;
+  missingPercent?: number;
   mean?: number;
   sd?: number;
   median?: number;
+  iqr?: number;
   min?: number;
   max?: number;
   frequencies?: { value: string; count: number }[];
@@ -46,6 +53,14 @@ function median(xs: number[]) {
   const s = [...xs].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+export function iqr(xs: number[]): number | undefined {
+  if (xs.length < 4) return undefined;
+  const s = [...xs].sort((a, b) => a - b);
+  const q1 = median(s.slice(0, Math.floor(s.length / 2)));
+  const q3 = median(s.slice(Math.ceil(s.length / 2)));
+  return q3 - q1;
 }
 
 function histogram(xs: number[], bins = 8): { bin: string; count: number }[] {
@@ -134,6 +149,7 @@ export function profileColumn(name: string, values: string[], kindOverride?: Col
   const missing = values.filter((v) => !v.trim()).length;
   const filled = values.filter((v) => v.trim());
   const kind = kindOverride ?? inferColumnKind(values);
+  const missingPercent = values.length ? (100 * missing) / values.length : 0;
   if (kind === "categorical") {
     const counts = new Map<string, number>();
     for (const v of filled) counts.set(v, (counts.get(v) ?? 0) + 1);
@@ -141,7 +157,7 @@ export function profileColumn(name: string, values: string[], kindOverride?: Col
       .sort((a, b) => b[1] - a[1])
       .slice(0, 20)
       .map(([value, count]) => ({ value, count }));
-    return { name, kind, n: filled.length, missing, frequencies, parametricHint: "na" };
+    return { name, kind, n: filled.length, missing, missingPercent, frequencies, parametricHint: "na" };
   }
   const nums = filled.map(toNumber).filter((n): n is number => n != null);
   const m = nums.length ? mean(nums) : 0;
@@ -156,9 +172,11 @@ export function profileColumn(name: string, values: string[], kindOverride?: Col
     kind,
     n: nums.length,
     missing,
+    missingPercent,
     mean: nums.length ? m : undefined,
     sd: nums.length ? sd(nums, m) : undefined,
     median: nums.length ? med : undefined,
+    iqr: nums.length ? iqr(nums) : undefined,
     min: nums.length ? Math.min(...nums) : undefined,
     max: nums.length ? Math.max(...nums) : undefined,
     histogram: hist,

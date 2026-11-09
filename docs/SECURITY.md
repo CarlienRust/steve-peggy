@@ -6,7 +6,7 @@ Operational security notes for the Peggy API and web app. This is guidance for d
 
 - Production API requires Supabase JWT (`AUTH_REQUIRED=true` on Render).
 - User identity comes from JWT `sub` only — never trust client-supplied user IDs for corpus or agent data.
-- Workspaces are UI context (cookie/localStorage); the API scopes corpus by user, not workspace.
+- Workspaces are required for chat, agent search and planners. Qdrant search filters `user_id` **and** `workspace_id`.
 
 ### 401 responses
 
@@ -34,7 +34,7 @@ User chat text is untrusted. Mitigations:
 - Hourly rate limits on chat and agent ([`core/limits.py`](../services/peggy-api/core/limits.py))
 - `MAX_AGENT_STEPS` caps tool loops
 - `MAX_TEXT_QUERY_LEN` on API entry and tool string args (truncated in `execute_tool`)
-- Qdrant searches filter by authenticated `user_id`
+- Qdrant searches filter by authenticated `user_id` and `workspace_id`
 
 LLM outputs are rendered as plain text in React (no `dangerouslySetInnerHTML`).
 
@@ -58,9 +58,9 @@ Operator markdown in this git repo is only private if the **GitHub repository is
 
 ## Hosted vectors and API (Qdrant Cloud + Render)
 
-Production uses Render for `peggy-api` and Qdrant Cloud for embeddings. Chunks are filtered by JWT `sub` (`user_id` payload). HTTPS Qdrant URLs require `QDRANT_API_KEY` at API startup. Catalog stays on Supabase Postgres with the same user scope.
+Production uses Render for `peggy-api` and Qdrant Cloud for vectors. Chunks are filtered by JWT `sub` (`user_id`) **and** `workspace_id`. HTTPS Qdrant URLs require `QDRANT_API_KEY` at API startup. Catalog stays on Supabase Postgres with the same user and project scope. Render defaults `EMBEDDING_BACKEND=hash` (not semantic). Set `EMBEDDING_BACKEND=gemini` for hosted Gemini embeddings (new 768-d collections, never in-place overwrite). Job endpoints require `JOB_TOKEN`.
 
-Cloud LLM (Gemini on Render) still sends prompt text to Google. Keep identifiable research data out of chat and uploads. Prompts instruct the model not to train on or republish user content; provider account settings still apply.
+Cloud LLM (Gemini on Render) sends prompt text to Google. Unpaid Gemini is allowed; the product reminds you to turn off Keep Activity. It does not block Ask Peggy. `privacy_mode=strict` refuses class B/D LLM calls. `analysisTool.rows` are not stored. Dataset-summary share is also refused on `GEMINI_TIER=unpaid`. Agent tools take user and workspace from the server context only. `debug_agent_log` is gone. See [PRIVACY.md](PRIVACY.md).
 
 ## Original files and sample datasets
 

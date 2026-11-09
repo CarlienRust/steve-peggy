@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -140,6 +140,13 @@ export function HomeAskPeggyFeature({
   const [usedOpen, setUsedOpen] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [sourceChoice, setSourceChoice] = useState<SourceChoice>("both");
+  const abortRef = useRef<AbortController | null>(null);
+
+  const proposalsQuery = useQuery({
+    queryKey: ["agent-proposals", selectedWorkspaceId],
+    queryFn: () => peggyApi.listAgentProposals(selectedWorkspaceId),
+    enabled: !!selectedWorkspaceId,
+  });
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -270,16 +277,20 @@ export function HomeAskPeggyFeature({
       setStepLabel("Starting agent…");
       const sid = sessionId || getSessionId(!!lockedWorkspaceId);
       try {
+        abortRef.current?.abort();
+        abortRef.current = new AbortController();
         for await (const event of peggyApi.agentStream(q, {
           sessionId: sid,
           sourceTypes,
           mode: "auto",
           workspaceId,
+          signal: abortRef.current.signal,
         })) {
           applyStreamEvent(event);
         }
         refreshUsage();
       } catch (err) {
+        if ((err as Error).name === "AbortError") return;
         const message = formatApiError(err);
         setTurns((prev) => [...prev, { id: crypto.randomUUID(), role: "peggy", text: message, error: true }]);
         refreshUsage();
@@ -330,6 +341,11 @@ export function HomeAskPeggyFeature({
   return (
     <Stack spacing={embedded ? 2 : 3}>
       {!embedded && !lockedWorkspaceId ? <LocalDevBanner /> : null}
+      {limitsQuery.data?.llm?.notice ? (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {limitsQuery.data.llm.notice}
+        </Alert>
+      ) : null}
       {!embedded ? (
         <Stack spacing={1}>
           <Typography sx={{ ...eyebrowSx, color: peggyColors.accent }}>ASK PEGGY</Typography>
@@ -528,6 +544,22 @@ export function HomeAskPeggyFeature({
         />
       ) : null}
 
+      {(proposalsQuery.data?.proposals ?? []).filter((p) => p.status === "pending").map((p) => (
+        <Paper key={p.id} variant="outlined" sx={{ p: 1.5 }}>
+          <Typography variant="body2" fontWeight={600}>
+            Proposal: {p.kind}
+          </Typography>
+          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+            <Button size="small" onClick={() => void peggyApi.acceptAgentProposal(p.id).then(() => proposalsQuery.refetch())}>
+              Accept
+            </Button>
+            <Button size="small" onClick={() => void peggyApi.dismissAgentProposal(p.id).then(() => proposalsQuery.refetch())}>
+              Dismiss
+            </Button>
+          </Stack>
+        </Paper>
+      ))}
+
       <Paper variant="outlined" sx={{ p: 2 }}>
         <TextField
           id="peggy-home-chat-query"
@@ -550,6 +582,15 @@ export function HomeAskPeggyFeature({
           <Box sx={{ flex: 1 }} />
           <DisabledTooltipButton title={!query.trim() ? "Type a question first" : quotaExhausted ? "Hourly limit reached" : ""}>
             <span>
+              {agentPending ? (
+                <Button
+                  variant="outlined"
+                  onClick={() => abortRef.current?.abort()}
+                  sx={{ textTransform: "none" }}
+                >
+                  Stop
+                </Button>
+              ) : null}
               <Button variant="contained" disabled={sendDisabled} onClick={handleSend} sx={{ textTransform: "none" }}>
                 {isPending ? <CircularProgress size={22} color="inherit" /> : "Send"}
               </Button>
@@ -564,6 +605,9 @@ export function HomeAskPeggyFeature({
         sources={latestPeggy?.sources ?? agentData?.sources ?? chat.data?.sources ?? []}
         confidence={agentData?.confidence ?? chat.data?.confidence}
         limitations={latestPeggy?.limitations ?? agentData?.limitations ?? chat.data?.limitations}
+        toolsUsed={agentData?.tools_used}
+        steps={agentData?.steps}
+        datasetSummary={Boolean(studyDesign.analysisTool?.sharedAt)}
       />
     </Stack>
   );

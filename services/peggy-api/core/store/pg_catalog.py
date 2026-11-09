@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import asyncpg
@@ -93,39 +93,46 @@ async def find_existing_paper(
     source_type: str = "literature",
     workspace_id: str | None = None,
 ) -> dict | None:
-    """Match Postgres unique indexes (user + source_type + pmid/doi/title), not workspace."""
-    del workspace_id  # listing is workspace-scoped; dedup is user-scoped per DB constraints
     pool = await _pool_conn()
     pmid = (pmid or "").strip()
     doi = (doi or "").strip()
     norm = _norm_title(title)
+    if workspace_id:
+        ws_sql = " AND workspace_id = $4::uuid"
+        ws_val = workspace_id
+    else:
+        ws_sql = " AND workspace_id IS NULL"
+        ws_val = None
     async with pool.acquire() as conn:
         if pmid:
-            row = await conn.fetchrow(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3 LIMIT 1",
-                user_id,
-                source_type,
-                pmid,
-            )
+            args = [user_id, source_type, pmid]
+            sql = "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND pmid = $3" + (
+                " AND workspace_id = $4::uuid" if workspace_id else " AND workspace_id IS NULL"
+            ) + " LIMIT 1"
+            if workspace_id:
+                args.append(ws_val)
+            row = await conn.fetchrow(sql, *args)
             if row:
                 return _row_to_dict(row)
         if doi:
-            row = await conn.fetchrow(
-                "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3 LIMIT 1",
-                user_id,
-                source_type,
-                doi,
-            )
+            args = [user_id, source_type, doi]
+            sql = "SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2 AND doi = $3" + (
+                " AND workspace_id = $4::uuid" if workspace_id else " AND workspace_id IS NULL"
+            ) + " LIMIT 1"
+            if workspace_id:
+                args.append(ws_val)
+            row = await conn.fetchrow(sql, *args)
             if row:
                 return _row_to_dict(row)
         if norm:
-            row = await conn.fetchrow(
-                """SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2
-                   AND lower(trim(title)) = $3 LIMIT 1""",
-                user_id,
-                source_type,
-                norm,
-            )
+            args = [user_id, source_type, norm]
+            sql = """SELECT * FROM papers WHERE user_id = $1::uuid AND source_type = $2
+                   AND lower(trim(title)) = $3""" + (
+                " AND workspace_id = $4::uuid" if workspace_id else " AND workspace_id IS NULL"
+            ) + " LIMIT 1"
+            if workspace_id:
+                args.append(ws_val)
+            row = await conn.fetchrow(sql, *args)
             if row:
                 return _row_to_dict(row)
     return None
@@ -181,6 +188,15 @@ async def record_paper(
         source_type=source_type,
         workspace_id=workspace_id,
     )
+    if not existing and workspace_id:
+        existing = await find_existing_paper(
+            user_id=user_id,
+            pmid=pmid,
+            doi=doi,
+            title=title,
+            source_type=source_type,
+            workspace_id=None,
+        )
     if existing:
         if workspace_id and not existing.get("workspace_id"):
             await _attach_paper_workspace(user_id, int(existing["id"]), workspace_id)
@@ -244,6 +260,15 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
         "storage_key",
         "original_filename",
         "content_type",
+        "publication_types",
+        "peer_review_status",
+        "is_preprint",
+        "is_retracted",
+        "retraction_checked_at",
+        "study_design",
+        "full_text",
+        "abstract",
+        "url",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -494,21 +519,33 @@ async def enqueue_feedback(user_id: str, query: str, response: str, correction: 
         )
 
 
-async def ensure_agent_session(user_id: str, session_id: str) -> None:
+async def ensure_agent_session(user_id: str, session_id: str, workspace_id: str | None = None) -> None:
     pool = await _pool_conn()
+    exp = datetime.now(timezone.utc) + timedelta(days=config.AGENT_SESSION_DAYS)
     async with pool.acquire() as conn:
         await conn.execute(
-            """INSERT INTO agent_sessions (session_id, user_id)
-               VALUES ($1, $2::uuid)
-               ON CONFLICT (session_id) DO NOTHING""",
+            """INSERT INTO agent_sessions (session_id, user_id, workspace_id, expires_at)
+               VALUES ($1, $2::uuid, $3::uuid, $4)
+               ON CONFLICT (session_id) DO UPDATE SET
+                 workspace_id = COALESCE(agent_sessions.workspace_id, EXCLUDED.workspace_id),
+                 expires_at = COALESCE(agent_sessions.expires_at, EXCLUDED.expires_at)""",
             session_id,
             user_id,
+            workspace_id,
+            exp,
         )
 
 
 async def load_agent_messages(user_id: str, session_id: str) -> list[dict]:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
+        exp = await conn.fetchval(
+            "SELECT expires_at FROM agent_sessions WHERE session_id = $1 AND user_id = $2::uuid",
+            session_id,
+            user_id,
+        )
+        if exp is not None and exp < datetime.now(timezone.utc):
+            return []
         rows = await conn.fetch(
             """SELECT m.role, m.content FROM agent_messages m
                JOIN agent_sessions s ON s.session_id = m.session_id
@@ -620,8 +657,9 @@ def _workspace_row(row: asyncpg.Record) -> dict:
                 d[key] = default
         elif val is None:
             d[key] = default
-    if not d.get("privacy_mode"):
-        d["privacy_mode"] = "local_only"
+    from core.safety.policy import normalize_privacy_mode
+
+    d["privacy_mode"] = normalize_privacy_mode(d.get("privacy_mode"))
     sd = d.get("study_design")
     if isinstance(sd, str):
         try:
@@ -680,6 +718,8 @@ async def create_workspace(
     privacy_mode: str | None = None,
     last_opened_at: str | None = None,
 ) -> dict:
+    from core.safety.policy import normalize_privacy_mode
+
     ws_id = str(uuid.uuid4())
     pool = await _pool_conn()
     async with pool.acquire() as conn:
@@ -696,7 +736,7 @@ async def create_workspace(
             json.dumps(resources or {}),
             json.dumps(settings or {}),
             json.dumps(enabled_modules or []),
-            privacy_mode or "local_only",
+            normalize_privacy_mode(privacy_mode),
             last_opened_at,
         )
     return _workspace_row(row)
@@ -717,7 +757,9 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     if aims is None:
         aims = existing.get("aims") or []
     enabled_modules = fields.get("enabled_modules", existing.get("enabled_modules", []))
-    privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
+    from core.safety.policy import normalize_privacy_mode
+
+    privacy_mode = normalize_privacy_mode(fields.get("privacy_mode", existing.get("privacy_mode")))
     last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     if last_opened_at == "":
         last_opened_at = None
@@ -776,6 +818,22 @@ async def append_objective_history(user_id: str, workspace_id: str, entries: lis
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
+        await conn.execute(
+            """DELETE FROM agent_messages WHERE session_id IN (
+                 SELECT session_id FROM agent_sessions WHERE user_id = $1::uuid AND workspace_id = $2::uuid)""",
+            user_id,
+            workspace_id,
+        )
+        await conn.execute(
+            "DELETE FROM agent_sessions WHERE user_id = $1::uuid AND workspace_id = $2::uuid",
+            user_id,
+            workspace_id,
+        )
+        await conn.execute(
+            "DELETE FROM agent_proposals WHERE user_id = $1::uuid AND workspace_id = $2::uuid",
+            user_id,
+            workspace_id,
+        )
         result = await conn.execute(
             "DELETE FROM workspaces WHERE id = $1::uuid AND user_id = $2::uuid",
             workspace_id,
@@ -1423,6 +1481,21 @@ async def update_lab_book_entry(
     return _row_to_dict(row) if row else None
 
 
+async def record_export_audit(
+    user_id: str, workspace_id: str | None, kind: str, nbytes: int
+) -> None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO export_audit (user_id, workspace_id, kind, bytes)
+               VALUES ($1::uuid, $2::uuid, $3, $4)""",
+            user_id,
+            workspace_id,
+            kind,
+            nbytes,
+        )
+
+
 async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
     pool = await _pool_conn()
     async with pool.acquire() as conn:
@@ -1434,3 +1507,67 @@ async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) 
             workspace_id,
         )
     return result.endswith("1")
+
+
+async def insert_notice(user_id: str, workspace_id: str | None, paper_id: int | None, kind: str) -> None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO project_notices (user_id, workspace_id, paper_id, kind)
+               VALUES ($1::uuid, $2::uuid, $3, $4)""",
+            user_id,
+            workspace_id,
+            paper_id,
+            kind,
+        )
+
+
+async def list_notices(user_id: str, workspace_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT * FROM project_notices WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+               ORDER BY created_at DESC""",
+            user_id,
+            workspace_id,
+        )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def insert_agent_proposal(user_id: str, workspace_id: str, kind: str, payload: dict) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO agent_proposals (user_id, workspace_id, kind, payload, status)
+               VALUES ($1::uuid, $2::uuid, $3, $4::jsonb, 'pending') RETURNING *""",
+            user_id,
+            workspace_id,
+            kind,
+            json.dumps(payload),
+        )
+    return _row_to_dict(row)
+
+
+async def list_agent_proposals(user_id: str, workspace_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """SELECT * FROM agent_proposals WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+               ORDER BY created_at DESC""",
+            user_id,
+            workspace_id,
+        )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """UPDATE agent_proposals SET status = $1 WHERE id = $2::uuid AND user_id = $3::uuid
+               RETURNING *""",
+            status,
+            proposal_id,
+            user_id,
+        )
+    return _row_to_dict(row) if row else None

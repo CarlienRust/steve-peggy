@@ -3,11 +3,11 @@
 ## Pyramid
 
 ```
-        E2E (future)     Playwright after auth + deploy
+        E2E              Playwright smokes in apps/web/e2e (skip if API down)
        /         \
   Integration      API routes, upload, live Qdrant (optional)
  /               \
-Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health
+Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis rows, agent tools
 ```
 
 ## Backend (`services/peggy-api/tests/`)
@@ -27,6 +27,10 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health
 | Unit | `test_agent_memory.py` | SQLite session roundtrip |
 | Unit | `test_agent_prompts.py` | `build_agent_system_prompt` |
 | Unit | `test_phi_guard.py` | PHI heuristics and identifiable-samples gate |
+| Unit | `test_policy.py` | `strict` blocks LLM; unpaid Gemini does not |
+| Unit | `test_analysis_tool_rows.py` | Reject/strip `analysisTool.rows` |
+| Unit | `test_no_debug_agent_log.py` | `debug_agent_log` removed |
+| Unit | `test_isolation_canary.py` | Qdrant filter includes user + workspace |
 | Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; legacy file migrate + delete |
 | Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue |
@@ -87,4 +91,4 @@ Env template for Render: [`services/peggy-api/.env.render.example`](../services/
 2. ~~Integration: routes + qdrant search contract~~ (done)
 3. Frontend Vitest for critical paths
 4. Auth tests after [AUTH.md](AUTH.md)
-5. Playwright E2E after deploy
+5. Playwright: `cd apps/web && npx playwright test` (skips if API is down)

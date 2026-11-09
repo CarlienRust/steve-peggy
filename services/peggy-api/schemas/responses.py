@@ -13,6 +13,10 @@ class SourceCitation(BaseModel):
     relevance_score: float = 0.0
     source_type: str = "literature"
     pmid: Optional[str] = None
+    peer_review_status: str = "unknown"
+    publication_types: list[str] = Field(default_factory=list)
+    full_text: bool = False
+    is_retracted: bool = False
 
 
 class WorkflowResponse(BaseModel):

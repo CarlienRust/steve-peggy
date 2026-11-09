@@ -1,0 +1,27 @@
+name: Retraction recheck
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+jobs:
+  recheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call API job
+        env:
+          API_URL: ${{ secrets.PEGGY_API_URL }}
+          JOB_TOKEN: ${{ secrets.PEGGY_JOB_TOKEN }}
+        run: |
+          if [[ -z "$API_URL" || -z "$JOB_TOKEN" ]]; then
+            echo "secrets not set — skip"
+            exit 0
+          fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 60 \
+            -X POST -H "X-Job-Token: $JOB_TOKEN" \
+            "${API_URL%/}/jobs/retraction-recheck")
+          echo "HTTP $code"
+          if [[ "$code" != "200" && "$code" != "202" ]]; then
+            exit 1
+          fi

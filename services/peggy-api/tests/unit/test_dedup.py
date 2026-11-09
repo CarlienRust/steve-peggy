@@ -35,7 +35,7 @@ async def test_record_paper_title_dedup_per_source_type(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_record_paper_finds_duplicate_across_workspace(tmp_path, monkeypatch):
+async def test_record_paper_allows_same_title_in_two_workspaces(tmp_path, monkeypatch):
     db = str(tmp_path / "dedup_ws.db")
     monkeypatch.setattr(catalog.config, "SQLITE_DB", db)
     await catalog.init_catalog(db)
@@ -50,8 +50,8 @@ async def test_record_paper_finds_duplicate_across_workspace(tmp_path, monkeypat
     second = await catalog.record_paper(
         USER, "", "", "Brown 2025 Climate Kenya", "Author", "2025", "literature", workspace_id=ws_b
     )
-    assert second["status"] == "duplicate"
-    assert second["paper_id"] == first["paper_id"]
+    assert second["status"] == "created"
+    assert second["paper_id"] != first["paper_id"]
 
 
 @pytest.mark.asyncio

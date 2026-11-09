@@ -14,6 +14,7 @@
 | [REFERENCES.md](REFERENCES.md) | Evidence base — standards and papers behind Study Design, RAG, and ethics |
 | [DOCKER.md](DOCKER.md) | Optional Compose |
 | [SCALE.md](SCALE.md) | Vercel + Render deploy |
+| [PRIVACY.md](PRIVACY.md) | Hosted data classes, retention, free-tier training opt-out |
 | [SECURITY.md](SECURITY.md) | Auth, Storage, PHI, rate limits |
 | [AUTH.md](AUTH.md) | Supabase Auth (implemented) |
 | [DATABASE.md](DATABASE.md) | SQLite vs Supabase Postgres, migrations |

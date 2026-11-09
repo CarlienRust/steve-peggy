@@ -27,13 +27,21 @@ import { PageHeader } from "@/components/PageHeader";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type TestSelector } from "@/lib/analysisTestSelector";
 import { runSuggestedTest } from "@/lib/analysisRun";
-import { profileTable, type ColumnKind } from "@/lib/columnStats";
+import { formatSuppressedCount, profileTable, type ColumnKind } from "@/lib/columnStats";
 import { parsePastedTable } from "@/lib/parsePastedTable";
 import { looksLikeSavFile, parseSavTable } from "@/lib/parseSavTable";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
+import { defaultAdminColumns, groupSizeWarns, smallestGroupSize } from "@/lib/identifierColumns";
+import { clearAnalysisRows, loadAnalysisRows, saveAnalysisRows } from "@/lib/analysisIdb";
+import { dictionaryCsv } from "@/lib/analysisDictionary";
+import { missingVsPlan } from "@/lib/analysisPlanCheck";
+import { starterPython, starterR } from "@/lib/analysisStarterScript";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { peggyApi } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 
 function kindToOutcome(kind: ColumnKind | undefined): OutcomeType {
   if (kind === "categorical") return "categorical";
@@ -48,10 +56,15 @@ export function AnalysisToolFeature() {
   const blocked = blocksLlmGuidance(studyDesign.samples?.identifierLevel);
   const saved = studyDesign.analysisTool ?? {};
 
-  const [fileName, setFileName] = useState(saved.fileName ?? "");
+  const [fileName, setFileName] = useState("");
+  const [datasetLabel, setDatasetLabel] = useState(saved.label ?? "");
   const [headers, setHeaders] = useState<string[]>(saved.headers ?? []);
-  const [rows, setRows] = useState<string[][]>(saved.rows ?? []);
+  const [rows, setRows] = useState<string[][]>([]);
   const [hydrated, setHydrated] = useState(!!saved.headers?.length);
+  const [cellThreshold, setCellThreshold] = useState(5);
+  const [quasiCols, setQuasiCols] = useState<string[]>([]);
+  const [shareOpen, setShareOpen] = useState(false);
+  const [sharePreview, setSharePreview] = useState("");
   const [search, setSearch] = useState("");
   const [columnFilter, setColumnFilter] = useState("");
   const [parseError, setParseError] = useState<string | null>(null);
@@ -74,17 +87,22 @@ export function AnalysisToolFeature() {
   useEffect(() => {
     if (hydrated) return;
     if (!saved.headers?.length) return;
-    setFileName(saved.fileName ?? "");
+    setDatasetLabel(saved.label ?? "");
     setHeaders(saved.headers);
-    setRows(saved.rows ?? []);
+    setRows([]);
     setAdminCols(saved.adminColumns ?? []);
+    if (activeWorkspace?.id) {
+      void loadAnalysisRows(activeWorkspace.id).then((stored) => {
+        if (stored?.length) setRows(stored);
+      });
+    }
     setSummaryCols(saved.headers.slice(0, Math.min(3, saved.headers.length)));
     const first =
       saved.headers.find((h) => !(saved.adminColumns ?? []).includes(h)) ?? saved.headers[0] ?? "";
     setOutcomeColumn(first);
     if (first) setGuideCols([first]);
     setHydrated(true);
-  }, [hydrated, saved.adminColumns, saved.fileName, saved.headers, saved.rows]);
+  }, [hydrated, saved.adminColumns, saved.label, saved.headers, activeWorkspace?.id]);
 
   const dataHeaders = useMemo(
     () => headers.filter((h) => !adminCols.includes(h)),
@@ -130,9 +148,11 @@ export function AnalysisToolFeature() {
     }
     setDatasetNote(parsed.warning ?? null);
     setFileName(name);
+    setDatasetLabel((prev) => prev || name.replace(/\.[^.]+$/, ""));
     setHeaders(parsed.headers);
     setRows(parsed.rows);
-    setAdminCols([]);
+    setAdminCols(defaultAdminColumns(parsed.headers));
+    if (activeWorkspace?.id) void saveAnalysisRows(activeWorkspace.id, parsed.rows);
     setPage(0);
     setSummaryCols(parsed.headers.slice(0, Math.min(3, parsed.headers.length)));
     const inferred: Record<string, ColumnKind> = {};
@@ -161,17 +181,80 @@ export function AnalysisToolFeature() {
     applyParsed(file.name, parsePastedTable(await file.text()));
   };
 
+  const columnRoles = useMemo(() => {
+    const roles: Record<string, string> = {};
+    for (const h of headers) roles[h] = adminCols.includes(h) ? "admin" : "analysis";
+    return roles;
+  }, [headers, adminCols]);
+
+  const analysisProfiles = useMemo(
+    () => profiles.filter((p) => !adminCols.includes(p.name)),
+    [profiles, adminCols]
+  );
+
+  const aggregates = useMemo(() => {
+    return analysisProfiles.map((p) => ({
+      name: p.name,
+      kind: p.kind,
+      n: p.n,
+      missingPercent: p.missingPercent,
+      mean: p.mean,
+      sd: p.sd,
+      median: p.median,
+      iqr: p.iqr,
+      frequencies: (p.frequencies ?? []).map((f) => ({
+        value: f.value,
+        count: formatSuppressedCount(f.count, cellThreshold),
+      })),
+    }));
+  }, [analysisProfiles, cellThreshold]);
+
+  const coverage = useQuery({
+    queryKey: ["confounder-audit", activeWorkspace?.id],
+    queryFn: () => peggyApi.getConfounderAudit(activeWorkspace!.id),
+    enabled: !!activeWorkspace?.id,
+  });
+
+  const planGaps = useMemo(() => {
+    const planText = [
+      studyDesign.analysisPlan?.userPlan,
+      ...(studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title)),
+    ]
+      .filter(Boolean)
+      .join("\n");
+    const items = coverage.data?.items ?? [];
+    const similarN = items.reduce((a, b) => a + b.papers, 0) || items.length;
+    return missingVsPlan(
+      headers.filter((h) => !adminCols.includes(h)),
+      planText,
+      items,
+      similarN || 6
+    );
+  }, [studyDesign.analysisPlan, coverage.data, headers, adminCols]);
+
   const saveMeta = () => {
     const columnTypes: Record<string, ColumnKind> = {};
     for (const p of profiles) columnTypes[p.name] = p.kind;
     void commitSection("analysisTool", {
-      fileName,
+      label: datasetLabel.trim() || "Dataset",
       headers,
-      rows,
+      columnRoles,
       columnTypes,
+      aggregates,
       adminColumns: adminCols,
       lastSelector: selector,
+      cellThreshold,
     });
+  };
+
+  const downloadBlob = (name: string, text: string) => {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const fileInput = (
@@ -229,7 +312,7 @@ export function AnalysisToolFeature() {
               Upload dataset
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Drag and drop or browse files. CSV, TSV, or SPSS SAV. Save configuration to keep the file on this project.
+              CSV, TSV, or SPSS SAV. Table rows stay in this browser only. Save stores the dataset label, headers, roles, types, and aggregates. No rows go to the server.
             </Typography>
             <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
               <Button component="label" variant="contained" disabled={blocked}>
@@ -240,10 +323,27 @@ export function AnalysisToolFeature() {
           </Paper>
           {parseError ? <Alert severity="error" sx={{ mt: 1.5 }}>{parseError}</Alert> : null}
           {datasetNote ? <Alert severity="info" sx={{ mt: 1.5 }}>{datasetNote}</Alert> : null}
-          {fileName ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Loaded: {fileName} ({rows.length} rows). Click Save configuration to store this dataset on the project.
-            </Typography>
+          <TextField
+            size="small"
+            label="Dataset label"
+            value={datasetLabel}
+            onChange={(e) => setDatasetLabel(e.target.value)}
+            sx={{ mt: 1.5, maxWidth: 360 }}
+          />
+          {rows.length ? (
+            <Alert severity="info" sx={{ mt: 1.5 }}>
+              Table stored in this browser only ({rows.length} rows{fileName ? `, from ${fileName}` : ""}).
+              <Button
+                size="small"
+                sx={{ ml: 1, textTransform: "none" }}
+                onClick={() => {
+                  setRows([]);
+                  if (activeWorkspace?.id) void clearAnalysisRows(activeWorkspace.id);
+                }}
+              >
+                Clear
+              </Button>
+            </Alert>
           ) : null}
         </Box>
 
@@ -280,9 +380,41 @@ export function AnalysisToolFeature() {
                     )}
                   />
                   <Typography variant="body2" color="text.secondary">
-                    Outcome and suggested tests use participant columns only ({dataHeaders.length} of {headers.length}).
-                    Admin columns stay in the table.
+                    Identifier-like headers are tagged admin and excluded from statistics. You can change the list.
+                    Outcome and tests use analysis columns only ({dataHeaders.length} of {headers.length}).
                   </Typography>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                    <TextField
+                      size="small"
+                      type="number"
+                      label="Small-cell threshold"
+                      value={cellThreshold}
+                      onChange={(e) => setCellThreshold(Math.max(1, Number(e.target.value) || 5))}
+                      sx={{ width: 180 }}
+                    />
+                    <Autocomplete
+                      multiple
+                      size="small"
+                      options={dataHeaders}
+                      value={quasiCols}
+                      onChange={(_, v) => setQuasiCols(v)}
+                      sx={{ minWidth: 260, flex: 1 }}
+                      renderInput={(params) => (
+                        <TextField {...params} label="Quasi-identifiers for group size" placeholder="age band, sex, site" />
+                      )}
+                    />
+                  </Stack>
+                  {groupSizeWarns(
+                    smallestGroupSize(
+                      rows,
+                      quasiCols.map((c) => headers.indexOf(c)).filter((i) => i >= 0)
+                    ),
+                    cellThreshold
+                  ) ? (
+                    <Alert severity="warning">
+                      Smallest group size is below {cellThreshold}. Consider broader bands or fewer quasi-identifiers.
+                    </Alert>
+                  ) : null}
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <TextField
                       size="small"
@@ -391,10 +523,11 @@ export function AnalysisToolFeature() {
                       </Stack>
                       {p.kind === "continuous" ? (
                         <Typography variant="body2">
-                          n={p.n} missing={p.missing}
+                          n={p.n} missing={p.missingPercent != null ? `${p.missingPercent.toFixed(1)}%` : p.missing}
                           {p.mean != null ? ` mean=${p.mean.toFixed(3)}` : ""}
                           {p.sd != null ? ` sd=${p.sd.toFixed(3)}` : ""}
                           {p.median != null ? ` median=${p.median.toFixed(3)}` : ""}
+                          {p.iqr != null ? ` IQR=${p.iqr.toFixed(3)}` : ""}
                           {p.min != null ? ` min=${p.min}` : ""}
                           {p.max != null ? ` max=${p.max}` : ""}
                           {p.shapiroW != null ? ` Shapiro-like W'=${p.shapiroW.toFixed(3)}` : ""}
@@ -403,15 +536,32 @@ export function AnalysisToolFeature() {
                       ) : (
                         <Stack spacing={0.5}>
                           <Typography variant="body2">
-                            n={p.n} missing={p.missing}. Categories: {(p.frequencies ?? []).length}.
+                            n={p.n} missing={p.missingPercent != null ? `${p.missingPercent.toFixed(1)}%` : p.missing}. Categories: {(p.frequencies ?? []).length}.
                           </Typography>
                           {(p.frequencies ?? []).map((f) => (
                             <Typography key={f.value} variant="body2">
-                              {f.value || "(blank)"} — {f.count} ({p.n ? ((100 * f.count) / p.n).toFixed(1) : "0"}%)
+                              {f.value || "(blank)"} — {formatSuppressedCount(f.count, cellThreshold)}
+                              {p.n ? ` (${((100 * f.count) / p.n).toFixed(1)}%)` : ""}
                             </Typography>
                           ))}
                         </Stack>
                       )}
+                      {p.histogram?.length ? (
+                        <Stack direction="row" spacing={0.25} alignItems="flex-end" sx={{ height: 40, mt: 0.5 }}>
+                          {p.histogram.map((b) => (
+                            <Box
+                              key={b.bin}
+                              title={`${b.bin}: ${formatSuppressedCount(b.count, cellThreshold)}`}
+                              sx={{
+                                flex: 1,
+                                bgcolor: "primary.main",
+                                opacity: 0.7,
+                                height: `${Math.max(4, (100 * b.count) / Math.max(...p.histogram!.map((x) => x.count), 1))}%`,
+                              }}
+                            />
+                          ))}
+                        </Stack>
+                      ) : null}
                     </Stack>
                   ))}
                 </>
@@ -528,10 +678,97 @@ export function AnalysisToolFeature() {
           </Paper>
         </Box>
 
-        <Button variant="contained" sx={{ alignSelf: "flex-start" }} disabled={isSaving} onClick={saveMeta}>
-          {isSaving ? "Saving…" : "Save configuration"}
-        </Button>
+        {planGaps.length ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography fontWeight={600} sx={{ mb: 1 }}>
+              Check against the analysis plan
+            </Typography>
+            {planGaps.map((g) => (
+              <Typography key={g} variant="body2">
+                {g}
+              </Typography>
+            ))}
+          </Paper>
+        ) : null}
+
+        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          <Button variant="contained" disabled={isSaving} onClick={saveMeta}>
+            {isSaving ? "Saving…" : "Save configuration"}
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!headers.length}
+            onClick={() =>
+              downloadBlob(
+                "data-dictionary.csv",
+                dictionaryCsv(headers, columnRoles, Object.fromEntries(profiles.map((p) => [p.name, p.kind])), profiles, cellThreshold, adminCols)
+              )
+            }
+          >
+            Export dictionary CSV
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!headers.length}
+            onClick={() =>
+              downloadBlob(
+                "starter.py",
+                starterPython(
+                  headers.filter((h) => !adminCols.includes(h)),
+                  columnRoles,
+                  (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+                )
+              )
+            }
+          >
+            Python starter
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!headers.length}
+            onClick={() =>
+              downloadBlob(
+                "starter.R",
+                starterR(
+                  headers.filter((h) => !adminCols.includes(h)),
+                  columnRoles,
+                  (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+                )
+              )
+            }
+          >
+            R starter
+          </Button>
+          <Button
+            variant="outlined"
+            disabled={!headers.length}
+            onClick={() => {
+              setSharePreview(JSON.stringify({ label: datasetLabel, headers: headers.filter((h) => !adminCols.includes(h)), columnRoles, aggregates }, null, 2));
+              setShareOpen(true);
+            }}
+          >
+            Share summary with Peggy
+          </Button>
+        </Stack>
       </Stack>
+      <ConfirmDialog
+        open={shareOpen}
+        title="Share dataset summary?"
+        body={`This sends class D aggregates only (no rows). Preview:\n${sharePreview.slice(0, 800)}`}
+        confirmLabel="Share"
+        onCancel={() => setShareOpen(false)}
+        onConfirm={() => {
+          if (!activeWorkspace?.id) return;
+          void peggyApi
+            .shareDatasetSummary(activeWorkspace.id, {
+              label: datasetLabel,
+              headers: headers.filter((h) => !adminCols.includes(h)),
+              columnRoles,
+              aggregates,
+            })
+            .then(() => setShareOpen(false));
+        }}
+      />
     </>
   );
 }

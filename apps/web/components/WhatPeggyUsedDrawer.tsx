@@ -14,12 +14,18 @@ export function WhatPeggyUsedDrawer({
   sources,
   confidence,
   limitations,
+  toolsUsed,
+  steps,
+  datasetSummary,
 }: {
   open: boolean;
   onClose: () => void;
   sources: SourceCitation[];
   confidence?: string;
   limitations?: string[];
+  toolsUsed?: string[];
+  steps?: { step?: number; tool?: string | null; summary?: string }[];
+  datasetSummary?: boolean;
 }) {
   return (
     <Drawer
@@ -45,6 +51,21 @@ export function WhatPeggyUsedDrawer({
       </Box>
 
       <Box sx={{ px: 2, py: 2, overflow: "auto", flex: 1 }}>
+        {datasetSummary ? (
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Dataset summary, aggregates only
+          </Typography>
+        ) : null}
+        {toolsUsed?.length ? (
+          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+            Tools: {toolsUsed.join(", ")}
+          </Typography>
+        ) : null}
+        {steps?.map((s, i) => (
+          <Typography key={`${s.step}-${i}`} variant="caption" display="block">
+            Step {s.step}: {s.tool || s.summary}
+          </Typography>
+        ))}
         <SourceCards sources={sources} confidence={confidence} limitations={limitations} />
       </Box>
 

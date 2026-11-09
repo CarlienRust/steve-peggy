@@ -57,5 +57,8 @@ async def search_openalex(query: str, max_results: int = 25) -> list[dict[str, A
             "year": int(year) if year else None,
             "source": "openalex",
             "authors": "",
+            "openalex_type": item.get("type"),
+            "is_retracted": bool(item.get("is_retracted")),
+            "url": (item.get("primary_location") or {}).get("landing_page_url") or "",
         })
     return papers

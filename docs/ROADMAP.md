@@ -8,6 +8,8 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 
 - [ ] **Smoke** — `./scripts/smoke-local.sh` with `AUTH_REQUIRED=false` when testing solo
 - [ ] **Extraction benchmark** — `scripts/benchmark-extraction.py` when gold PDFs exist
+- [ ] **Planner form reshuffle (3.4)** — deferred
+- [ ] **Retrieval eval on gold** — `scripts/eval-retrieval.py`; target recall@5 ≥ 0.6 / @10 ≥ 0.75; hash baseline may miss; sparse BM25 only if Gemini misses
 - [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)
 - [ ] **GitHub OAuth env** — [ENV.md](ENV.md) if project README sync is needed
 
@@ -24,6 +26,11 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 |------|-------|
 | Phase 2A (evidence schema) | `extractions` table (migration 012), module JSON (`core` + `outcomes`), CRUD API, SQLite + Postgres catalog |
 | Phase 2B (extraction job) | `POST /workflows/extract`, batch size 2, benchmark script, skips confirmed/corrected fields on re-run |
+| Phase 2 evidence labels | Migration 025, `classify_peer_review` default unknown, retraction filter, citation_check, Gemini embed option, weekly retraction job |
+| Phase 4 analysis tool | Rows in IndexedDB only; identifier/admin; small-cell; dictionary CSV; class D share blocked on unpaid+strict |
+| Phase 5 agent | ToolContext (no model user/project ids); propose-not-write; 026 proposals; eval gold not yet run |
+| Phase 3 hub + corpus | `/projects/new`, ProjectHub cards, corpus CSV formula guard, hosted setup status, Playwright smokes, objective-changed flags |
+| Phase 1 privacy (hosted) | `strict`/`standard` privacy mode, required `workspace_id` on search, no stored `analysisTool.rows`, project purge + account delete, PHI on chat/ingest/headers, daily LLM token cap, [PRIVACY.md](PRIVACY.md) |
 | Phase 1 (Jan launch prep) | Section hubs, explicit Save on planners/proposal, findings merge, workspace isolation, quick scan labels, objective delete confirm + orphan warning, per-objective/project tasks on dashboard |
 | Validate section | `/validate/*` — gap analysis, literature, validate aim (replaces old ingest/gaps routes) |
 | Objective-linked roadmap | Stable objective IDs, plan steps, finding tags, dashboard per-objective progress |

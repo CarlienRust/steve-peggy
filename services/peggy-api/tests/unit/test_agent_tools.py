@@ -8,7 +8,11 @@ from core.agent import tools
 async def test_search_corpus_mock():
     fake_hits = [{"chunk_id": "c1", "title": "T", "relevance_score": 0.8, "excerpt": "x"}]
     with patch("core.agent.tools.qdrant_store.search", return_value=fake_hits):
-        out = await tools.execute_tool("search_corpus", {"query": "diabetes"}, {"source_types": ["literature"]})
+        out = await tools.execute_tool(
+            "search_corpus",
+            {"query": "diabetes"},
+            {"source_types": ["literature"], "workspace_id": "w1"},
+        )
     assert out["source_ids"] == ["c1"]
     assert out["result"]["count"] == 1
     assert out["error"] is None

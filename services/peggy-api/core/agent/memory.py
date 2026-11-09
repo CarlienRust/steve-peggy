@@ -21,8 +21,8 @@ def _estimate_tokens(messages: list[dict]) -> int:
     return total
 
 
-async def ensure_session(session_id: str, user_id: str = "dev-user") -> None:
-    await catalog.ensure_agent_session(user_id, session_id)
+async def ensure_session(session_id: str, user_id: str = "dev-user", workspace_id: str | None = None) -> None:
+    await catalog.ensure_agent_session(user_id, session_id, workspace_id)
 
 
 async def load(session_id: str, user_id: str = "dev-user") -> list[dict]:
@@ -43,6 +43,9 @@ async def summarise_if_long(messages: list[dict]) -> list[dict]:
     recent = rest[-4:]
     if not older:
         return messages
+    from core.safety.policy import CLASS_B, assert_can_send
+
+    assert_can_send([CLASS_B])
     llm = get_llm()
     older_text = json.dumps(older, default=str)[:10000]
     summary = await llm.complete(

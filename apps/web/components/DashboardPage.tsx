@@ -60,7 +60,7 @@ export function DashboardPage() {
   const literatureCount = countLiterature(papers);
 
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
-  const embeddingsOk = health.data?.embeddings === "sentence-transformers";
+  const embeddingsOk = Boolean(health.data?.embeddings && health.data.embeddings !== "uninitialized");
   const serviceDown = !!health.data && (!health.data.qdrant || !llmReady || !embeddingsOk);
 
   const samples = studyDesign.samples ?? {};
@@ -115,7 +115,15 @@ export function DashboardPage() {
       </Stack>
 
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 3 }} useFlexGap>
-        {isAuthOptional() ? <StatusChip label="Your data stays on this computer" tone="neutral" /> : null}
+        {isAuthOptional() ? <StatusChip label="Solo local: SQLite on this machine" tone="neutral" /> : null}
+        {activeWorkspace?.privacy_mode === "strict" ? (
+          <StatusChip label="Strict (AI help off)" tone="warning" />
+        ) : activeWorkspace ? (
+          <StatusChip label="Standard (hosted AI)" tone="neutral" />
+        ) : null}
+        {health.data?.gemini_tier ? (
+          <StatusChip label={`Gemini ${health.data.gemini_tier}`} tone="neutral" />
+        ) : null}
         <Typography variant="body2" color="text.secondary">
           {samples.studyType ? String(samples.studyType) : "Human-subjects study"}
         </Typography>
@@ -160,6 +168,16 @@ export function DashboardPage() {
                 ? `Objective ${firstChangedObjective.index} changed after its method was written. Check that the link still fits.`
                 : "Check that your objectives still match the methods and analysis steps you have written."}
             </Typography>
+            {objectivesNormalized.length > 0 ? (
+              <Stack spacing={0.5} sx={{ mb: 2 }}>
+                {objectivesNormalized.map((o, i) => (
+                  <Typography key={o.id} variant="caption" color="text.secondary">
+                    Objective {i + 1}: {o.status}
+                    {changedObjectiveIds.includes(o.id) ? " · linked work needs review" : ""}
+                  </Typography>
+                ))}
+              </Stack>
+            ) : null}
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               <Button variant="contained" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/validate/aim")}>
                 Edit objectives

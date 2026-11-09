@@ -16,12 +16,15 @@ QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 PORT = int(os.getenv("PORT", "8000"))
 EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-VECTOR_SIZE = 384
+GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
 
 _LLM_DEFAULT = "gemini" if os.getenv("RENDER") else "ollama"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", _LLM_DEFAULT).lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_TIER = os.getenv("GEMINI_TIER", "unpaid").strip().lower() or "unpaid"
+DEMO_MODE = os.getenv("DEMO_MODE", "false").lower() in ("1", "true", "yes")
+DEMO_WORKSPACE_ID = os.getenv("DEMO_WORKSPACE_ID", "")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
 
@@ -62,6 +65,13 @@ CORS_ORIGINS = [
 # On Render (512MB RAM), default to hash embeddings to avoid OOM from sentence-transformers.
 _EMBEDDING_DEFAULT = "hash" if os.getenv("RENDER") else "auto"
 EMBEDDING_BACKEND = os.getenv("EMBEDDING_BACKEND", _EMBEDDING_DEFAULT).lower()
+# Gemini text-embedding-004 is 768-d. MiniLM/hash stay 384. Never reuse a collection across sizes.
+if EMBEDDING_BACKEND == "gemini":
+    VECTOR_SIZE = int(os.getenv("VECTOR_SIZE", "768"))
+else:
+    VECTOR_SIZE = int(os.getenv("VECTOR_SIZE", "384"))
+RETRIEVAL_RECALL_AT_5_TARGET = float(os.getenv("RETRIEVAL_RECALL_AT_5_TARGET", "0.6"))
+RETRIEVAL_RECALL_AT_10_TARGET = float(os.getenv("RETRIEVAL_RECALL_AT_10_TARGET", "0.75"))
 
 MAX_PAPERS_PER_USER = int(os.getenv("MAX_PAPERS_PER_USER", "200"))
 MAX_WORKSPACES_PER_USER = int(os.getenv("MAX_WORKSPACES_PER_USER", "10"))
@@ -73,12 +83,18 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(5 * 1024 * 1024)))
 MAX_TEXT_QUERY_LEN = int(os.getenv("MAX_TEXT_QUERY_LEN", "4000"))
 MAX_STUDY_PLAN_LEN = int(os.getenv("MAX_STUDY_PLAN_LEN", "20000"))
 MAX_AGENT_STEPS = int(os.getenv("MAX_AGENT_STEPS", "5"))
+AGENT_TOKEN_BUDGET = int(os.getenv("AGENT_TOKEN_BUDGET", "8000"))
+AGENT_TOOL_TIMEOUT_SEC = int(os.getenv("AGENT_TOOL_TIMEOUT_SEC", "45"))
+AGENT_SESSION_DAYS = int(os.getenv("AGENT_SESSION_DAYS", "30"))
 
 RATE_LIMIT_CHAT_PER_HOUR = int(os.getenv("RATE_LIMIT_CHAT_PER_HOUR", "30"))
 RATE_LIMIT_AGENT_PER_HOUR = int(os.getenv("RATE_LIMIT_AGENT_PER_HOUR", "15"))
 RATE_LIMIT_INGEST_PER_HOUR = int(os.getenv("RATE_LIMIT_INGEST_PER_HOUR", "20"))
 RATE_LIMIT_DISCOVER_PER_HOUR = int(os.getenv("RATE_LIMIT_DISCOVER_PER_HOUR", "20"))
 RATE_LIMIT_WORKFLOW_PER_HOUR = int(os.getenv("RATE_LIMIT_WORKFLOW_PER_HOUR", "15"))
+MAX_LLM_TOKENS_PER_DAY = int(os.getenv("MAX_LLM_TOKENS_PER_DAY", "200000"))
+PHI_ID_PATTERNS = os.getenv("PHI_ID_PATTERNS", "")
+JOB_TOKEN = os.getenv("JOB_TOKEN", "")
 
 # Structured extraction (Phase 2B)
 EXTRACTION_BATCH_SIZE = int(os.getenv("EXTRACTION_BATCH_SIZE", "2"))

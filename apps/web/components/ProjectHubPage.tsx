@@ -11,22 +11,19 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  IconButton,
   Paper,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
-import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import OpenInNewIcon from "@mui/icons-material/OpenInNew";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
-import { eyebrowSx, peggyColors } from "@/theme/peggyTheme";
+import { eyebrowSx } from "@/theme/peggyTheme";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { ProjectCard } from "@/components/ProjectCard";
 
 export function ProjectHubPage() {
   const router = useRouter();
@@ -103,7 +100,7 @@ export function ProjectHubPage() {
             </Box>
             <Button
               variant="contained"
-              onClick={() => router.push("/setup/step-1")}
+              onClick={() => router.push("/projects/new")}
               sx={{ textTransform: "none", flexShrink: 0 }}
             >
               + New project
@@ -129,52 +126,20 @@ export function ProjectHubPage() {
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
                 Create a project to ingest literature, plan your study, and ask Peggy with project context.
               </Typography>
-              <Button variant="contained" onClick={() => router.push("/setup/step-1")} sx={{ textTransform: "none" }}>
+              <Button variant="contained" onClick={() => router.push("/projects/new")} sx={{ textTransform: "none" }}>
                 + New project
               </Button>
             </Paper>
           ) : (
             <Stack spacing={2}>
               {workspaces.map((ws) => (
-                <Paper
+                <ProjectCard
                   key={ws.id}
-                  onClick={() => openProject(ws.id)}
-                  sx={{
-                    p: 2.5,
-                    border: 1,
-                    borderColor: "divider",
-                    cursor: "pointer",
-                    "&:hover": { borderColor: peggyColors.primary, bgcolor: "action.hover" },
-                  }}
-                >
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" gap={2}>
-                    <Box sx={{ minWidth: 0, flex: 1 }}>
-                      <Typography fontWeight={600} noWrap>
-                        {ws.title}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {ws.privacy_mode === "hosted_allowed" ? "Hosted allowed" : "Local only"}
-                        {ws.last_opened_at ? ` · Last opened ${new Date(ws.last_opened_at).toLocaleDateString()}` : ""}
-                      </Typography>
-                    </Box>
-                    <Stack direction="row" spacing={0.5} alignItems="center" flexShrink={0} onClick={(e) => e.stopPropagation()}>
-                      <IconButton size="small" aria-label="Open project" onClick={() => openProject(ws.id)}>
-                        <OpenInNewIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" aria-label="Rename project" onClick={() => openRename(ws.id, ws.title)}>
-                        <EditOutlinedIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" aria-label="Delete project" onClick={() => setDeleteId(ws.id)}>
-                        <DeleteOutlineIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </Stack>
-                  {ws.aim && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
-                      {ws.aim}
-                    </Typography>
-                  )}
-                </Paper>
+                  workspace={ws}
+                  onOpen={() => openProject(ws.id)}
+                  onRename={() => openRename(ws.id, ws.title)}
+                  onDelete={() => setDeleteId(ws.id)}
+                />
               ))}
             </Stack>
           )}

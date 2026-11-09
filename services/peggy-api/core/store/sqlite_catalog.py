@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import aiosqlite
 
@@ -181,6 +181,9 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_user_calendar_events(db)
         await _migrate_lab_book_entries(db)
         await _migrate_papers_storage(db)
+        await _migrate_privacy_024(db)
+        await _migrate_evidence_025(db)
+        await _migrate_agent_026(db)
         await db.commit()
 
 
@@ -218,7 +221,7 @@ async def _migrate_workspace_project_fields(db: aiosqlite.Connection) -> None:
         ("resources", "'{}'"),
         ("settings", "'{}'"),
         ("enabled_modules", "'[]'"),
-        ("privacy_mode", "'local_only'"),
+        ("privacy_mode", "'standard'"),
         ("last_opened_at", "NULL"),
     ):
         try:
@@ -431,6 +434,85 @@ async def _migrate_papers_storage(db: aiosqlite.Connection) -> None:
             pass
 
 
+async def _migrate_privacy_024(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE workspaces ADD COLUMN deleting INTEGER NOT NULL DEFAULT 0")
+    except Exception:
+        pass
+    await db.execute(
+        """UPDATE workspaces SET privacy_mode = 'strict'
+           WHERE privacy_mode IN ('local_only', 'strict')"""
+    )
+    await db.execute(
+        """UPDATE workspaces SET privacy_mode = 'standard'
+           WHERE privacy_mode IN ('hosted_allowed', 'standard') OR privacy_mode IS NULL OR privacy_mode = ''"""
+    )
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS export_audit (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            workspace_id TEXT,
+            kind TEXT NOT NULL,
+            bytes INTEGER,
+            created_at TEXT
+        )"""
+    )
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS ai_consent (
+            user_id TEXT PRIMARY KEY,
+            accepted_at TEXT NOT NULL,
+            training_opt_out_acknowledged INTEGER NOT NULL DEFAULT 0
+        )"""
+    )
+
+
+async def _migrate_evidence_025(db: aiosqlite.Connection) -> None:
+    for col, default in (
+        ("publication_types", "'[]'"),
+        ("peer_review_status", "'unknown'"),
+        ("is_preprint", "0"),
+        ("is_retracted", "0"),
+        ("retraction_checked_at", "NULL"),
+        ("study_design", "''"),
+        ("full_text", "0"),
+        ("abstract", "''"),
+        ("url", "''"),
+    ):
+        try:
+            await db.execute(f"ALTER TABLE papers ADD COLUMN {col} TEXT DEFAULT {default}")
+        except Exception:
+            pass
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS project_notices (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            workspace_id TEXT,
+            paper_id INTEGER,
+            kind TEXT NOT NULL,
+            created_at TEXT
+        )"""
+    )
+
+
+async def _migrate_agent_026(db: aiosqlite.Connection) -> None:
+    for col in ("workspace_id", "expires_at"):
+        try:
+            await db.execute(f"ALTER TABLE agent_sessions ADD COLUMN {col} TEXT")
+        except Exception:
+            pass
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS agent_proposals (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            kind TEXT NOT NULL,
+            payload TEXT NOT NULL DEFAULT '{}',
+            status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT
+        )"""
+    )
+
+
 def _parse_study_design(d: dict) -> dict:
     from core.study_design_merge import normalize_study_design
 
@@ -466,8 +548,9 @@ def _workspace_dict(row: aiosqlite.Row | dict) -> dict:
                 d[key] = default
         except Exception:
             d[key] = default
-    if not d.get("privacy_mode"):
-        d["privacy_mode"] = "local_only"
+    from core.safety.policy import normalize_privacy_mode
+
+    d["privacy_mode"] = normalize_privacy_mode(d.get("privacy_mode"))
     d["study_design"] = _parse_study_design(d)
     from core.aims import hydrate_workspace_aims
 
@@ -502,33 +585,35 @@ async def find_existing_paper(
     source_type: str = "literature",
     workspace_id: str | None = None,
 ) -> dict | None:
-    """Dedup is user-scoped (matches Postgres unique indexes), not workspace-scoped."""
-    del workspace_id
     pmid = (pmid or "").strip()
     doi = (doi or "").strip()
     norm = _norm_title(title)
+    if workspace_id:
+        ws_sql, ws_args = " AND workspace_id = ?", (workspace_id,)
+    else:
+        ws_sql, ws_args = " AND workspace_id IS NULL", ()
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
         if pmid:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ? LIMIT 1",
-                (user_id, source_type, pmid),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND pmid = ?" + ws_sql + " LIMIT 1",
+                (user_id, source_type, pmid, *ws_args),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if doi:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ? LIMIT 1",
-                (user_id, source_type, doi),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND doi = ?" + ws_sql + " LIMIT 1",
+                (user_id, source_type, doi, *ws_args),
             )
             row = await cur.fetchone()
             if row:
                 return dict(row)
         if norm:
             cur = await db.execute(
-                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ? LIMIT 1",
-                (user_id, source_type, norm),
+                "SELECT * FROM papers WHERE user_id = ? AND source_type = ? AND LOWER(TRIM(title)) = ?" + ws_sql + " LIMIT 1",
+                (user_id, source_type, norm, *ws_args),
             )
             row = await cur.fetchone()
             if row:
@@ -589,6 +674,15 @@ async def record_paper(
         source_type=source_type,
         workspace_id=workspace_id,
     )
+    if not existing and workspace_id:
+        existing = await find_existing_paper(
+            user_id=user_id,
+            pmid=pmid,
+            doi=doi,
+            title=title,
+            source_type=source_type,
+            workspace_id=None,
+        )
     if existing:
         if workspace_id and not existing.get("workspace_id"):
             await _attach_paper_workspace(user_id, int(existing["id"]), workspace_id)
@@ -636,6 +730,15 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
         "storage_key",
         "original_filename",
         "content_type",
+        "publication_types",
+        "peer_review_status",
+        "is_preprint",
+        "is_retracted",
+        "retraction_checked_at",
+        "study_design",
+        "full_text",
+        "abstract",
+        "url",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
@@ -831,8 +934,9 @@ async def enqueue_feedback(user_id: str, query: str, response: str, correction: 
         await db.commit()
 
 
-async def ensure_agent_session(user_id: str, session_id: str) -> None:
-    now = datetime.now(timezone.utc).isoformat()
+async def ensure_agent_session(user_id: str, session_id: str, workspace_id: str | None = None) -> None:
+    now = datetime.now(timezone.utc)
+    exp = (now + timedelta(days=config.AGENT_SESSION_DAYS)).isoformat()
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         cur = await db.execute(
             "SELECT session_id FROM agent_sessions WHERE session_id = ? AND user_id = ?",
@@ -840,8 +944,15 @@ async def ensure_agent_session(user_id: str, session_id: str) -> None:
         )
         if not await cur.fetchone():
             await db.execute(
-                "INSERT INTO agent_sessions (session_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
-                (session_id, user_id, now, now),
+                """INSERT INTO agent_sessions (session_id, user_id, created_at, updated_at, workspace_id, expires_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (session_id, user_id, now.isoformat(), now.isoformat(), workspace_id, exp),
+            )
+            await db.commit()
+        elif workspace_id:
+            await db.execute(
+                "UPDATE agent_sessions SET workspace_id = COALESCE(workspace_id, ?), expires_at = COALESCE(expires_at, ?) WHERE session_id = ? AND user_id = ?",
+                (workspace_id, exp, session_id, user_id),
             )
             await db.commit()
 
@@ -849,6 +960,17 @@ async def ensure_agent_session(user_id: str, session_id: str) -> None:
 async def load_agent_messages(user_id: str, session_id: str) -> list[dict]:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT expires_at FROM agent_sessions WHERE session_id = ? AND user_id = ?",
+            (session_id, user_id),
+        )
+        sess = await cur.fetchone()
+        if sess and sess["expires_at"]:
+            try:
+                if datetime.fromisoformat(str(sess["expires_at"]).replace("Z", "+00:00")) < datetime.now(timezone.utc):
+                    return []
+            except ValueError:
+                pass
         cur = await db.execute(
             """SELECT m.role, m.content FROM agent_messages m
                JOIN agent_sessions s ON s.session_id = m.session_id
@@ -979,7 +1101,9 @@ async def create_workspace(
     settings_json = json.dumps(settings or {})
     aims_json = json.dumps((settings or {}).get("aims") or [])
     modules_json = json.dumps(enabled_modules or [])
-    pmode = privacy_mode or "local_only"
+    from core.safety.policy import normalize_privacy_mode
+
+    pmode = normalize_privacy_mode(privacy_mode)
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
             """INSERT INTO workspaces (
@@ -1010,7 +1134,11 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     resources_json = json.dumps(fields.get("resources", existing.get("resources", {})))
     settings_json = json.dumps(settings_payload)
     modules_json = json.dumps(fields.get("enabled_modules", existing.get("enabled_modules", [])))
-    privacy_mode = fields.get("privacy_mode", existing.get("privacy_mode", "local_only"))
+    from core.safety.policy import normalize_privacy_mode
+
+    privacy_mode = normalize_privacy_mode(
+        fields.get("privacy_mode", existing.get("privacy_mode"))
+    )
     last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
@@ -1128,6 +1256,18 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
 
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            "DELETE FROM agent_messages WHERE session_id IN (SELECT session_id FROM agent_sessions WHERE user_id = ? AND workspace_id = ?)",
+            (user_id, workspace_id),
+        )
+        await db.execute(
+            "DELETE FROM agent_sessions WHERE user_id = ? AND workspace_id = ?",
+            (user_id, workspace_id),
+        )
+        await db.execute(
+            "DELETE FROM agent_proposals WHERE user_id = ? AND workspace_id = ?",
+            (user_id, workspace_id),
+        )
         cur = await db.execute(
             "DELETE FROM workspaces WHERE id = ? AND user_id = ?",
             (workspace_id, user_id),
@@ -1685,6 +1825,25 @@ async def update_lab_book_entry(
     return dict(row) if row else None
 
 
+async def record_export_audit(
+    user_id: str, workspace_id: str | None, kind: str, nbytes: int
+) -> None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO export_audit (id, user_id, workspace_id, kind, bytes, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                str(uuid.uuid4()),
+                user_id,
+                workspace_id,
+                kind,
+                nbytes,
+                datetime.now(timezone.utc).isoformat(),
+            ),
+        )
+        await db.commit()
+
+
 async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         cur = await db.execute(
@@ -1694,3 +1853,81 @@ async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) 
         )
         await db.commit()
         return cur.rowcount > 0
+
+
+async def insert_notice(user_id: str, workspace_id: str | None, paper_id: int | None, kind: str) -> None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO project_notices (id, user_id, workspace_id, paper_id, kind, created_at)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (str(uuid.uuid4()), user_id, workspace_id, paper_id, kind, datetime.now(timezone.utc).isoformat()),
+        )
+        await db.commit()
+
+
+async def list_notices(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """SELECT * FROM project_notices WHERE user_id = ? AND workspace_id = ?
+               ORDER BY created_at DESC""",
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    return [dict(r) for r in rows]
+
+
+async def insert_agent_proposal(user_id: str, workspace_id: str, kind: str, payload: dict) -> dict:
+    pid = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO agent_proposals (id, user_id, workspace_id, kind, payload, status, created_at)
+               VALUES (?, ?, ?, ?, ?, 'pending', ?)""",
+            (pid, user_id, workspace_id, kind, json.dumps(payload), now),
+        )
+        await db.commit()
+    return {"id": pid, "kind": kind, "payload": payload, "status": "pending", "workspace_id": workspace_id}
+
+
+async def list_agent_proposals(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            """SELECT * FROM agent_proposals WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC""",
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["payload"] = json.loads(d.get("payload") or "{}")
+        except json.JSONDecodeError:
+            d["payload"] = {}
+        out.append(d)
+    return out
+
+
+async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM agent_proposals WHERE id = ? AND user_id = ?",
+            (proposal_id, user_id),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        await db.execute(
+            "UPDATE agent_proposals SET status = ? WHERE id = ? AND user_id = ?",
+            (status, proposal_id, user_id),
+        )
+        await db.commit()
+    d = dict(row)
+    try:
+        d["payload"] = json.loads(d.get("payload") or "{}")
+    except json.JSONDecodeError:
+        d["payload"] = {}
+    d["status"] = status
+    return d

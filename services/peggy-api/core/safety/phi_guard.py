@@ -6,6 +6,8 @@ import re
 
 from fastapi import HTTPException
 
+import config
+
 _EMAIL = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
 _PHONE = re.compile(r"\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}\b")
 _MRN = re.compile(r"\b(?:MRN|medical record|patient id|hospital number)[:\s#]*[\w-]{4,}\b", re.I)
@@ -20,6 +22,13 @@ def phi_risk_flags(text: str) -> list[str]:
     if not text or not text.strip():
         return []
     flags: list[str] = []
+    extra = (config.PHI_ID_PATTERNS or "").strip()
+    if extra:
+        try:
+            if re.search(extra, text):
+                flags.append("configured_id_pattern")
+        except re.error:
+            pass
     if _EMAIL.search(text):
         flags.append("email")
     if _PHONE.search(text):
@@ -42,8 +51,8 @@ def assert_no_phi(text: str, *, label: str = "Text") -> None:
             status_code=413,
             detail={
                 "message": (
-                    f"{label} may contain identifiable patient information ({', '.join(flags)}). "
-                    "Use general descriptions only. Confirm ethics approval before uploading sensitive data."
+                    f"{label} looks like participant-level data ({', '.join(flags)}). "
+                    "Do not paste names, IDs, or other identifiers. Use general descriptions only."
                 ),
                 "code": "phi_detected",
                 "flags": flags,

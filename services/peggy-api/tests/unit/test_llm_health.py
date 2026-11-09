@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import config
 from core.llm.health import is_llm_configured, is_llm_reachable, ollama_reachable
-from core.llm.provider import GeminiProvider, get_llm
+from core.llm.provider import GeminiProvider, PolicyWrappedProvider, get_llm
 
 
 def test_is_llm_configured_ollama():
@@ -21,7 +21,9 @@ def test_is_llm_configured_gemini_requires_key():
 
 def test_get_llm_returns_gemini():
     with patch.object(config, "LLM_PROVIDER", "gemini"):
-        assert isinstance(get_llm(), GeminiProvider)
+        llm = get_llm()
+        assert isinstance(llm, PolicyWrappedProvider)
+        assert isinstance(llm._inner, GeminiProvider)
 
 
 @pytest.mark.asyncio

@@ -125,10 +125,11 @@ def _wrap(result: dict) -> WorkflowResponse:
 async def gap_analysis(body: GapRequest, user: AuthUser = Depends(get_current_user)):
     enforce_text_length(body.query, label="Query")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
-    if body.workspace_id:
-        ws = await catalog.get_workspace(user.id, body.workspace_id)
-        if not ws:
-            raise HTTPException(404, "Workspace not found")
+    if not body.workspace_id:
+        raise HTTPException(400, "Select a project before asking Peggy.")
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
     return _wrap(
         await run_gap_analysis(
             body.query,
@@ -214,10 +215,11 @@ async def conference_abstract(body: ConferenceAbstractRequest, user: AuthUser = 
 @router.post("/compare", response_model=WorkflowResponse)
 async def compare(body: CompareRequest, user: AuthUser = Depends(get_current_user)):
     enforce_text_length(body.finding, label="Finding")
-    if body.workspace_id:
-        ws = await catalog.get_workspace(user.id, body.workspace_id)
-        if not ws:
-            raise HTTPException(404, "Workspace not found")
+    if not body.workspace_id:
+        raise HTTPException(400, "Select a project before asking Peggy.")
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
     return _wrap(
         await run_compare(
@@ -444,3 +446,67 @@ async def refresh_findings_summary(
         raise HTTPException(404, "Workspace not found")
     await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
     return await run_findings_summary(user.id, workspace_id)
+
+
+class IdeaFromResourcesRequest(BaseModel):
+    workspace_id: str
+
+
+@router.post("/idea-from-resources", response_model=WorkflowResponse)
+async def idea_from_resources(body: IdeaFromResourcesRequest, user: AuthUser = Depends(get_current_user)):
+    from core.rag.workflows import run_idea_from_resources
+
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    return _wrap(await run_idea_from_resources(user.id, body.workspace_id))
+
+
+class DatasetSummaryRequest(BaseModel):
+    workspace_id: str
+    label: str = ""
+    headers: list[str] = Field(default_factory=list)
+    columnRoles: dict = Field(default_factory=dict)
+    aggregates: list = Field(default_factory=list)
+    rows: Optional[list] = None
+
+
+@router.post("/dataset-summary", response_model=WorkflowResponse)
+async def dataset_summary(body: DatasetSummaryRequest, user: AuthUser = Depends(get_current_user)):
+    from datetime import datetime, timezone
+
+    from core.safety.policy import CLASS_D, PolicyDenied, assert_can_send, set_policy_context
+
+    if body.rows:
+        raise HTTPException(400, "rows cannot be sent. Share aggregates only.")
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    if (config.GEMINI_TIER or "").lower() == "unpaid":
+        raise HTTPException(403, "Dataset summary share is off on the unpaid Gemini tier.")
+    set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_D], user_id=user.id)
+    try:
+        assert_can_send([CLASS_D], workspace=ws)
+    except PolicyDenied:
+        raise
+    now = datetime.now(timezone.utc).isoformat()
+    await catalog.patch_study_design(
+        user.id,
+        body.workspace_id,
+        {
+            "analysisTool": {
+                "label": body.label,
+                "headers": body.headers,
+                "columnRoles": body.columnRoles,
+                "aggregates": body.aggregates,
+                "sharedAt": now,
+            }
+        },
+    )
+    return WorkflowResponse(
+        body={"sharedAt": now, "label": body.label},
+        sources=[],
+        confidence="low",
+        limitations=["Dataset summary, aggregates only"],
+    )

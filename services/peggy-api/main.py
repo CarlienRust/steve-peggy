@@ -15,6 +15,7 @@ from core.llm.provider import LLMProviderError
 from core.store.catalog import init_catalog
 from core.store.qdrant_store import ensure_collections, get_client
 from routers import (
+    account_router,
     agent_router,
     calendar_router,
     chat_router,
@@ -23,6 +24,7 @@ from routers import (
     feedback_router,
     github_router,
     ingest_router,
+    jobs_router,
     lab_book_router,
     limits_router,
     profile_router,
@@ -34,7 +36,10 @@ from routers import (
 
 async def _warm_up_services() -> None:
     try:
+        from core.store.qdrant_store import ensure_payload_indexes
+
         await asyncio.wait_for(asyncio.to_thread(ensure_collections), timeout=20)
+        await asyncio.wait_for(asyncio.to_thread(ensure_payload_indexes), timeout=20)
         from core.store.qdrant_store import _init_embedder, embedding_mode
 
         _init_embedder()
@@ -126,6 +131,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
 
 
 app.include_router(limits_router.router)
+app.include_router(account_router.router)
 app.include_router(ingest_router.router)
 app.include_router(ingest_router.discover_router)
 app.include_router(agent_router.router)
@@ -141,6 +147,7 @@ app.include_router(github_router.router)
 app.include_router(setup_router.router)
 app.include_router(calendar_router.router)
 app.include_router(lab_book_router.router)
+app.include_router(jobs_router.router)
 
 
 @app.get("/health")
@@ -164,13 +171,19 @@ async def health():
     llm_reachable = await is_llm_reachable()
     ollama_ok = await ollama_reachable() if config.LLM_PROVIDER == "ollama" else None
 
+    db_ok = bool(config.DATABASE_URL) or bool(config.SQLITE_DB)
+    storage_ok = bool(config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY) or True
     return {
         "status": "ok",
         "qdrant": qdrant_ok,
+        "database": db_ok,
+        "storage": storage_ok,
         "llm_provider": config.LLM_PROVIDER,
+        "gemini_tier": config.GEMINI_TIER,
         "llm_configured": llm_configured,
         "llm_reachable": llm_reachable,
         "ollama_reachable": ollama_ok,
         "embeddings": embedding_mode(),
+        "embedding_backend": config.EMBEDDING_BACKEND,
         "limits": limits_snapshot(),
     }

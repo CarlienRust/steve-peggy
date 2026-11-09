@@ -32,8 +32,11 @@ Guiding principles:
 {_SECURITY_RULES}
 
 Always cite retrieved source excerpts by chunk_id when making claims.
+Weigh study design (trial, cohort, cross-sectional, case series, review).
+Say when a source is a preprint, abstract only, or thin.
 State limitations when evidence is indirect or populations differ.
-Never invent citations not present in the context."""
+Never invent citations not present in the context.
+Never call a source peer-reviewed unless its label says peer_reviewed."""
 
 
 def build_agent_system_prompt(mode: str, tool_defs: list[dict]) -> str:
@@ -69,13 +72,25 @@ Termination: {agent.get('termination', 'When you have enough evidence, respond w
 Never ingest papers automatically. search_pubmed returns PMIDs only."""
 
 
+def _source_label(s: dict) -> str:
+    status = s.get("peer_review_status") or "unknown"
+    types = s.get("publication_types") or []
+    if isinstance(types, str):
+        types = [types]
+    kind = ", ".join(str(t) for t in types[:2]) if types else "unspecified type"
+    year = s.get("year") or ""
+    ft = "full text" if s.get("full_text") else "abstract only"
+    retracted = ", retracted" if s.get("is_retracted") else ""
+    return f"{status}, {kind}, {year}, {ft}{retracted}"
+
+
 def format_context(sources: list[dict]) -> str:
     if not sources:
         return "No retrieved sources."
     parts = []
-    for s in sources:
+    for i, s in enumerate(sources, start=1):
         parts.append(
-            f"[chunk_id={s['chunk_id']}] {s.get('title', '')} ({s.get('year', '')}) "
+            f"[{i}] {_source_label(s)} [chunk_id={s.get('chunk_id')}] {s.get('title', '')} "
             f"— {s.get('excerpt', '')}"
         )
     return "\n\n".join(parts)
@@ -103,7 +118,7 @@ def gap_analysis_prompt(
 Optional project context (do not require gaps to match this study's methods or sample):
 {project_context}
 """
-    return f"""Retrieved corpus (peer-reviewed literature):
+    return f"""Retrieved corpus (labels are per source; do not assume peer review):
 {format_context(sources)}
 {project_block}
 Research focus / question: {query}

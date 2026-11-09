@@ -17,6 +17,7 @@ When adding or changing features **or defining new project concepts** (data shap
 | Tests or CI | Also [docs/TESTING.md](docs/TESTING.md) |
 | Study Design claims or methodology copy | Also [docs/REFERENCES.md](docs/REFERENCES.md) |
 | Auth / Postgres / deploy | Also [docs/AUTH.md](docs/AUTH.md), [docs/DATABASE.md](docs/DATABASE.md), [docs/SCALE.md](docs/SCALE.md) |
+| Privacy / data classes / provider training | Also [docs/PRIVACY.md](docs/PRIVACY.md), [docs/SECURITY.md](docs/SECURITY.md) |
 | New `.cursor/rules` or standing conventions | Extend the matching doc section; add a row to this table if the change type is new |
 
 Do not add redundant docs; extend existing files. Index: [docs/README.md](docs/README.md).

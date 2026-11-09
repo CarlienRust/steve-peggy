@@ -54,5 +54,11 @@ async def search_europe_pmc(query: str, max_results: int = 20) -> list[dict[str,
             "year": year,
             "source": "europe_pmc",
             "authors": item.get("authorString") or "",
+            "europe_pmc_source": item.get("source") or "",
+            "publication_types": [item.get("pubType")] if item.get("pubType") else [],
+            "is_preprint": str(item.get("source") or "").upper() in {"PPR", "PREPRINT"},
+            "url": item.get("fullTextUrlList", {}).get("fullTextUrl", [{}])[0].get("url", "")
+            if isinstance(item.get("fullTextUrlList"), dict)
+            else "",
         })
     return papers

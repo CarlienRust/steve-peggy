@@ -21,6 +21,8 @@ class PaperRecord:
     abstract: str
     doi: str = ""
     journal: str = ""
+    publication_types: list[str] | None = None
+    url: str = ""
 
 
 def _base_params() -> dict:
@@ -94,6 +96,11 @@ def _parse_pubmed_xml(xml_text: str, pmid: str) -> PaperRecord | None:
             doi = id_el.text
     journal_el = article.find(".//Journal/Title")
     journal = "".join(journal_el.itertext()).strip() if journal_el is not None else ""
+    pub_types = [
+        "".join(el.itertext()).strip()
+        for el in article.findall(".//PublicationType")
+        if "".join(el.itertext()).strip()
+    ]
     return PaperRecord(
         pmid=pmid,
         title=title,
@@ -102,4 +109,6 @@ def _parse_pubmed_xml(xml_text: str, pmid: str) -> PaperRecord | None:
         abstract=abstract,
         doi=doi,
         journal=journal,
+        publication_types=pub_types,
+        url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
     )

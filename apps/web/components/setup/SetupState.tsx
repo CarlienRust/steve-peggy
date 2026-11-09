@@ -3,7 +3,7 @@
 import { createContext, PropsWithChildren, useContext, useMemo, useState } from "react";
 import type { WorkspaceObjective } from "@/lib/objectives";
 
-export type SetupPrivacyMode = "local_only" | "hosted_allowed";
+export type SetupPrivacyMode = "strict" | "standard" | "local_only" | "hosted_allowed";
 export type SetupStartMode = "idea" | "gap" | "resources";
 
 export type SetupState = {
@@ -30,7 +30,7 @@ const DEFAULT_STATE: SetupState = {
   resources: {},
   settings: {},
   enabled_modules: ["core"],
-  privacy_mode: "local_only",
+  privacy_mode: "standard",
 };
 
 export function SetupStateProvider({ children }: PropsWithChildren) {

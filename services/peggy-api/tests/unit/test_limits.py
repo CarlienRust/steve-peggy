@@ -41,6 +41,7 @@ def test_limits_snapshot_keys():
     snap = limits_snapshot()
     assert snap["max_papers_per_user"] == config.MAX_PAPERS_PER_USER
     assert "rate_limits_per_hour" in snap
+    assert "max_llm_tokens_per_day" in snap
 
 
 @pytest.mark.asyncio

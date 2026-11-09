@@ -24,7 +24,7 @@ class WorkspaceCreate(BaseModel):
     resources: dict[str, Any] = Field(default_factory=dict)
     settings: dict[str, Any] = Field(default_factory=dict)
     enabled_modules: list[str] = Field(default_factory=list)
-    privacy_mode: str = Field(default="local_only")
+    privacy_mode: str = Field(default="standard")
     last_opened_at: Optional[str] = None
 
 
@@ -245,10 +245,14 @@ async def update_workspace(
 
 @router.delete("/{workspace_id}")
 async def delete_workspace(workspace_id: str, user: AuthUser = Depends(get_current_user)):
-    ok = await catalog.delete_workspace(user.id, workspace_id)
-    if not ok:
+    from core.purge import purge_workspace
+    from core.workspace_guard import assert_workspace_owner
+
+    await assert_workspace_owner(user.id, workspace_id)
+    counts = await purge_workspace(user.id, workspace_id)
+    if not counts.get("workspace"):
         raise HTTPException(404, "Workspace not found")
-    return {"status": "deleted", "id": workspace_id}
+    return {"status": "deleted", "id": workspace_id, "counts": counts}
 
 
 class StudyDesignPatch(BaseModel):
@@ -352,6 +356,24 @@ async def workspace_coverage(
     return result
 
 
+@router.get("/{workspace_id}/confounder-audit")
+async def confounder_audit(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    from core.rag.evidence_counts import confounder_audit as audit
+    from core.workspace_guard import assert_workspace_owner
+
+    await assert_workspace_owner(user.id, workspace_id)
+    rows = await catalog.list_extractions(user.id, workspace_id)
+    return {"items": audit(rows)}
+
+
+@router.get("/{workspace_id}/notices")
+async def list_notices(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    from core.workspace_guard import assert_workspace_owner
+
+    await assert_workspace_owner(user.id, workspace_id)
+    return {"notices": await catalog.list_notices(user.id, workspace_id)}
+
+
 def _paper_export_row(paper: dict) -> dict:
     keys = (
         "id",
@@ -399,12 +421,19 @@ async def export_workspace(workspace_id: str, user: AuthUser = Depends(get_curre
 
 
 @router.get("/{workspace_id}/transfer-pack")
-async def download_transfer_pack(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+async def download_transfer_pack(
+    workspace_id: str,
+    user: AuthUser = Depends(get_current_user),
+    include_files: bool = True,
+):
+    from core.limits import enforce_user_rate
     from core.transfer_pack import build_zip
     from core.workspace_guard import assert_workspace_owner
 
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
     ws = await assert_workspace_owner(user.id, workspace_id)
-    raw = await build_zip(user.id, workspace_id, ws)
+    raw = await build_zip(user.id, workspace_id, ws, include_files=include_files)
+    await catalog.record_export_audit(user.id, workspace_id, "transfer-pack", len(raw))
     slug = "".join(c if c.isalnum() or c in "-_" else "-" for c in (ws.get("title") or "project"))[:48]
     return Response(
         content=raw,
@@ -457,6 +486,9 @@ async def patch_study_design(
         assert_study_design_budget_safe(patch["budget"])
     if patch.get("ethics", {}).get("notes"):
         assert_no_phi(str(patch["ethics"]["notes"]), label="Ethics notes")
+    headers = (patch.get("analysisTool") or {}).get("headers")
+    if headers:
+        assert_no_phi(" ".join(str(h) for h in headers), label="Analysis headers")
     merged = await catalog.patch_study_design(user.id, workspace_id, patch)
     if merged is None:
         raise HTTPException(404, "Workspace not found")

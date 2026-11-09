@@ -32,6 +32,10 @@ export type SourceCitation = {
   relevance_score: number;
   source_type: string;
   pmid?: string | null;
+  peer_review_status?: string;
+  publication_types?: string[];
+  full_text?: boolean;
+  is_retracted?: boolean;
 };
 
 export type ChatMode = "auto" | "chat" | "gap_analysis" | "compare";
@@ -114,7 +118,7 @@ export type Workspace = {
   resources?: Record<string, unknown>;
   settings?: Record<string, unknown>;
   enabled_modules?: string[];
-  privacy_mode?: "local_only" | "hosted_allowed";
+  privacy_mode?: "strict" | "standard" | "local_only" | "hosted_allowed";
   last_opened_at?: string | null;
   github_repo_owner?: string | null;
   github_repo_name?: string | null;
@@ -199,6 +203,12 @@ export type TierLimits = {
     model: string;
     free_tier?: boolean;
     notice?: string;
+    gemini_tier?: string;
+    training_opt_out?: {
+      code: string;
+      hosted: boolean;
+      message: string;
+    };
   };
 };
 
@@ -331,6 +341,13 @@ export type PaperRecord = {
   storage_key?: string | null;
   original_filename?: string | null;
   content_type?: string | null;
+  peer_review_status?: string;
+  publication_types?: string[] | string;
+  is_preprint?: boolean;
+  is_retracted?: boolean;
+  abstract?: string;
+  url?: string;
+  full_text?: boolean;
 };
 
 export type CalendarEventKind =
@@ -404,6 +421,10 @@ export const peggyApi = {
       llm_reachable?: boolean;
       ollama_reachable?: boolean | null;
       embeddings?: string;
+      embedding_backend?: string;
+      gemini_tier?: string;
+      database?: boolean;
+      storage?: boolean;
       limits?: TierLimits;
     }>("/health"),
 
@@ -606,12 +627,19 @@ export const peggyApi = {
 
   agentStream: async function* (
     query: string,
-    options: { sessionId: string; sourceTypes?: string[]; mode?: ChatMode; workspaceId?: string }
+    options: {
+      sessionId: string;
+      sourceTypes?: string[];
+      mode?: ChatMode;
+      workspaceId?: string;
+      signal?: AbortSignal;
+    }
   ): AsyncGenerator<AgentStreamEvent> {
     const headers = await authHeaders();
     const res = await fetch(`${API_URL}/agent/stream`, {
       method: "POST",
       headers,
+      signal: options.signal,
       body: JSON.stringify({
         query,
         session_id: options.sessionId,
@@ -842,10 +870,36 @@ export const peggyApi = {
     resources?: Record<string, unknown>;
     settings?: Record<string, unknown>;
     enabled_modules?: string[];
-    privacy_mode?: "local_only" | "hosted_allowed";
+    privacy_mode?: "strict" | "standard" | "local_only" | "hosted_allowed";
     last_opened_at?: string | null;
   }) =>
     apiFetch<Workspace>("/workspaces", { method: "POST", body: JSON.stringify(body) }),
+
+  ideaFromResources: (workspaceId: string) =>
+    apiFetch<WorkflowResponse>("/workflows/idea-from-resources", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId }),
+    }),
+
+  getConfounderAudit: (workspaceId: string) =>
+    apiFetch<{ items: { covariate: string; papers: number }[] }>(`/workspaces/${workspaceId}/confounder-audit`),
+
+  shareDatasetSummary: (
+    workspaceId: string,
+    body: { label: string; headers: string[]; columnRoles: Record<string, string>; aggregates: unknown }
+  ) =>
+    apiFetch<WorkflowResponse>("/workflows/dataset-summary", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId, ...body }),
+    }),
+
+  listAgentProposals: (workspaceId: string) =>
+    apiFetch<{ proposals: { id: string; kind: string; payload: Record<string, unknown>; status: string }[] }>(
+      `/agent/proposals?workspace_id=${encodeURIComponent(workspaceId)}`
+    ),
+
+  acceptAgentProposal: (id: string) => apiFetch<Record<string, unknown>>(`/agent/proposals/${id}/accept`, { method: "POST" }),
+  dismissAgentProposal: (id: string) => apiFetch<Record<string, unknown>>(`/agent/proposals/${id}/dismiss`, { method: "POST" }),
 
   updateWorkspace: (
     id: string,
@@ -857,7 +911,7 @@ export const peggyApi = {
       resources: Record<string, unknown>;
       settings: Record<string, unknown>;
       enabled_modules: string[];
-      privacy_mode: "local_only" | "hosted_allowed";
+      privacy_mode: "strict" | "standard" | "local_only" | "hosted_allowed";
       last_opened_at: string | null;
       objective_history_reason: string;
       objective_history_actor: "user" | "peggy";

@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `023_papers_storage.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `026_agent_proposals.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -68,7 +68,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `013_workspace_project_fields.sql` adds Figma-aligned project fields on `workspaces`:
 - `resources JSONB`, `settings JSONB`, `enabled_modules JSONB`
-- `privacy_mode TEXT` (`local_only` | `hosted_allowed`)
+- `privacy_mode TEXT` (`strict` | `standard`; migration `024` maps `local_only` → `strict`, `hosted_allowed` → `standard`)
 - optional `last_opened_at TIMESTAMPTZ` (project hub cards)
 
 `014_objective_history.sql` creates `objective_history` (audit-ready objective edits), keyed by `(workspace_id, objective_id)` over time.
@@ -79,9 +79,11 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 `020_paper_journal.sql` adds `papers.notes` (text, default empty) and `papers.read_at` (timestamptz, nullable). Screening status stays a separate column.
 
+`024_privacy_isolation.sql` is Phase 1 privacy. `025_evidence_metadata.sql` adds publication types, peer-review/preprint/retraction flags, paper `study_design` text (not workspace JSON), `full_text`, `abstract`, `url`, and optional workspace notices. `026_agent_proposals.sql` adds `agent_proposals` and `agent_sessions.workspace_id` / `expires_at`.
+
 `021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
 
-Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `rows`, `columnTypes`, `adminColumns`, `lastSelector`). It is merged like other sections and stored inside the existing `analysis_plan` JSONB (no extra SQL column). Save configuration persists the parsed table so the overview can reload. The Analysis tool reads a file chosen on that page. Study design → Samples stores originals (`sample_datasets`) and **Preview** parses CSV/TSV/SAV with the same client parsers (`parsePastedTable` / `parseSavTable`).
+Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `columnTypes`, `adminColumns`, `lastSelector`). Table **rows** are not stored (API 400 if sent). Save configuration keeps headers/types only; the grid lives in the browser until refresh. The Analysis tool reads a file chosen on that page. Study design → Samples stores originals (`sample_datasets`) and **Preview** parses CSV/TSV/SAV with the same client parsers (`parsePastedTable` / `parseSavTable`). `024_privacy_isolation.sql` adds `workspaces.deleting`, `export_audit`, `ai_consent`, and unique paper keys per `(workspace_id, source_type, pmid/doi/title)`.
 
 ## Entity relationships (Postgres / SQLite)
 
@@ -107,6 +109,9 @@ erDiagram
     text source_type
     text notes
     timestamptz read_at
+    text peer_review_status
+    boolean is_retracted
+    text abstract
   }
   user_calendar_events {
     uuid id PK

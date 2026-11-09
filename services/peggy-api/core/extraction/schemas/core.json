@@ -27,6 +27,18 @@
       "label": "Population",
       "type": "text",
       "description": "Who was studied"
+    },
+    {
+      "id": "exposure",
+      "label": "Exposure",
+      "type": "text",
+      "description": "Main exposure or intervention"
+    },
+    {
+      "id": "covariates_adjusted",
+      "label": "Covariates adjusted",
+      "type": "text",
+      "description": "Confounders or covariates included in the main model"
     }
   ]
 }

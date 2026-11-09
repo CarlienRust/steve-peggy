@@ -9,7 +9,7 @@ Peggy ships a **reactive agent** (ReAct loop with tools) alongside **single-shot
 | **Agent** | Ask Peggy → **Auto** mode | `POST /agent/run` or `POST /agent/stream` |
 | **Single-shot** | Ask / Gaps / Compare chips | `POST /chat` or `/workflows/*` |
 
-`POST /chat` is unchanged. Auto in the UI uses the agent; manual modes still use intent routing + one-shot workflows. `/chat` shows a conversation thread (user bubble + Peggy cards with citation chips) and a composer with those mode chips.
+`POST /chat` with Auto and low intent confidence falls through to the agent. High-confidence gap/compare still use fixed workflows. Auto in the UI uses `/agent/*`. Tools cannot take `user_id` or `workspace_id` from the model. Propose tools insert `agent_proposals` only. Eval: [AGENT_EVAL.md](AGENT_EVAL.md). `/chat` shows a conversation thread (user bubble + Peggy cards with citation chips) and a composer with those mode chips. Chat, agent, gap, and compare require `workspace_id`. Search filters that project only. `privacy_mode=strict` refuses hosted LLM calls on project text.
 
 ## Agent architecture
 

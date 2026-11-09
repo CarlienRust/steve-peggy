@@ -33,6 +33,12 @@
       "label": "Effect direction",
       "type": "text",
       "description": "Direction of main finding (e.g. increased, decreased, null)"
+    },
+    {
+      "id": "estimate",
+      "label": "Effect estimate",
+      "type": "text",
+      "description": "Reported effect size if present"
     }
   ]
 }

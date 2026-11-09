@@ -305,10 +305,37 @@ def _fallback_response(system: str, user: str, json_mode: bool) -> str:
     )
 
 
+class PolicyWrappedProvider(LLMProvider):
+    def __init__(self, inner: LLMProvider):
+        self._inner = inner
+
+    async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+        from core.safety.policy import assert_llm_allowed
+
+        assert_llm_allowed()
+        from core.limits import enforce_daily_llm_tokens
+
+        from core.safety.policy import policy_user_id
+
+        await enforce_daily_llm_tokens(policy_user_id(), max(1, (len(system) + len(user)) // 4))
+        return await self._inner.complete(system, user, json_mode)
+
+    async def complete_with_tools(self, messages: list[dict], tools: list[dict]) -> ToolResponse:
+        from core.safety.policy import assert_llm_allowed
+
+        assert_llm_allowed()
+        from core.limits import enforce_daily_llm_tokens
+        from core.safety.policy import policy_user_id
+
+        n = sum(len(str(m.get("content") or "")) for m in messages if isinstance(m, dict))
+        await enforce_daily_llm_tokens(policy_user_id(), max(1, n // 4))
+        return await self._inner.complete_with_tools(messages, tools)
+
+
 def get_llm() -> LLMProvider:
     providers = {
         "ollama": OllamaProvider,
         "gemini": GeminiProvider,
     }
     cls = providers.get(config.LLM_PROVIDER, OllamaProvider)
-    return cls()
+    return PolicyWrappedProvider(cls())

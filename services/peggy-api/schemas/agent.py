@@ -13,7 +13,7 @@ class AgentRequest(BaseModel):
     query: str
     session_id: str
     mode: AgentMode = "auto"
-    workspace_id: Optional[str] = None
+    workspace_id: str
     source_types: List[str] = Field(default_factory=lambda: ["literature", "own_findings"])
 
 

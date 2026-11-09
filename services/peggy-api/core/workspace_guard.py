@@ -19,6 +19,6 @@ async def assert_paper_in_workspace(user_id: str, workspace_id: str, paper_id: i
     if not paper:
         raise HTTPException(status_code=404, detail="Paper not found")
     paper_ws = paper.get("workspace_id")
-    if paper_ws and str(paper_ws) != str(workspace_id):
+    if not paper_ws or str(paper_ws) != str(workspace_id):
         raise HTTPException(status_code=404, detail="Paper not found in this project")
     return paper

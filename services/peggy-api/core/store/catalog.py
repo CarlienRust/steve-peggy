@@ -113,8 +113,8 @@ async def enqueue_feedback(user_id: str, query: str, response: str, correction: 
     return await _backend().enqueue_feedback(user_id, query, response, correction)
 
 
-async def ensure_agent_session(user_id: str, session_id: str) -> None:
-    return await _backend().ensure_agent_session(user_id, session_id)
+async def ensure_agent_session(user_id: str, session_id: str, workspace_id: str | None = None) -> None:
+    return await _backend().ensure_agent_session(user_id, session_id, workspace_id)
 
 
 async def load_agent_messages(user_id: str, session_id: str) -> list[dict]:
@@ -193,6 +193,15 @@ async def append_objective_history(user_id: str, workspace_id: str, entries: lis
 
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     return await _backend().delete_workspace(user_id, workspace_id)
+
+
+async def record_export_audit(
+    user_id: str, workspace_id: str | None, kind: str, nbytes: int
+) -> None:
+    try:
+        return await _backend().record_export_audit(user_id, workspace_id, kind, nbytes)
+    except Exception:
+        return None
 
 
 async def save_workflow_run(**kwargs) -> dict:
@@ -315,6 +324,26 @@ async def update_lab_book_entry(
     user_id: str, workspace_id: str, entry_id: str, fields: dict
 ) -> dict | None:
     return await _backend().update_lab_book_entry(user_id, workspace_id, entry_id, fields)
+
+
+async def list_notices(user_id: str, workspace_id: str) -> list[dict]:
+    return await _backend().list_notices(user_id, workspace_id)
+
+
+async def insert_notice(user_id: str, workspace_id: str | None, paper_id: int | None, kind: str) -> None:
+    return await _backend().insert_notice(user_id, workspace_id, paper_id, kind)
+
+
+async def insert_agent_proposal(user_id: str, workspace_id: str, kind: str, payload: dict) -> dict:
+    return await _backend().insert_agent_proposal(user_id, workspace_id, kind, payload)
+
+
+async def list_agent_proposals(user_id: str, workspace_id: str) -> list[dict]:
+    return await _backend().list_agent_proposals(user_id, workspace_id)
+
+
+async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> dict | None:
+    return await _backend().update_agent_proposal(user_id, proposal_id, status)
 
 
 async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:

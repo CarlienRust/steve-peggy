@@ -3,6 +3,7 @@
 import { Alert, Box, Button, CircularProgress, Paper, Stack, Typography } from "@mui/material";
 import { useQuery } from "@tanstack/react-query";
 import { peggyApi } from "@/lib/api";
+import { isAuthOptional } from "@/lib/localMode";
 import { SetupShell } from "@/components/setup/SetupShell";
 import { StatusChip, type StatusChipTone } from "@/components/StatusChip";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
@@ -80,7 +81,11 @@ export default function SetupChecksPage() {
     <SetupShell
       eyebrow="SETUP"
       title="Setup check"
-      subtitle="Peggy runs on your computer. Fix anything marked red or amber, then recheck."
+      subtitle={
+        isAuthOptional()
+          ? "Peggy runs on your computer. Fix anything marked red or amber, then recheck."
+          : "Hosted status from the API. Local commands such as start-qdrant.sh or ollama pull are not hosted fixes."
+      }
       backHref="/"
       showBackButton
     >
@@ -198,7 +203,9 @@ export default function SetupChecksPage() {
           </Paper>
 
           <Typography variant="caption" color="text.secondary">
-            Still stuck? See docs/LOCAL.md in the Peggy folder. Nothing on this page is sent anywhere.
+            {isAuthOptional()
+              ? "Still stuck? See docs/LOCAL.md in the Peggy folder. Nothing on this page is sent anywhere."
+              : "Hosted checks cover the API, database, Qdrant, LLM provider and tier, embeddings, and storage. AI help is off on strict projects."}
           </Typography>
         </Stack>
       )}

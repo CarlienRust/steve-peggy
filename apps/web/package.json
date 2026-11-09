@@ -7,7 +7,8 @@
     "dev:clean": "rm -rf .next && next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@emotion/react": "^11.13.0",
@@ -37,6 +38,7 @@
     "@types/react-dom": "^18.3.7",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.28",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "@playwright/test": "^1.56.1"
   }
 }

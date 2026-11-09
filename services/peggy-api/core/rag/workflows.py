@@ -15,6 +15,24 @@ from core.store import catalog, qdrant_store
 logger = logging.getLogger(__name__)
 
 
+def _peer_reviewed_only(ws: dict | None) -> bool:
+    settings = (ws or {}).get("settings") or {}
+    if settings.get("peer_reviewed_only") is False:
+        return False
+    return True
+
+
+def _search(query: str, *, source_types, user_id: str, workspace_id: str, ws: dict | None = None, peer: bool | None = None):
+    only = _peer_reviewed_only(ws) if peer is None else peer
+    return qdrant_store.search(
+        query,
+        source_types=source_types,
+        user_id=user_id,
+        workspace_id=workspace_id,
+        peer_reviewed_only=only,
+    )
+
+
 def _confidence(sources: list[dict]) -> str:
     if not sources:
         return "low"
@@ -37,17 +55,34 @@ def _parse_json(text: str) -> dict:
         return {"raw": text}
 
 
-async def grounded_chat(query: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
-    sources = qdrant_store.search(query, source_types=source_types, user_id=user_id)
+async def grounded_chat(
+    query: str,
+    source_types: list[str] | None = None,
+    user_id: str = "dev-user",
+    workspace_id: str | None = None,
+) -> dict:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if ws:
+        from core.safety.policy import CLASS_B, set_policy_context
+
+        set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
+    sources = _search(query, source_types=source_types, user_id=user_id, workspace_id=workspace_id, ws=ws, peer=False)
     llm = get_llm()
     system = prompts.build_system_prompt()
     user = prompts.chat_user_prompt(query, sources)
     response = await llm.complete(system, user)
+    from core.rag.citation_check import citation_check
+
+    checked = citation_check(response, sources)
+    limitations = list(_default_limitations(sources))
+    limitations.extend(checked.get("notes") or [])
     return {
         "response": response,
         "sources": sources,
-        "confidence": _confidence(sources),
-        "limitations": _default_limitations(sources),
+        "confidence": checked.get("confidence") or _confidence(sources),
+        "limitations": limitations,
     }
 
 
@@ -105,6 +140,8 @@ async def run_gap_analysis(
                 f"not whether this specific study's methods are already planned): {aim}"
             )
 
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     if abstracts_only:
         disc = await discover_literature(
             topic=query,
@@ -115,7 +152,8 @@ async def run_gap_analysis(
         sources = _discovery_candidates_to_sources(disc.get("candidates") or [])
         evidence_basis = "abstracts"
     else:
-        sources = qdrant_store.search(query, source_types=st, user_id=user_id, workspace_id=workspace_id)
+        ws_gap = await catalog.get_workspace(user_id, workspace_id) if workspace_id else None
+        sources = _search(query, source_types=st, user_id=user_id, workspace_id=workspace_id, ws=ws_gap, peer=False)
         evidence_basis = "full_text"
 
     distinct_papers = len({s.get("pmid") or s.get("title") for s in sources})
@@ -173,8 +211,8 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
     extra = [str(a.get("text") or "") for a in specifics]
     search_query = "\n".join([search_query, *extra, *objectives])
 
-    sources = qdrant_store.search(
-        search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id
+    sources = _search(
+        search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
     llm = get_llm()
     raw = await llm.complete(
@@ -183,6 +221,10 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
         json_mode=True,
     )
     body = _parse_json(raw)
+    from core.rag.evidence_counts import evidence_count_line
+
+    papers = await catalog.list_papers(user_id, "literature", workspace_id)
+    body["evidence_line"] = evidence_count_line(papers)
     result = {
         "body": body,
         "sources": sources,
@@ -215,8 +257,11 @@ async def run_compare(
     from core.ingest.discovery import discover_literature
 
     st = source_types or ["literature"]
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     try:
-        sources = qdrant_store.search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id)
+        ws_c = await catalog.get_workspace(user_id, workspace_id)
+        sources = _search(finding, source_types=st, user_id=user_id, workspace_id=workspace_id, ws=ws_c, peer=True)
     except Exception:
         logger.exception("compare Qdrant search failed")
         sources = []
@@ -245,6 +290,18 @@ async def run_compare(
         json_mode=True,
     )
     body = _parse_json(raw)
+    from core.rag.evidence_counts import evidence_count_line
+
+    papers = await catalog.list_papers(user_id, "literature", workspace_id)
+    body["evidence_line"] = evidence_count_line(papers)
+    extractions = await catalog.list_extractions(user_id, workspace_id)
+    body["effect_direction"] = [
+        e.get("value") for e in extractions if e.get("field") == "effect_direction" and e.get("value")
+    ]
+    body["estimates"] = [e.get("value") for e in extractions if e.get("field") == "estimate" and e.get("value")]
+    body["covariates_adjusted"] = [
+        e.get("value") for e in extractions if e.get("field") == "covariates_adjusted" and e.get("value")
+    ]
     return {
         "body": body,
         "sources": sources,
@@ -254,10 +311,19 @@ async def run_compare(
 
 
 async def run_future_design(
-    gap_summary: str, constraints: str, source_types: list[str] | None = None, user_id: str = "dev-user"
+    gap_summary: str,
+    constraints: str,
+    source_types: list[str] | None = None,
+    user_id: str = "dev-user",
+    workspace_id: str | None = None,
 ) -> dict:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     sources = qdrant_store.search(
-        gap_summary, source_types=source_types or ["literature", "own_findings"], user_id=user_id
+        gap_summary,
+        source_types=source_types or ["literature", "own_findings"],
+        user_id=user_id,
+        workspace_id=workspace_id,
     )
     llm = get_llm()
     raw = await llm.complete(
@@ -274,9 +340,19 @@ async def run_future_design(
     }
 
 
-async def run_manuscript_framing(results_summary: str, source_types: list[str] | None = None, user_id: str = "dev-user") -> dict:
+async def run_manuscript_framing(
+    results_summary: str,
+    source_types: list[str] | None = None,
+    user_id: str = "dev-user",
+    workspace_id: str | None = None,
+) -> dict:
+    if not workspace_id:
+        raise ValueError("workspace_id is required")
     sources = qdrant_store.search(
-        results_summary, source_types=source_types or ["literature", "own_findings"], user_id=user_id
+        results_summary,
+        source_types=source_types or ["literature", "own_findings"],
+        user_id=user_id,
+        workspace_id=workspace_id,
     )
     llm = get_llm()
     raw = await llm.complete(
@@ -300,9 +376,12 @@ def _workspace_context(ws: dict, study_design: dict) -> str:
 
 
 async def _load_workspace_context(user_id: str, workspace_id: str) -> tuple[dict, dict]:
+    from core.safety.policy import CLASS_B, set_policy_context
+
     ws = await catalog.get_workspace(user_id, workspace_id)
     if not ws:
         raise ValueError("Workspace not found")
+    set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
     sd = await catalog.get_study_design(user_id, workspace_id) or {}
     return ws, sd
 
@@ -360,7 +439,9 @@ async def run_methods_plan(
     ctx = _workspace_context(ws, sd)
     constraints = f"Budget: {budget or 'not specified'}\nPreferred tools: {tools or 'not specified'}"
     query = ws.get("aim") or ws.get("title") or "study methods"
-    sources = qdrant_store.search(query, source_types=source_types or ["literature"], user_id=user_id)
+    sources = _search(
+        query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
+    )
     llm = get_llm()
     if mode == "review":
         prompt = prompts.methods_plan_review_prompt(user_plan, ctx, sources)
@@ -424,7 +505,9 @@ async def run_analysis_plan(
         f"Sensitivity / ad hoc tests: {adhoc or 'not specified'}"
     )
     query = f"{ws.get('aim', '')} statistical analysis methods"
-    sources = qdrant_store.search(query, source_types=source_types or ["literature"], user_id=user_id)
+    sources = _search(
+        query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
+    )
     llm = get_llm()
     if mode == "review":
         prompt = prompts.analysis_plan_review_prompt(user_plan, ctx, sources, adhoc_tests=adhoc)
@@ -473,7 +556,9 @@ async def run_proposal(
         assert_no_phi(focus_notes, label="Proposal notes")
     ctx = _workspace_context(ws, sd)
     query = ws.get("aim") or ws.get("title") or "research proposal"
-    sources = qdrant_store.search(query, source_types=source_types or ["literature"], user_id=user_id)
+    sources = _search(
+        query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
+    )
     llm = get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
@@ -523,6 +608,30 @@ def _excerpt_points(docs: list[tuple[str, str]]) -> list[str]:
         snippet = " ".join(text.split())[:240]
         points.append(f"{title}: {snippet}" if snippet else title)
     return points
+
+
+async def run_idea_from_resources(user_id: str, workspace_id: str) -> dict:
+    from core.safety.policy import CLASS_B, set_policy_context
+
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if not ws:
+        raise ValueError("Workspace not found")
+    set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
+    resources = ws.get("resources") or {}
+    llm = get_llm()
+    raw = await llm.complete(
+        prompts.build_system_prompt(),
+        "From these project resources (JSON), propose 3 to 5 feasible research questions. "
+        "For each: question, what is missing, paper_count estimate as integer. Return JSON "
+        f"{{'questions':[{{'question':'','missing':'','paper_count':0}}]}}\nResources: {json.dumps(resources)[:4000]}",
+        json_mode=True,
+    )
+    body = _parse_json(raw)
+    qs = body.get("questions") if isinstance(body, dict) else None
+    if not isinstance(qs, list):
+        qs = []
+    qs = qs[:5]
+    return {"body": {"questions": qs}, "sources": [], "confidence": "low", "limitations": []}
 
 
 async def run_findings_summary(user_id: str, workspace_id: str) -> dict:

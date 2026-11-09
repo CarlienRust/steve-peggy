@@ -65,6 +65,18 @@ async def run_ingest_job(job_id: str, payload: dict) -> None:
                     workspace_id=workspace_id,
                     journal=getattr(paper, "journal", "") or "",
                 )
+                from core.ingest.evidence_meta import persist_evidence_fields
+
+                await persist_evidence_fields(
+                    user_id,
+                    record["paper_id"],
+                    {
+                        "publication_types": getattr(paper, "publication_types", None) or [],
+                        "abstract": paper.abstract,
+                        "url": getattr(paper, "url", "") or "",
+                        "full_text": bool(paper.abstract),
+                    },
+                )
                 if record["status"] == "duplicate":
                     skipped.append({"pmid": pmid, "title": paper.title, "paper_id": record["paper_id"]})
                     continue
@@ -166,7 +178,14 @@ async def ingest_upload_bytes(
             raise ValueError(f"PDF extraction failed: {e}") from e
         if not text.strip():
             raise ValueError("No extractable text in PDF (scanned pages may need OCR later)")
-        meta = {"doc_id": doc_id, "title": title, "filename": doc_id, "pages": pages}
+        from core.ingest.doi_pdf import doi_from_first_page, lookup_openalex_doi
+
+        proposed = {}
+        doi = doi_from_first_page(text)
+        if doi:
+            proposed = await lookup_openalex_doi(doi)
+            proposed["doi"] = doi
+        meta = {"doc_id": doc_id, "title": title, "filename": doc_id, "pages": pages, "proposed": proposed}
     elif is_html(filename, content_type):
         text = extract_text_from_html(raw)
         if not text.strip():
@@ -203,6 +222,7 @@ async def ingest_upload_bytes(
         raw=raw,
         source_type=source_type,
     )
+    result["proposed"] = meta.get("proposed") or {}
     return result
 
 
@@ -213,16 +233,6 @@ async def ingest_text_document(
     user_id: str = "dev-user",
     workspace_id: str | None = None,
 ) -> dict:
-    # region agent log
-    from core.debug_agent_log import dbg
-
-    dbg(
-        "jobs.py:ingest_text_document",
-        "start",
-        {"user_id": user_id, "workspace_id": workspace_id, "source_type": source_type, "text_len": len(text)},
-        hypothesis_id="B",
-    )
-    # endregion
     title = metadata.get("title", metadata.get("doc_id", "Uploaded document"))
     ws = workspace_id or metadata.get("workspace_id")
     try:
@@ -236,24 +246,8 @@ async def ingest_text_document(
             source_type,
             workspace_id=ws,
         )
-    except Exception as e:
-        # region agent log
-        dbg(
-            "jobs.py:ingest_text_document",
-            "record_paper failed",
-            {"err_type": type(e).__name__, "err": str(e)[:500], "workspace_id": ws},
-            hypothesis_id="B",
-        )
-        # endregion
+    except Exception:
         raise
-    # region agent log
-    dbg(
-        "jobs.py:ingest_text_document",
-        "record_paper ok",
-        {"status": record.get("status"), "paper_id": record.get("paper_id")},
-        hypothesis_id="B",
-    )
-    # endregion
     if record["status"] == "duplicate":
         raise DuplicateDocumentError(record["paper_id"], title)
     paper_id = record["paper_id"]
@@ -265,24 +259,8 @@ async def ingest_text_document(
             user_id=user_id,
             workspace_id=ws,
         )
-    except Exception as e:
-        # region agent log
-        dbg(
-            "jobs.py:ingest_text_document",
-            "upsert_chunks failed",
-            {"err_type": type(e).__name__, "err": str(e)[:500], "chunk_count": len(chunks)},
-            hypothesis_id="A",
-        )
-        # endregion
+    except Exception:
         raise
-    # region agent log
-    dbg(
-        "jobs.py:ingest_text_document",
-        "upsert_chunks ok",
-        {"chunks": n},
-        hypothesis_id="A",
-    )
-    # endregion
     return {"chunks": n, "paper_id": record["paper_id"], "status": "created"}
 
 

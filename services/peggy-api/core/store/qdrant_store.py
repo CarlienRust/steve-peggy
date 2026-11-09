@@ -14,6 +14,7 @@ from qdrant_client.http.models import (
     FieldCondition,
     Filter,
     MatchValue,
+    PayloadSchemaType,
     PointIdsList,
     PointStruct,
     VectorParams,
@@ -46,6 +47,14 @@ def embedding_mode() -> str:
     return _embedding_mode
 
 
+def embedding_model_name() -> str:
+    if config.EMBEDDING_BACKEND == "gemini":
+        return config.GEMINI_EMBED_MODEL
+    if _embedding_mode == "sentence-transformers":
+        return config.EMBEDDING_MODEL
+    return "hash"
+
+
 def _hash_embed(text: str, dim: int = config.VECTOR_SIZE) -> list[float]:
     h = hashlib.sha256(text.encode()).digest()
     vals = [(h[i % len(h)] / 127.5 - 1.0) for i in range(dim)]
@@ -60,6 +69,10 @@ def _init_embedder() -> None:
     if config.EMBEDDING_BACKEND == "hash":
         _embedding_mode = "hash"
         logger.info("Using hash embeddings (EMBEDDING_BACKEND=hash)")
+        return
+    if config.EMBEDDING_BACKEND == "gemini":
+        _embedding_mode = "gemini"
+        logger.info("Using hosted Gemini embeddings")
         return
     try:
         from sentence_transformers import SentenceTransformer
@@ -77,8 +90,13 @@ def _init_embedder() -> None:
         _embedding_mode = "hash-fallback"
 
 
-def embed_texts(texts: list[str]) -> list[list[float]]:
+def embed_texts(texts: list[str], *, source_type: str = "literature") -> list[list[float]]:
     _init_embedder()
+    if _embedding_mode == "gemini":
+        from core.embed.gemini import assert_embed_allowed, embed_texts_gemini
+
+        assert_embed_allowed(source_type)
+        return embed_texts_gemini(texts)
     if _embedder is not None:
         return _embedder.encode(texts, normalize_embeddings=True).tolist()
     return [_hash_embed(t) for t in texts]
@@ -95,16 +113,31 @@ def point_id_for_chunk(chunk_id: str) -> str:
 
 def ensure_collections() -> None:
     client = get_client()
-    for name in (config.COLLECTION_LITERATURE, config.COLLECTION_OWN_FINDINGS, config.COLLECTION_CHAT):
+    names = [
+        collection_for_source("literature"),
+        collection_for_source("own_findings"),
+        config.COLLECTION_CHAT,
+    ]
+    for name in names:
         if not client.collection_exists(name):
             client.create_collection(
                 collection_name=name,
                 vectors_config=VectorParams(size=config.VECTOR_SIZE, distance=Distance.COSINE),
             )
+            try:
+                client.update_collection(
+                    collection_name=name,
+                    metadata={"embedding_model": embedding_model_name(), "vector_size": config.VECTOR_SIZE},
+                )
+            except Exception:
+                logger.debug("collection metadata not set for %s", name)
 
 
 def collection_for_source(source_type: str) -> str:
-    return config.COLLECTION_OWN_FINDINGS if source_type == "own_findings" else config.COLLECTION_LITERATURE
+    from core.embed.gemini import versioned_collection
+
+    base = config.COLLECTION_OWN_FINDINGS if source_type == "own_findings" else config.COLLECTION_LITERATURE
+    return versioned_collection(base)
 
 
 def sanitize_llm_source_types(source_types: list[str] | None) -> list[str]:
@@ -115,16 +148,48 @@ def sanitize_llm_source_types(source_types: list[str] | None) -> list[str]:
     return out or list(config.LLM_SOURCE_TYPES)
 
 
-def _user_filter(
-    user_id: str,
-    workspace_id: str | None = None,
-    source_type: str | None = None,
-) -> Filter:
+def ensure_payload_indexes() -> None:
+    client = get_client()
+    for name in (collection_for_source("literature"), collection_for_source("own_findings")):
+        for field in ("user_id", "workspace_id", "source_type", "peer_review_status", "is_retracted"):
+            try:
+                client.create_payload_index(
+                    collection_name=name,
+                    field_name=field,
+                    field_schema=PayloadSchemaType.KEYWORD,
+                )
+            except Exception:
+                logger.debug("payload index %s.%s already present", name, field)
+
+
+def _user_only_filter(user_id: str, source_type: str | None = None) -> Filter:
     must = [FieldCondition(key="user_id", match=MatchValue(value=user_id))]
-    if workspace_id:
-        must.append(FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)))
     if source_type:
         must.append(FieldCondition(key="source_type", match=MatchValue(value=source_type)))
+    return Filter(must=must)
+
+
+def _user_filter(
+    user_id: str,
+    workspace_id: str,
+    source_type: str | None = None,
+    *,
+    peer_reviewed_only: bool = False,
+    exclude_retracted: bool = True,
+) -> Filter:
+    must = [
+        FieldCondition(key="user_id", match=MatchValue(value=user_id)),
+        FieldCondition(key="workspace_id", match=MatchValue(value=workspace_id)),
+    ]
+    must_not: list = []
+    if source_type:
+        must.append(FieldCondition(key="source_type", match=MatchValue(value=source_type)))
+    if exclude_retracted:
+        must_not.append(FieldCondition(key="is_retracted", match=MatchValue(value=True)))
+    if peer_reviewed_only:
+        must.append(FieldCondition(key="peer_review_status", match=MatchValue(value="peer_reviewed")))
+    if must_not:
+        return Filter(must=must, must_not=must_not)
     return Filter(must=must)
 
 
@@ -138,38 +203,9 @@ def upsert_chunks(
         return 0
     if not chunks:
         return 0
-    # region agent log
-    from core.debug_agent_log import dbg
-
-    dbg(
-        "qdrant_store.py:upsert_chunks",
-        "before embed",
-        {"chunk_count": len(chunks), "collection": collection_for_source(source_type), "embedding_mode": _embedding_mode},
-        hypothesis_id="C",
-    )
-    # endregion
     client = get_client()
     collection = collection_for_source(source_type)
-    try:
-        vectors = embed_texts([c.text for c in chunks])
-    except Exception as e:
-        # region agent log
-        dbg(
-            "qdrant_store.py:upsert_chunks",
-            "embed failed",
-            {"err_type": type(e).__name__, "err": str(e)[:500]},
-            hypothesis_id="C",
-        )
-        # endregion
-        raise
-    # region agent log
-    dbg(
-        "qdrant_store.py:upsert_chunks",
-        "embed ok",
-        {"vector_count": len(vectors), "embedding_mode": _embedding_mode},
-        hypothesis_id="C",
-    )
-    # endregion
+    vectors = embed_texts([c.text for c in chunks], source_type=source_type)
     points = [
         PointStruct(
             id=point_id_for_chunk(c.chunk_id),
@@ -184,18 +220,7 @@ def upsert_chunks(
         )
         for c, vec in zip(chunks, vectors)
     ]
-    try:
-        client.upsert(collection_name=collection, points=points)
-    except Exception as e:
-        # region agent log
-        dbg(
-            "qdrant_store.py:upsert_chunks",
-            "qdrant upsert failed",
-            {"err_type": type(e).__name__, "err": str(e)[:500], "qdrant_url": config.QDRANT_URL},
-            hypothesis_id="A",
-        )
-        # endregion
-        raise
+    client.upsert(collection_name=collection, points=points)
     return len(points)
 
 
@@ -204,10 +229,15 @@ def search(
     source_types: list[str] | None = None,
     limit: int = 8,
     score_threshold: float | None = None,
-    user_id: str = "dev-user",
-    workspace_id: str | None = None,
+    *,
+    user_id: str,
+    workspace_id: str,
+    peer_reviewed_only: bool = False,
 ) -> list[dict[str, Any]]:
+    if not workspace_id:
+        raise ValueError("workspace_id is required for search")
     _init_embedder()
+    ensure_payload_indexes()
     threshold = score_threshold if score_threshold is not None else (
         0.15 if _embedding_mode == "hash-fallback" else 0.3
     )
@@ -226,7 +256,12 @@ def search(
                 limit=limit,
                 score_threshold=threshold,
                 with_payload=True,
-                query_filter=_user_filter(user_id, workspace_id, source_type=st),
+                query_filter=_user_filter(
+                    user_id,
+                    workspace_id,
+                    source_type=st,
+                    peer_reviewed_only=peer_reviewed_only,
+                ),
             )
         except Exception as exc:
             logger.warning("Qdrant search failed for %s: %s", collection, exc)
@@ -235,7 +270,11 @@ def search(
             p = hit.payload or {}
             if p.get("source_type") and p.get("source_type") != st:
                 continue
-            if workspace_id and p.get("workspace_id") not in (workspace_id, None):
+            if p.get("workspace_id") != workspace_id:
+                continue
+            if p.get("is_retracted") is True:
+                continue
+            if peer_reviewed_only and p.get("peer_review_status") != "peer_reviewed":
                 continue
             pmid = p.get("pmid")
             year = p.get("year")
@@ -248,6 +287,10 @@ def search(
                 "relevance_score": float(hit.score),
                 "source_type": str(p.get("source_type") or st),
                 "pmid": None if pmid is None or pmid == "" else str(pmid),
+                "peer_review_status": str(p.get("peer_review_status") or "unknown"),
+                "publication_types": p.get("publication_types") or [],
+                "full_text": bool(p.get("full_text")),
+                "is_retracted": bool(p.get("is_retracted")),
             })
     hits.sort(key=lambda x: x["relevance_score"], reverse=True)
     return hits[:limit]
@@ -275,7 +318,7 @@ def delete_vectors_for_paper(
             offset=offset,
             with_payload=True,
             with_vectors=False,
-            scroll_filter=_user_filter(user_id),
+            scroll_filter=_user_only_filter(user_id),
         )
         if not records:
             break
@@ -311,7 +354,7 @@ def scroll_texts(source_type: str = "literature", limit: int = 500, user_id: str
             offset=offset,
             with_payload=True,
             with_vectors=False,
-            scroll_filter=_user_filter(user_id),
+            scroll_filter=_user_only_filter(user_id),
         )
         if not records:
             break
@@ -347,7 +390,7 @@ def list_paper_chunks(
             offset=offset,
             with_payload=True,
             with_vectors=False,
-            scroll_filter=_user_filter(user_id, source_type=source_type),
+            scroll_filter=_user_only_filter(user_id, source_type=source_type),
         )
         if not records:
             break
@@ -387,7 +430,7 @@ def get_paper_text(
             offset=offset,
             with_payload=True,
             with_vectors=False,
-            scroll_filter=_user_filter(user_id),
+            scroll_filter=_user_only_filter(user_id),
         )
         if not records:
             break
@@ -436,7 +479,7 @@ def get_document_text(title: str, source_type: str = "own_findings", user_id: st
             offset=offset,
             with_payload=True,
             with_vectors=False,
-            scroll_filter=_user_filter(user_id),
+            scroll_filter=_user_only_filter(user_id),
         )
         if not records:
             break
@@ -450,3 +493,20 @@ def get_document_text(title: str, source_type: str = "own_findings", user_id: st
             break
     parts.sort(key=lambda x: x[0])
     return "\n\n".join(t for _, t in parts)
+
+
+def delete_vectors_for_workspace(user_id: str, workspace_id: str) -> int:
+    from qdrant_client.http.models import FilterSelector
+
+    client = get_client()
+    removed = 0
+    filt = _user_filter(user_id, workspace_id, exclude_retracted=False)
+    for name in (collection_for_source("literature"), collection_for_source("own_findings")):
+        if not client.collection_exists(name):
+            continue
+        try:
+            client.delete(collection_name=name, points_selector=FilterSelector(filter=filt))
+            removed += 1
+        except Exception:
+            logger.exception("Qdrant workspace delete failed for %s", name)
+    return removed

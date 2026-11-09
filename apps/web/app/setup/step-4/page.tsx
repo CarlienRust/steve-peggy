@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Alert, Box, Button, Chip, Paper, Stack, Tooltip, Typography } from "@mui/material";
+import { Alert, Box, Button, Checkbox, Chip, FormControlLabel, Paper, Stack, Typography } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -18,8 +18,18 @@ export default function SetupStep4Page() {
   const { userId } = useAuthSession();
   const { state, setState } = useSetupState();
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState(false);
 
-  const canCreate = useMemo(() => state.title.trim().length > 0, [state.title]);
+  const privacyMode =
+    state.privacy_mode === "local_only"
+      ? "strict"
+      : state.privacy_mode === "hosted_allowed"
+        ? "standard"
+        : state.privacy_mode;
+  const canCreate = useMemo(
+    () => state.title.trim().length > 0 && (privacyMode === "strict" || consent),
+    [state.title, privacyMode, consent]
+  );
 
   const createMutation = useMutation({
     mutationFn: async () => {
@@ -30,7 +40,7 @@ export default function SetupStep4Page() {
         resources: state.resources,
         settings: state.settings,
         enabled_modules: state.enabled_modules,
-        privacy_mode: state.privacy_mode,
+        privacy_mode: privacyMode,
         last_opened_at: new Date().toISOString(),
       });
     },
@@ -68,24 +78,19 @@ export default function SetupStep4Page() {
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
             <ChoiceCard
-              selected={state.privacy_mode === "local_only"}
-              title="Local only"
-              tag={<Chip label="Recommended" size="small" sx={{ borderRadius: 999 }} />}
-              description="Everything stays on this computer. Peggy uses the local model."
-              onClick={() => setState({ privacy_mode: "local_only" })}
+              selected={state.privacy_mode === "strict" || state.privacy_mode === "local_only"}
+              title="Strict"
+              tag={<Chip label="No project AI" size="small" sx={{ borderRadius: 999 }} />}
+              description="Retrieval still works. Ask Peggy and planners will not send project text to a hosted model."
+              onClick={() => setState({ privacy_mode: "strict" })}
             />
-            <Tooltip title="Hosted models are not available in this release.">
-              <Box sx={{ flex: "1 0 0" }}>
-                <ChoiceCard
-                  selected={false}
-                  disabled
-                  title="Allow a hosted model"
-                  tag={<Chip label="Sends text out" color="warning" size="small" sx={{ borderRadius: 999 }} />}
-                  description="Can give better answers on some tasks. Text from your papers and findings is sent to the provider you choose."
-                  onClick={() => {}}
-                />
-              </Box>
-            </Tooltip>
+            <ChoiceCard
+              selected={state.privacy_mode === "standard" || state.privacy_mode === "hosted_allowed"}
+              title="Standard"
+              tag={<Chip label="Hosted AI" color="warning" size="small" sx={{ borderRadius: 999 }} />}
+              description="Project text may go to the configured provider (e.g. Gemini). Turn off Keep Activity in your Google account. Peggy cannot verify that setting."
+              onClick={() => setState({ privacy_mode: "standard" })}
+            />
           </Stack>
 
           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
@@ -98,12 +103,25 @@ export default function SetupStep4Page() {
             <SummaryRow label="Modules" value={modulesLabel} onEdit={() => router.push("/setup/step-3")} />
             <SummaryRow
               label="Privacy"
-              value={state.privacy_mode === "local_only" ? "Local only" : "Allow a hosted model"}
+              value={privacyMode === "strict" ? "Strict (no project AI)" : "Standard (hosted AI)"}
               onEdit={() => {
                 document.getElementById("setup-privacy-choices")?.scrollIntoView({ behavior: "smooth" });
               }}
             />
           </Paper>
+
+          {privacyMode === "standard" ? (
+            <Alert severity="warning">
+              Hosted AI may send project text to the provider. Turn off training or activity in that account yourself
+              (Gemini: Keep Activity). Peggy cannot verify the setting. Terms can change.
+            </Alert>
+          ) : null}
+          {privacyMode === "standard" ? (
+            <FormControlLabel
+              control={<Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} />}
+              label="I have turned off provider training/activity, or I accept the risk."
+            />
+          ) : null}
 
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 1 }}>
             <Button
@@ -149,7 +167,7 @@ function ChoiceCard({
     <Paper
       variant="outlined"
       onClick={disabled ? undefined : onClick}
-      id={title === "Local only" ? "setup-privacy-choices" : undefined}
+      id={title === "Strict" ? "setup-privacy-choices" : undefined}
       sx={{
         p: 2.5,
         borderRadius: 2,

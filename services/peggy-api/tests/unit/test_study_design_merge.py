@@ -25,11 +25,11 @@ def test_merge_deep_merges_section_keys():
 
 def test_analysis_tool_nested_in_analysis_plan_column():
     design = normalize_study_design(
-        {"analysisTool": {"fileName": "a.csv", "columnTypes": {"age": "continuous"}}}
+        {"analysisTool": {"label": "a.csv", "columnTypes": {"age": "continuous"}}}
     )
     row = design_to_column_json(design)
     restored = row_to_design(row)
-    assert restored["analysisTool"]["fileName"] == "a.csv"
+    assert restored["analysisTool"]["label"] == "a.csv"
     assert "analysisTool" not in restored["analysisPlan"]
 
 

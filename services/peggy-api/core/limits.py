@@ -62,6 +62,23 @@ async def user_usage_snapshot(user_id: str) -> dict:
     }
 
 
+async def enforce_daily_llm_tokens(user_id: str, token_estimate: int) -> None:
+    cap = config.MAX_LLM_TOKENS_PER_DAY
+    if cap <= 0:
+        return
+    key = f"user:{user_id}:llm_tokens_day"
+    if not await rate_limit(key, limit=cap, window_sec=86400):
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "daily_token_budget",
+                "limit": cap,
+                "message": f"Daily AI token budget ({cap}) reached.",
+            },
+        )
+    _ = token_estimate
+
+
 async def enforce_user_rate(user_id: str, action: str, limit: int, window_sec: int = HOURLY_WINDOW_SEC) -> None:
     """Raise 429 when the user exceeds the hourly rate limit for an action."""
     key = f"user:{user_id}:{action}"
@@ -153,12 +170,13 @@ def _llm_limits_info() -> dict:
         "model": model,
         "free_tier": config.LLM_PROVIDER == "gemini",
     }
+    from core.safety.policy import is_hosted_llm, training_notice
+
+    if is_hosted_llm():
+        info["notice"] = training_notice()["message"]
+        info["training_opt_out"] = training_notice()
     if config.LLM_PROVIDER == "gemini":
-        info["notice"] = (
-            "Gemini API free tier: limited model access, free input and output tokens, "
-            "Google AI Studio access. Content may be used to improve Google products. "
-            "Peggy hourly rate limits help you stay within free-tier quotas."
-        )
+        info["gemini_tier"] = config.GEMINI_TIER
     return info
 
 
@@ -173,6 +191,7 @@ def limits_snapshot() -> dict:
         "max_upload_bytes": config.MAX_UPLOAD_BYTES,
         "max_text_query_len": config.MAX_TEXT_QUERY_LEN,
         "max_agent_steps": config.MAX_AGENT_STEPS,
+        "max_llm_tokens_per_day": config.MAX_LLM_TOKENS_PER_DAY,
         "rate_limits_per_hour": {
             "chat": config.RATE_LIMIT_CHAT_PER_HOUR,
             "agent": config.RATE_LIMIT_AGENT_PER_HOUR,

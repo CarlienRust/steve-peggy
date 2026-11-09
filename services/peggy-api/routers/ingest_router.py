@@ -146,23 +146,6 @@ async def upload_document(
         ws = await catalog.get_workspace(user.id, workspace_id)
         if not ws:
             raise HTTPException(404, "Workspace not found")
-    # region agent log
-    from core.debug_agent_log import dbg
-
-    dbg(
-        "ingest_router.py:upload_document",
-        "upload start",
-        {
-            "user_id": user.id,
-            "workspace_id": workspace_id,
-            "source_type": source_type,
-            "filename": file.filename,
-            "bytes": len(raw),
-            "content_type": file.content_type,
-        },
-        hypothesis_id="D",
-    )
-    # endregion
     try:
         result = await ingest_upload_bytes(
             raw,
@@ -183,15 +166,7 @@ async def upload_document(
         }
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    except Exception as e:
-        # region agent log
-        dbg(
-            "ingest_router.py:upload_document",
-            "upload uncaught exception",
-            {"err_type": type(e).__name__, "err": str(e)[:500]},
-            hypothesis_id="E",
-        )
-        # endregion
+    except Exception:
         raise
     return {
         "status": "ok",
@@ -207,6 +182,11 @@ async def ingest_findings(body: FindingsIngestRequest, user: AuthUser = Depends(
     enforce_text_length(body.title, max_len=256, label="Title")
     if body.narrative:
         enforce_text_length(body.narrative, label="Narrative")
+    from core.safety.phi_guard import assert_no_phi
+
+    assert_no_phi(body.title, label="Findings title")
+    if body.narrative:
+        assert_no_phi(body.narrative, label="Findings narrative")
     await enforce_user_rate(user.id, "ingest", config.RATE_LIMIT_INGEST_PER_HOUR)
     await enforce_paper_quota(user.id)
     if body.workspace_id:

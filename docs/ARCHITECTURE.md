@@ -4,7 +4,7 @@
 
 ## Niche
 
-Peggy ingests **peer-reviewed literature** and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [REFERENCES.md](REFERENCES.md).
+Peggy ingests **literature** (labelled peer-reviewed only when `classify_peer_review` says so) and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [REFERENCES.md](REFERENCES.md). Retracted papers are excluded from retrieval.
 
 ## Active codebase
 
@@ -48,7 +48,7 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 | `peggy_own_findings` | Narrative findings, research PDFs, and HTML reports (text extracted) |
 | `chat_history_logs` | Reserved for cross-session semantic memory (unused) |
 
-Embeddings: `sentence-transformers` locally (hash on Render). Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`. **Sample dataset files are never upserted** into these collections.
+Embeddings: `sentence-transformers` or hash locally; hosted Gemini (`EMBEDDING_BACKEND=gemini`, `text-embedding-004`, 768-d) uses **versioned** Qdrant collection names (`peggy_literature__text_embedding_004_768`). Hash on Render is the env default and is **not** semantic. Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id` and `workspace_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`, omit retracted points, and honor workspace `settings.peer_reviewed_only` (default true). **Sample dataset files are never upserted** into these collections. Project-text embed/LLM calls go through `core/safety/policy.py`.
 
 Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Object paths: `{project_id}/{filename}` for literature PDFs; `{project_id}/study_docs/{filename}` for ethics PDFs and sample datasets. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
 
@@ -105,7 +105,9 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /auth/github/callback` | OAuth callback (stores token server-side) |
 | `GET /github/repos` | List repos for linked account |
 | `GET/POST /workspaces` | List / create projects (`aim`, `objectives[]`) |
-| `GET/PATCH/DELETE /workspaces/{id}` | Read / update / delete project |
+| `GET/PATCH/DELETE /workspaces/{id}` | Read / update / purge project (files + Qdrant + catalog) |
+| `GET /account/export` | Zip of all projects (rate-limited; `include_files=false` optional) |
+| `DELETE /account` | Purge all projects then delete the auth user |
 | `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
 | `GET/POST /calendar/events` | User calendar; optional `workspace_id` filter |
 | `PATCH/DELETE /calendar/events/{id}` | Update or delete a calendar event |
@@ -130,8 +132,15 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/future-design` | Study design draft (API only) |
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |
 | `POST /feedback` | Correction queue (API only) |
-| `GET /health` | Qdrant, LLM, embeddings status |
-| `GET /setup/checks` | Deterministic setup checks for the Setup screen (includes fix commands) |
+| `GET /health` | Qdrant, LLM, embeddings, Gemini tier, database, storage |
+| `GET /setup/checks` | Hosted status; local fix commands only when `AUTH_REQUIRED=false` |
+| `POST /workflows/idea-from-resources` | 3–5 questions from project resources (class B) |
+| `GET /workspaces/{id}/confounder-audit` | Covariates from extractions |
+| `POST /jobs/retraction-recheck` | Weekly job token; OpenAlex/PubMed recheck |
+| `POST /jobs/reembed` | New collection; progress counts; no in-place overwrite |
+| `POST /workflows/dataset-summary` | Class D aggregates; blocked on unpaid Gemini and strict |
+| `GET /agent/proposals` | Pending propose-not-write cards |
+| `POST /agent/proposals/{id}/accept` | Writes via existing workspace/study_design PATCH |
 
 Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Chat/workflow gap/compare also return structured `body`.
 
@@ -171,7 +180,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/methods-plan` | 03 · Methods plan | From your project, your plan, result, steps, similar-studies checklist, Completed |
 | `/study-design/analysis-plan` | 03 · Analysis plan | From your project, your plan, result, steps, similar-studies checklist, Completed. Sensitivity/ad hoc tests live under Advanced options and are sent to the review/suggest LLM. Results render structured fields or `full_text` / leftover JSON keys (including `{raw}` fallback). |
 | `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers/rows in `study_design.analysisTool`. SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 04 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers and types in `study_design.analysisTool` (not rows). SAV via `POST /api/parse-sav`. |
 | `/results` | 05 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |

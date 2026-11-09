@@ -22,12 +22,14 @@ import {
   TableRow,
   TextField,
   Typography,
+  MenuItem,
 } from "@mui/material";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ObjectiveLinkSelect, type LinkTargetOption } from "@/components/ObjectiveLinkSelect";
 import { peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
 import { findingLinkForPaper, type FindingLink } from "@/lib/studyDesign";
+import { toCsv } from "@/lib/csvGuard";
 import { monoSx } from "@/theme/peggyTheme";
 
 function formatDate(iso?: string) {
@@ -76,10 +78,12 @@ export function CorpusTable({
   const [editDraft, setEditDraft] = useState<Partial<PaperRecord>>({});
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [savingTags, setSavingTags] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const queryClient = useQueryClient();
   const showLinks = !!onSaveFindingLinks && !!linkOptions;
   const showJournal = papers.some((p) => !!p.journal);
   const showStatus = papers.some((p) => !!p.status);
+  const visible = papers.filter((p) => statusFilter === "all" || (p.peer_review_status || "unknown") === statusFilter);
 
   const updateMut = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<PaperRecord> }) => peggyApi.updatePaper(id, data),
@@ -112,6 +116,8 @@ export function CorpusTable({
       year: p.year ?? "",
       pmid: p.pmid ?? "",
       doi: p.doi ?? "",
+      notes: p.notes ?? "",
+      journal: p.journal ?? "",
     });
   };
 
@@ -145,8 +151,47 @@ export function CorpusTable({
     );
   };
 
+  const exportCsv = () => {
+    const headers = ["title", "journal", "year", "pmid", "doi", "peer_review_status", "notes", "abstract"];
+    const rows = visible.map((p) => [
+      p.title,
+      p.journal,
+      p.year,
+      p.pmid,
+      p.doi,
+      p.peer_review_status,
+      p.notes,
+      p.abstract,
+    ]);
+    const blob = new Blob([toCsv(headers, rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "corpus.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }} flexWrap="wrap" useFlexGap>
+        <TextField
+          select
+          size="small"
+          label="Evidence"
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          sx={{ minWidth: 180 }}
+        >
+          <MenuItem value="all">All</MenuItem>
+          <MenuItem value="peer_reviewed">Peer-reviewed</MenuItem>
+          <MenuItem value="preprint">Preprint</MenuItem>
+          <MenuItem value="unknown">Unverified</MenuItem>
+        </TextField>
+        <Button variant="outlined" size="small" onClick={exportCsv} sx={{ textTransform: "none" }}>
+          Export CSV
+        </Button>
+      </Stack>
       <Paper variant="outlined" sx={{ overflow: "auto" }}>
         <Table size="small">
           <TableHead>
@@ -154,24 +199,26 @@ export function CorpusTable({
               <TableCell>Title</TableCell>
               {showJournal && <TableCell>Journal</TableCell>}
               <TableCell>Type</TableCell>
+              <TableCell>Evidence</TableCell>
               {showLinks && <TableCell>Objectives</TableCell>}
               <TableCell>Year</TableCell>
-              {showStatus && <TableCell>Status</TableCell>}
+              {showStatus && <TableCell>Screening</TableCell>}
+              <TableCell>Notes</TableCell>
               <TableCell>Ingested</TableCell>
               <TableCell align="right">Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {papers.length === 0 ? (
+            {visible.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4 + (showJournal ? 1 : 0) + (showLinks ? 1 : 0) + (showStatus ? 1 : 0) + 1}>
+                <TableCell colSpan={8 + (showJournal ? 1 : 0) + (showLinks ? 1 : 0) + (showStatus ? 1 : 0)}>
                   <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
                     {emptyMessage}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              papers.map((p) => (
+              visible.map((p) => (
                 <TableRow key={p.id} hover>
                   <TableCell sx={{ maxWidth: 280 }}>
                     <Typography variant="body2" noWrap title={p.title ?? "Untitled"}>
@@ -186,6 +233,20 @@ export function CorpusTable({
                   {showJournal && <TableCell sx={{ maxWidth: 220 }}>{p.journal || "—"}</TableCell>}
                   <TableCell>
                     <Chip label={typeLabel(p)} size="small" variant="outlined" />
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      size="small"
+                      label={
+                        p.is_retracted
+                          ? "Retracted"
+                          : p.peer_review_status === "peer_reviewed"
+                            ? "Peer-reviewed"
+                            : p.peer_review_status === "preprint"
+                              ? "Preprint"
+                              : "Unverified"
+                      }
+                    />
                   </TableCell>
                   {showLinks && (
                     <TableCell sx={{ maxWidth: 220 }}>
@@ -202,6 +263,11 @@ export function CorpusTable({
                       {p.status ? <Chip label={statusLabel(p.status)} size="small" variant="outlined" /> : "—"}
                     </TableCell>
                   )}
+                  <TableCell sx={{ maxWidth: 160 }}>
+                    <Typography variant="caption" noWrap title={p.notes || ""}>
+                      {p.notes || "—"}
+                    </Typography>
+                  </TableCell>
                   <TableCell>{formatDate(p.ingested_at)}</TableCell>
                   <TableCell align="right">
                     <IconButton size="small" aria-label="View" onClick={() => setViewPaper(p)}>
@@ -238,6 +304,9 @@ export function CorpusTable({
                   <Field label="Year" value={viewPaper.year} />
                   <Field label="PMID" value={viewPaper.pmid} />
                   <Field label="DOI" value={viewPaper.doi} />
+                  <Field label="Journal" value={viewPaper.journal} />
+                  <Field label="Notes" value={viewPaper.notes} />
+                  <Field label="Abstract" value={viewPaper.abstract} />
                 </>
               ) : null}
               <Field label="Ingested" value={formatDate(viewPaper.ingested_at)} />
@@ -282,6 +351,8 @@ export function CorpusTable({
             <TextField label="Year" value={editDraft.year ?? ""} onChange={(e) => setEditDraft((d) => ({ ...d, year: e.target.value }))} fullWidth />
             <TextField label="PMID" value={editDraft.pmid ?? ""} onChange={(e) => setEditDraft((d) => ({ ...d, pmid: e.target.value }))} fullWidth />
             <TextField label="DOI" value={editDraft.doi ?? ""} onChange={(e) => setEditDraft((d) => ({ ...d, doi: e.target.value }))} fullWidth />
+            <TextField label="Journal" value={editDraft.journal ?? ""} onChange={(e) => setEditDraft((d) => ({ ...d, journal: e.target.value }))} fullWidth />
+            <TextField label="Notes" value={editDraft.notes ?? ""} onChange={(e) => setEditDraft((d) => ({ ...d, notes: e.target.value }))} fullWidth multiline minRows={2} />
           </Stack>
         </DialogContent>
         <DialogActions>

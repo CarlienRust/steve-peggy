@@ -76,6 +76,10 @@ export type PlanStep = {
   id: string;
   title: string;
   objectiveIds: string[];
+  linkType?: "primary" | "supporting";
+  unknownYet?: boolean;
+  unknownYetNote?: string;
+  reminderDate?: string;
   /**
    * Server-provided: objective ids that were changed after this step/link was created.
    * Optional because older saved study designs will not have it.
@@ -120,6 +124,8 @@ export type StudyDesignPlan = {
 export type FindingLink = {
   paperId: number;
   objectiveIds: string[];
+  linkType?: "primary" | "supporting";
+  objectiveChangedObjectiveIds?: string[];
 };
 
 export type StudyDesignObjectiveLinks = {
@@ -159,11 +165,13 @@ export type StudyDesignOutputs = {
 };
 
 export type AnalysisToolMeta = {
-  fileName?: string;
+  label?: string;
   headers?: string[];
-  rows?: string[][];
+  columnRoles?: Record<string, string>;
   columnTypes?: Record<string, "continuous" | "categorical">;
   adminColumns?: string[];
+  aggregates?: Record<string, unknown>;
+  sharedAt?: string | null;
   lastSelector?: {
     outcome?: "continuous" | "ordinal" | "categorical";
     groups?: "1" | "2" | "3plus";

@@ -54,7 +54,7 @@ When `DATABASE_URL` is set, the API uses Postgres for catalog; `SQLITE_DB` is ig
 | **Local dev (default)** | `ollama` | `ollama serve` + model pulled |
 | **Render / cloud deploy** | `gemini` | Free key from [Google AI Studio](https://aistudio.google.com/apikey) |
 
-Embeddings run on the **API host** (hash on Render; sentence-transformers locally). See [RESTRICTIONS.md](RESTRICTIONS.md) for free-tier safeguards.
+Embeddings run on the **API host**. Render defaults to hash (not semantic). Hosted semantic search needs `EMBEDDING_BACKEND=gemini` plus `GEMINI_API_KEY` (768-d, versioned collections). Local default is sentence-transformers or hash. See [RESTRICTIONS.md](RESTRICTIONS.md).
 
 ## API `services/peggy-api/.env`
 
@@ -72,8 +72,19 @@ Embeddings run on the **API host** (hash on Render; sentence-transformers locall
 | `AUTH_REQUIRED` | No | `false` in tests | `true` for real Supabase auth |
 | `EXPOSE_API_DOCS` | No | `true` when auth is off | Swagger `/docs`. Leave `false` on Render |
 | `LLM_PROVIDER` | No | `ollama` locally; `gemini` when `RENDER=true` | |
-| `GEMINI_API_KEY` | If gemini | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| `GEMINI_API_KEY` | If gemini LLM or embed | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
 | `GEMINI_MODEL` | No | `gemini-2.0-flash` | |
+| `GEMINI_EMBED_MODEL` | No | `text-embedding-004` | Used when `EMBEDDING_BACKEND=gemini` |
+| `EMBEDDING_BACKEND` | No | `hash` on Render; `auto` local | `gemini` creates new collections; do not overwrite old vectors |
+| `JOB_TOKEN` | Hosted jobs | empty | Header `X-Job-Token` for retraction recheck and re-embed |
+| `MAX_AGENT_STEPS` | No | `5` | Agent loop cap |
+| `AGENT_TOKEN_BUDGET` | No | `8000` | Approx tokens per agent run |
+| `AGENT_TOOL_TIMEOUT_SEC` | No | `45` | Per-tool timeout |
+| `AGENT_SESSION_DAYS` | No | `30` | Agent memory expiry |
+| `GEMINI_TIER` | No | `unpaid` | Info for copy only; does not block class B |
+| `MAX_LLM_TOKENS_PER_DAY` | No | `200000` | Per-user daily LLM budget |
+| `PHI_ID_PATTERNS` | No | empty | Extra regex for PHI heuristics |
+| `DEMO_MODE` | No | unset | Optional synthetic demo project |
 | `OLLAMA_URL` | Local ollama | `http://localhost:11434` | |
 | `OLLAMA_MODEL` | No | `llama3.2` | Also stored on `extractions.model_version` |
 | `EXTRACTION_BATCH_SIZE` | No | `2` | Papers processed concurrently per extraction job |

@@ -58,7 +58,7 @@ async def build_export_json(user_id: str, workspace_id: str, ws: dict) -> dict[s
     }
 
 
-async def build_zip(user_id: str, workspace_id: str, ws: dict) -> bytes:
+async def build_zip(user_id: str, workspace_id: str, ws: dict, include_files: bool = True) -> bytes:
     meta = await build_export_json(user_id, workspace_id, ws)
     chunks_out: dict[str, list] = {}
     buf = io.BytesIO()
@@ -74,7 +74,7 @@ async def build_zip(user_id: str, workspace_id: str, ws: dict) -> bytes:
                     paper_id=pid, source_type=st, user_id=user_id
                 )
             key = paper.get("storage_key")
-            if not key:
+            if not include_files or not key:
                 continue
             try:
                 data = await file_store.get_bytes(str(key))
@@ -128,7 +128,7 @@ async def import_zip(user_id: str, raw: bytes) -> dict:
             resources=ws_in.get("resources") or {},
             settings=ws_in.get("settings") or {},
             enabled_modules=ws_in.get("enabled_modules") or [],
-            privacy_mode=ws_in.get("privacy_mode") or "local_only",
+            privacy_mode=ws_in.get("privacy_mode") or "standard",
         )
         new_ws_id = ws["id"]
         papers_in = meta.get("papers") or {}
