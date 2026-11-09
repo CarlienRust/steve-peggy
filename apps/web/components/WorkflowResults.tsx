@@ -2,7 +2,6 @@
 
 import { Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
 import {
-  hasAbstractSections,
   hasProposalSections,
   normalizeWorkflowBody,
 } from "@/lib/normalizeWorkflowBody";
@@ -300,7 +299,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
     );
   }
 
-  if (mode === "conference_abstract" && hasAbstractSections(body)) {
+  if (mode === "conference_abstract") {
     const sections = [
       { key: "introduction", label: "Introduction" },
       { key: "methods", label: "Methods" },
@@ -322,22 +321,30 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               {full}
             </Typography>
           </Paper>
-        ) : (
-          sections.map(({ key, label }) => {
-            const text = typeof body[key] === "string" ? (body[key] as string).trim() : "";
-            if (!text) return null;
-            return (
-              <Paper key={key} variant="outlined" sx={{ p: 2 }}>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  {label}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                  {text}
-                </Typography>
-              </Paper>
-            );
-          })
-        )}
+        ) : null}
+        {!full
+          ? sections.map(({ key, label }) => {
+              const text = typeof body[key] === "string" ? (body[key] as string).trim() : "";
+              if (!text) return null;
+              return (
+                <Paper key={key} variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    {label}
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+                    {text}
+                  </Typography>
+                </Paper>
+              );
+            })
+          : null}
+        {!full && !sections.some(({ key }) => typeof body[key] === "string" && (body[key] as string).trim()) ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
+              {JSON.stringify(body, null, 2)}
+            </Typography>
+          </Paper>
+        ) : null}
       </Stack>
     );
   }

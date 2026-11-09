@@ -73,7 +73,7 @@ export function DatasetTablePreview({
               </Alert>
             ) : null}
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Showing {rows.length} of {query.data?.rows.length ?? 0} rows (same table view as the Analysis tool).
+              Showing {rows.length} of {query.data?.rows.length ?? 0} rows.
             </Typography>
             <TableContainer>
               <Table size="small">

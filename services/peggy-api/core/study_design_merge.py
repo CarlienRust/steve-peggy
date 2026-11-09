@@ -18,6 +18,7 @@ _ANALYSIS_TOOL_KEYS = frozenset(
         "adminColumns",
         "sharedAt",
         "cellThreshold",
+        "lastRunSummary",
     }
 )
 

@@ -21,7 +21,7 @@ export function ProjectCard({
   const privacy =
     workspace.privacy_mode === "standard" || workspace.privacy_mode === "hosted_allowed"
       ? "Standard (hosted AI)"
-      : "Strict (no project AI)";
+      : "Strict (AI help off)";
   return (
     <Paper
       variant="outlined"

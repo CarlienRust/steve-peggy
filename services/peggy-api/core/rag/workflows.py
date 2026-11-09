@@ -44,6 +44,78 @@ def _confidence(sources: list[dict]) -> str:
     return "low"
 
 
+def _plan_review_text(plan: object) -> str:
+    if not isinstance(plan, dict):
+        return ""
+    bits = [str(plan.get("userPlan") or "").strip()]
+    steps = plan.get("steps") or []
+    if isinstance(steps, list):
+        for step in steps:
+            if isinstance(step, dict):
+                title = str(step.get("title") or "").strip()
+                if title:
+                    bits.append(title)
+            elif str(step).strip():
+                bits.append(str(step).strip())
+    method = str(plan.get("analysisMethod") or "").strip()
+    if method:
+        bits.append("Analysis method: " + method)
+    return "\n".join(b for b in bits if b)
+
+
+def _coerce_abstract_body(parsed: object) -> dict:
+    if not isinstance(parsed, dict):
+        text = str(parsed or "").strip()
+        return {"full_text": text, "word_count": len(text.split()) if text else 0, "limitations": []}
+    aliases: dict = {}
+    for k, v in parsed.items():
+        aliases[str(k).lower().replace(" ", "_")] = v
+    nested = aliases.get("abstract")
+    if isinstance(nested, dict):
+        for k, v in nested.items():
+            aliases.setdefault(str(k).lower().replace(" ", "_"), v)
+    intro = str(aliases.get("introduction") or "").strip()
+    methods = str(aliases.get("methods") or "").strip()
+    results = str(aliases.get("results") or "").strip()
+    conclusion = str(aliases.get("conclusion") or "").strip()
+    full = ""
+    for key in ("full_text", "text", "abstract"):
+        val = aliases.get(key)
+        if isinstance(val, str) and val.strip():
+            full = val.strip()
+            break
+    if not full:
+        parts = []
+        if intro:
+            parts.append("Introduction: " + intro)
+        if methods:
+            parts.append("Methods: " + methods)
+        if results:
+            parts.append("Results: " + results)
+        if conclusion:
+            parts.append("Conclusion: " + conclusion)
+        full = "\n\n".join(parts)
+    if not full:
+        raw = aliases.get("raw")
+        if isinstance(raw, str) and raw.strip():
+            full = raw.strip()
+    wc = aliases.get("word_count")
+    try:
+        word_count = int(wc) if wc not in (None, "") else (len(full.split()) if full else 0)
+    except (TypeError, ValueError):
+        word_count = len(full.split()) if full else 0
+    lim = aliases.get("limitations")
+    return {
+        "introduction": intro,
+        "methods": methods,
+        "results": results,
+        "conclusion": conclusion,
+        "full_text": full,
+        "word_count": word_count,
+        "limitations": lim if isinstance(lim, list) else [],
+    }
+
+
 def _parse_json(text: str) -> dict:
     text = text.strip()
     if text.startswith("```"):
@@ -443,16 +515,21 @@ async def run_methods_plan(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
     llm = get_llm()
+    methods_text = user_plan.strip() or _plan_review_text(sd.get("methodsPlan"))
+    analysis_text = _plan_review_text(sd.get("analysisPlan"))
     if mode == "review":
-        prompt = prompts.methods_plan_review_prompt(user_plan, ctx, sources)
+        prompt = prompts.combined_plan_review_prompt(methods_text, analysis_text, ctx, sources)
     else:
         prompt = prompts.methods_plan_suggest_prompt(ctx, constraints, sources)
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)
+    patch = {"methodsPlan": {"mode": mode, "userPlan": user_plan, "constraints": constraints, "lastResult": body}}
+    if mode == "review":
+        patch["analysisPlan"] = {"lastResult": body}
     await catalog.patch_study_design(
         user_id,
         workspace_id,
-        {"methodsPlan": {"mode": mode, "userPlan": user_plan, "constraints": constraints, "lastResult": body}},
+        patch,
     )
     return {
         "body": body,
@@ -509,29 +586,36 @@ async def run_analysis_plan(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
     llm = get_llm()
+    analysis_text = user_plan.strip() or _plan_review_text(plan)
+    methods_text = _plan_review_text(sd.get("methodsPlan"))
     if mode == "review":
-        prompt = prompts.analysis_plan_review_prompt(user_plan, ctx, sources, adhoc_tests=adhoc)
+        prompt = prompts.combined_plan_review_prompt(
+            methods_text, analysis_text, ctx, sources, adhoc_tests=adhoc
+        )
     else:
         prompt = prompts.analysis_plan_suggest_prompt(
             ctx, constraints, outcome_types, covariates, analysis_method, sources, adhoc_tests=adhoc
         )
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)
+    patch = {
+        "analysisPlan": {
+            "mode": mode,
+            "userPlan": user_plan,
+            "budget": budget,
+            "preferredTools": tools,
+            "outcomeTypes": outcome_types,
+            "covariates": covariates,
+            "analysisMethod": analysis_method,
+            "lastResult": body,
+        }
+    }
+    if mode == "review":
+        patch["methodsPlan"] = {"lastResult": body}
     await catalog.patch_study_design(
         user_id,
         workspace_id,
-        {
-            "analysisPlan": {
-                "mode": mode,
-                "userPlan": user_plan,
-                "budget": budget,
-                "preferredTools": tools,
-                "outcomeTypes": outcome_types,
-                "covariates": covariates,
-                "analysisMethod": analysis_method,
-                "lastResult": body,
-            }
-        },
+        patch,
     )
     return {
         "body": body,
@@ -724,7 +808,10 @@ async def run_conference_abstract(
             json_mode=True,
         )
         parsed = _parse_json(raw)
-        body = parsed if isinstance(parsed, dict) else {"raw": parsed}
+        body = _coerce_abstract_body(parsed)
+        if not str(body.get("full_text") or "").strip():
+            body["full_text"] = raw.strip() if isinstance(raw, str) else json.dumps(parsed, default=str)
+            body["word_count"] = len(str(body["full_text"]).split())
     except Exception:
         logger.exception("conference-abstract LLM failed")
         body = {

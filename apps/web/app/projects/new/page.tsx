@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Alert, Box, Button, Checkbox, FormControlLabel, Paper, Stack, TextField, Typography } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChoiceCard } from "@/components/ChoiceCard";
+import { TrainingOptOutTable } from "@/components/TrainingOptOutTable";
 import { ModuleToggleRow } from "@/components/ModuleToggleRow";
 import { SetupShell } from "@/components/setup/SetupShell";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
@@ -88,23 +89,24 @@ export default function NewProjectPage() {
           {step === 4 ? (
             <>
               <ChoiceCard
-                title="Standard"
-                description="Project text may go to Render, Supabase, Qdrant Cloud, and Gemini. Turn off Keep Activity yourself."
+                title="Standard (recommended)"
+                description="Ask Peggy, planners, and abstracts stay on. Project text may go to Render, Supabase, Qdrant Cloud, and Gemini. Opt out of provider training in that account (Gemini: turn off Keep Activity). Peggy cannot verify the setting."
                 selected={privacy === "standard"}
                 onSelect={() => setPrivacy("standard")}
                 tag={{ label: "Hosted AI", tone: "warning" }}
               />
               <ChoiceCard
-                title="Strict"
-                description="Retrieval still runs. Ask Peggy will not send project text to a hosted model."
+                title="Strict (AI help off)"
+                description="Use this only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search and saved records still work. You can switch back to Standard later in project settings."
                 selected={privacy === "strict"}
                 onSelect={() => setPrivacy("strict")}
                 tag={{ label: "No project AI", tone: "neutral" }}
               />
+              {privacy === "standard" ? <TrainingOptOutTable /> : null}
               {privacy === "standard" ? (
                 <FormControlLabel
                   control={<Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} />}
-                  label="I have turned off provider training, or I accept the risk."
+                  label="I have turned off provider training (or I accept the risk)."
                 />
               ) : null}
             </>

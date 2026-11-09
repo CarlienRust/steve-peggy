@@ -1,4 +1,4 @@
-# DONE:
+Next jobs:
 
 See [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) for working / not-working status.
 
@@ -86,31 +86,45 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 - Read tools + propose tools (`propose_objective_edit`, method step, budget, search queries). Accept/Edit/Dismiss. Guardrails, session expiry.
 - Migration `026` `agent_proposals`. Eval gold set (`eval-agent`); not run against live Gemini in this batch.
 
-**Checks:** pytest 152 unit; `npm run build` after AnalysisToolMeta / `limitsQuery` fixes. Apply 024 (fixed), 025, 026 on hosted Postgres.
+**Checks:** pytest 152 unit; `npm run build` after AnalysisToolMeta / `limitsQuery` fixes. Apply 024 (fixed), 025, 026 on hosted Postgres. Branch `phase-1-privacy` fast-forwarded to `main` at `59e789f`.
 
-# NEXT:
+## Batch 17
 
-### 3.4 Planner forms - defer but also explain what you fixing
+1) Showing 20 of 628 rows (same table view as the Analysis tool). - this doesn't need to include the text "(same table view as the Analysis tool)"
 
-- `PlannerFeature.tsx`: keep the pasted plan and constraints. Move tools and analysis method under Advanced. Remove budget, outcome types and covariates, and pre-fill from the project record. Keep old keys in saved data.
+2) Things flagged in Methods Plan is actually answered in Analysis Plan - we need to consider this. Methods and Analysis shoukd rather be combined. Review of plans should be done on these two together as a whole. 
 
-## Open decisions for the researcher
+3) Abstract generation still giving issue and not showing the generated abstract
 
-1. Enable Gemini billing (paid tier) or choose another approved provider. Without one, Phase 1 turns AI help on project text off by design. (for [carlienrust@gmail.com](mailto:carlienrust@gmail.com) - no AI tier restrictiions; email is dev. See Agent/AI models under FUTURE)
-2. Default privacy mode for new projects (`standard` is the working default), and whether existing `local_only` projects should move to `strict`.
-3. Embedding approach for Render (hosted API, small ONNX model, or a larger instance).
-4. Whether "Peer-reviewed only" defaults to on - yes default.
-5. Small-cell threshold for the analysis tool (5 is a common starting point) - yes we can use 5 as starting point.
-6. Retrieval and agent evaluation targets, set before testing.
-7. Whether your institution requires approval, a data agreement or a stated region for the services involved - future solve when starting to give to other users.
+4) Analysis tool - don't have to save the dataset file, but can save and allow last results to presist and be viewable. 
 
-# FUTURE:
+5) Explain more on: Strict (AI help off) + CTAs on Analysis Tool
+
+6) AI shouldn't be off for project - when user sets up new project, we need to tell them to turn train opt-out off on their AI model select (our gemini default - on my account, is already turned off). In future we will implement user to set up own AI and link to the platform. Include: 
+
+| AI platform       | Free opt-out available? | How it works                                                            |
+| ----------------- | ----------------------- | ----------------------------------------------------------------------- |
+| Claude            | Yes                   | Settings → Privacy → Help improve Claude                                |
+| ChatGPT           | Yes                   | Settings → Data Controls → Improve the model for everyone → Off         |
+| Google Gemini     | Yes                   | Turn off Keep Activity                                                  |
+| Microsoft Copilot | Yes                   | Privacy → Training on conversation activity → Off                       |
+| Perplexity        | Yes                   | Turn off AI Data Retention                                              |
+| Meta AI           | Limited               | Objection mechanisms exist in certain regions, but availability varies. |
+
+
+
+## FUTURE:
 
 **Still open:**
 
-- GitHub OAuth: configure env per docs/ENV.md
-- Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
-- Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
-- In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans.
-- Meeting scheduler/Doodle
-- Invite collaborators/share project with other user
+- GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
+
+Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
+
+Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
+
+In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans.
+
+Meeting scheduler/Doodle
+
+Invite collaborators/share project with other user

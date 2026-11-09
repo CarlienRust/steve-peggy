@@ -82,7 +82,7 @@ export function AnalysisToolFeature() {
   const [adminCols, setAdminCols] = useState<string[]>(saved.adminColumns ?? []);
   const [page, setPage] = useState(0);
   const [summaryCols, setSummaryCols] = useState<string[]>([]);
-  const [runResult, setRunResult] = useState<string | null>(null);
+  const [runResult, setRunResult] = useState<string | null>(saved.lastRunSummary ?? null);
 
   useEffect(() => {
     if (hydrated) return;
@@ -96,6 +96,8 @@ export function AnalysisToolFeature() {
         if (stored?.length) setRows(stored);
       });
     }
+    if (saved.cellThreshold) setCellThreshold(saved.cellThreshold);
+    if (saved.lastRunSummary) setRunResult(saved.lastRunSummary);
     setSummaryCols(saved.headers.slice(0, Math.min(3, saved.headers.length)));
     const first =
       saved.headers.find((h) => !(saved.adminColumns ?? []).includes(h)) ?? saved.headers[0] ?? "";
@@ -244,6 +246,7 @@ export function AnalysisToolFeature() {
       adminColumns: adminCols,
       lastSelector: selector,
       cellThreshold,
+      lastRunSummary: runResult ?? undefined,
     });
   };
 
@@ -312,7 +315,7 @@ export function AnalysisToolFeature() {
               Upload dataset
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              CSV, TSV, or SPSS SAV. Table rows stay in this browser only. Save stores the dataset label, headers, roles, types, and aggregates. No rows go to the server.
+              CSV, TSV, or SPSS SAV. You do not have to keep the file here. Rows stay in this browser only if you leave them. Save last results stores the label, column setup, descriptives, and the last test so you can open them later. No rows go to the server.
             </Typography>
             <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
               <Button component="label" variant="contained" disabled={blocked}>
@@ -332,7 +335,7 @@ export function AnalysisToolFeature() {
           />
           {rows.length ? (
             <Alert severity="info" sx={{ mt: 1.5 }}>
-              Table stored in this browser only ({rows.length} rows{fileName ? `, from ${fileName}` : ""}).
+              Table stored in this browser only ({rows.length} rows{fileName ? `, from ${fileName}` : ""}). Clear the table anytime; saved last results still show below.
               <Button
                 size="small"
                 sx={{ ml: 1, textTransform: "none" }}
@@ -341,7 +344,7 @@ export function AnalysisToolFeature() {
                   if (activeWorkspace?.id) void clearAnalysisRows(activeWorkspace.id);
                 }}
               >
-                Clear
+                Clear table
               </Button>
             </Alert>
           ) : null}
@@ -565,9 +568,26 @@ export function AnalysisToolFeature() {
                     </Stack>
                   ))}
                 </>
+              ) : Array.isArray(saved.aggregates) && saved.aggregates.length ? (
+                <>
+                  <Typography variant="body2" color="text.secondary">
+                    Last saved descriptives (no table loaded in this browser).
+                  </Typography>
+                  {(saved.aggregates as { name?: string; kind?: string; n?: number; missingPercent?: number; mean?: number; sd?: number }[]).map(
+                    (p) => (
+                      <Typography key={String(p.name)} variant="body2">
+                        {p.name} ({p.kind}): n={p.n}
+                        {p.missingPercent != null ? ` missing=${p.missingPercent}%` : ""}
+                        {p.mean != null ? ` mean=${p.mean}` : ""}
+                        {p.sd != null ? ` sd=${p.sd}` : ""}
+                      </Typography>
+                    )
+                  )}
+                </>
               ) : (
                 <Typography variant="body2" color="text.secondary">
-                  Load a dataset to set column types, preview rows, and see descriptives.
+                  Load a dataset to set column types, preview rows, and see descriptives. After Save last results you can
+                  reopen those numbers without the file.
                 </Typography>
               )}
             </Stack>
@@ -665,11 +685,20 @@ export function AnalysisToolFeature() {
                   const result = runSuggestedTest(suggestion, outcomeVals, groupVals);
                   setRunResult(result.summary);
                   setWhyOpen(true);
+                  void commitSection("analysisTool", {
+                    ...(studyDesign.analysisTool ?? {}),
+                    lastRunSummary: result.summary,
+                    lastSelector: selector,
+                  });
                 }}
               >
                 Run on this dataset
               </Button>
-              {runResult ? <Typography variant="body2">{runResult}</Typography> : null}
+              {runResult ? (
+                <Alert severity="success">
+                  Last result (saved with Save last results): {runResult}
+                </Alert>
+              ) : null}
               <Typography variant="caption" color="text.secondary">
                 Uses the first selected guide column as the outcome and the second as the grouping column when present.
                 p-values are normal approximations, not a full stats package.
@@ -691,64 +720,78 @@ export function AnalysisToolFeature() {
           </Paper>
         ) : null}
 
-        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          <Button variant="contained" disabled={isSaving} onClick={saveMeta}>
-            {isSaving ? "Saving…" : "Save configuration"}
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={!headers.length}
-            onClick={() =>
-              downloadBlob(
-                "data-dictionary.csv",
-                dictionaryCsv(headers, columnRoles, Object.fromEntries(profiles.map((p) => [p.name, p.kind])), profiles, cellThreshold, adminCols)
-              )
-            }
-          >
-            Export dictionary CSV
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={!headers.length}
-            onClick={() =>
-              downloadBlob(
-                "starter.py",
-                starterPython(
-                  headers.filter((h) => !adminCols.includes(h)),
-                  columnRoles,
-                  (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+        <Stack spacing={1}>
+          <Typography variant="body2" color="text.secondary">
+            Save last results does not upload the data file. Share summary sends aggregates only, and is off on Strict
+            projects and unpaid Gemini.
+          </Typography>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <Button variant="contained" disabled={isSaving} onClick={saveMeta}>
+              {isSaving ? "Saving…" : "Save last results"}
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() =>
+                downloadBlob(
+                  "data-dictionary.csv",
+                  dictionaryCsv(headers, columnRoles, Object.fromEntries(profiles.map((p) => [p.name, p.kind])), profiles, cellThreshold, adminCols)
                 )
-              )
-            }
-          >
-            Python starter
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={!headers.length}
-            onClick={() =>
-              downloadBlob(
-                "starter.R",
-                starterR(
-                  headers.filter((h) => !adminCols.includes(h)),
-                  columnRoles,
-                  (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+              }
+            >
+              Export dictionary CSV
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() =>
+                downloadBlob(
+                  "starter.py",
+                  starterPython(
+                    headers.filter((h) => !adminCols.includes(h)),
+                    columnRoles,
+                    (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+                  )
                 )
-              )
-            }
-          >
-            R starter
-          </Button>
-          <Button
-            variant="outlined"
-            disabled={!headers.length}
-            onClick={() => {
-              setSharePreview(JSON.stringify({ label: datasetLabel, headers: headers.filter((h) => !adminCols.includes(h)), columnRoles, aggregates }, null, 2));
-              setShareOpen(true);
-            }}
-          >
-            Share summary with Peggy
-          </Button>
+              }
+            >
+              Python starter
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() =>
+                downloadBlob(
+                  "starter.R",
+                  starterR(
+                    headers.filter((h) => !adminCols.includes(h)),
+                    columnRoles,
+                    (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
+                  )
+                )
+              }
+            >
+              R starter
+            </Button>
+            <DisabledTooltipButton
+              title={
+                activeWorkspace?.privacy_mode === "strict"
+                  ? "Share is off on Strict projects (no dataset summary to a hosted model)."
+                  : ""
+              }
+            >
+              <Button
+                variant="outlined"
+                disabled={!headers.length || activeWorkspace?.privacy_mode === "strict"}
+                onClick={() => {
+                  setSharePreview(JSON.stringify({ label: datasetLabel, headers: headers.filter((h) => !adminCols.includes(h)), columnRoles, aggregates }, null, 2));
+                  setShareOpen(true);
+                }}
+              >
+                Share summary with Peggy
+              </Button>
+            </DisabledTooltipButton>
+          </Stack>
         </Stack>
       </Stack>
       <ConfirmDialog

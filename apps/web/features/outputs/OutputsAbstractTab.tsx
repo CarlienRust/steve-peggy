@@ -16,7 +16,7 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { formatApiError, peggyApi, queryKeys } from "@/lib/api";
-import { hasAbstractSections, normalizeWorkflowBody } from "@/lib/normalizeWorkflowBody";
+import { normalizeWorkflowBody } from "@/lib/normalizeWorkflowBody";
 import type { AbstractDraft } from "@/lib/studyDesign";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
@@ -25,7 +25,10 @@ export function OutputsAbstractTab() {
   const { activeWorkspace } = useWorkspace();
   const { studyDesign, commitSection, savingSection } = useStudyDesign(activeWorkspace?.id);
   const outputs = studyDesign.outputs ?? {};
-  const drafts = outputs.abstractDrafts ?? [];
+  const storedDrafts = outputs.abstractDrafts ?? [];
+  const [localDraft, setLocalDraft] = useState<AbstractDraft | null>(null);
+  const drafts =
+    localDraft && !storedDrafts.some((d) => d.id === localDraft.id) ? [localDraft, ...storedDrafts] : storedDrafts;
   const [minWords, setMinWords] = useState(250);
   const [selectedId, setSelectedId] = useState<string | null>(outputs.activeAbstractId ?? drafts[0]?.id ?? null);
   const findings = useQuery({
@@ -61,7 +64,9 @@ export function OutputsAbstractTab() {
         minWords,
         body: normalized,
       };
-      const nextDrafts = [draft, ...drafts];
+      setLocalDraft(draft);
+      setSelectedId(draft.id);
+      const nextDrafts = [draft, ...storedDrafts];
       try {
         await commitSection("outputs", {
           ...outputs,
@@ -71,7 +76,6 @@ export function OutputsAbstractTab() {
       } catch {
         /* generate succeeded; persist failure is shown via study-design save errors */
       }
-      setSelectedId(draft.id);
     },
   });
 
@@ -143,11 +147,11 @@ export function OutputsAbstractTab() {
         <Alert severity="info">No abstract versions yet. Click Generate new version.</Alert>
       )}
 
-      {body && (hasAbstractSections(body) || (typeof body.full_text === "string" && body.full_text.trim())) ? (
+      {selected ? (
         <WorkflowOutputPanel
           mode="conference_abstract"
           title={panelTitle ?? "Abstract"}
-          body={body}
+          body={body ?? selected.body ?? {}}
           hasUnsavedResult={false}
           hasSavedResult={!!selected}
         />

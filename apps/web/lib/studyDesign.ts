@@ -177,6 +177,8 @@ export type AnalysisToolMeta = {
     groups?: "1" | "2" | "3plus";
     pairing?: "independent" | "paired";
   };
+  cellThreshold?: number;
+  lastRunSummary?: string;
 };
 
 export type ProjectTask = {

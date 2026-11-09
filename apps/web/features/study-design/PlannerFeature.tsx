@@ -272,10 +272,12 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
     [tab, userPlan, constraints, preferredTools, outcomeTypes, covariates, covariateEntries, adhocAnalyses, analysisMethod, steps, userNotes, linkOptions, plan.draftStatus]
   );
 
-  const reviewDisabled = llmBlocked || run.isPending || (tab === "review" && !userPlan.trim());
+  const companionPlan = section === "methods" ? studyDesign.analysisPlan : studyDesign.methodsPlan;
+  const hasEitherPlan = Boolean(userPlan.trim() || (companionPlan?.userPlan ?? "").trim());
+  const reviewDisabled = llmBlocked || run.isPending || (tab === "review" && !hasEitherPlan);
   const reviewTooltip =
-    tab === "review" && !userPlan.trim()
-      ? "Paste your plan to get a review"
+    tab === "review" && !hasEitherPlan
+      ? "Paste a methods or analysis plan (either page) to get a combined review"
       : llmBlocked
         ? "Update Samples to de-identified before using AI planners."
         : "";
@@ -316,7 +318,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           onClick={() => {
             setTab("review");
             saveSection(planKey, { mode: "review" });
-            if (userPlan.trim() && !llmBlocked) run.mutate("review");
+            if (hasEitherPlan && !llmBlocked) run.mutate("review");
           }}
           sx={
             tab === "review"
@@ -647,10 +649,10 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
           YOUR PLAN
         </Typography>
         <Typography variant="h6" sx={{ mt: 0.5 }}>
-          {section === "methods" ? "Paste your draft plan" : "Paste your draft analysis plan"}
+          {section === "methods" ? "Paste your draft methods plan" : "Paste your draft analysis plan"}
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Peggy checks it against your objectives and similar studies.
+          Review treats methods and analysis as one protocol. Gaps already covered on the other plan are not flagged.
         </Typography>
         <TextField
           placeholder={section === "methods" ? "Paste or type your methods plan" : "Paste or type your analysis plan"}
@@ -748,7 +750,7 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
                 {run.isPending ? (
                   <CircularProgress size={22} color="inherit" />
                 ) : tab === "review" ? (
-                  "Review my plan"
+                  "Review methods and analysis"
                 ) : (
                   "Help me design"
                 )}

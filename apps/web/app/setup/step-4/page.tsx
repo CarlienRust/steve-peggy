@@ -7,6 +7,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckIcon from "@mui/icons-material/Check";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { SetupShell } from "@/components/setup/SetupShell";
+import { TrainingOptOutTable } from "@/components/TrainingOptOutTable";
 import { useSetupState } from "@/components/setup/SetupState";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
@@ -79,16 +80,16 @@ export default function SetupStep4Page() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={3}>
             <ChoiceCard
               selected={state.privacy_mode === "strict" || state.privacy_mode === "local_only"}
-              title="Strict"
+              title="Strict (AI help off)"
               tag={<Chip label="No project AI" size="small" sx={{ borderRadius: 999 }} />}
-              description="Retrieval still works. Ask Peggy and planners will not send project text to a hosted model."
+              description="Use only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search still works. You can switch to Standard later."
               onClick={() => setState({ privacy_mode: "strict" })}
             />
             <ChoiceCard
               selected={state.privacy_mode === "standard" || state.privacy_mode === "hosted_allowed"}
-              title="Standard"
+              title="Standard (recommended)"
               tag={<Chip label="Hosted AI" color="warning" size="small" sx={{ borderRadius: 999 }} />}
-              description="Project text may go to the configured provider (e.g. Gemini). Turn off Keep Activity in your Google account. Peggy cannot verify that setting."
+              description="Ask Peggy stays on. Opt out of provider training in the Gemini (or other) account. Peggy cannot verify that setting."
               onClick={() => setState({ privacy_mode: "standard" })}
             />
           </Stack>
@@ -110,12 +111,7 @@ export default function SetupStep4Page() {
             />
           </Paper>
 
-          {privacyMode === "standard" ? (
-            <Alert severity="warning">
-              Hosted AI may send project text to the provider. Turn off training or activity in that account yourself
-              (Gemini: Keep Activity). Peggy cannot verify the setting. Terms can change.
-            </Alert>
-          ) : null}
+          {privacyMode === "standard" ? <TrainingOptOutTable /> : null}
           {privacyMode === "standard" ? (
             <FormControlLabel
               control={<Checkbox checked={consent} onChange={(e) => setConsent(e.target.checked)} />}
@@ -167,7 +163,7 @@ function ChoiceCard({
     <Paper
       variant="outlined"
       onClick={disabled ? undefined : onClick}
-      id={title === "Strict" ? "setup-privacy-choices" : undefined}
+      id={title.startsWith("Strict") ? "setup-privacy-choices" : undefined}
       sx={{
         p: 2.5,
         borderRadius: 2,

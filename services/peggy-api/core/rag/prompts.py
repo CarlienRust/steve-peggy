@@ -265,11 +265,25 @@ Return JSON only:
 }}"""
 
 
-def methods_plan_review_prompt(user_plan: str, workspace_context: str, sources: list[dict]) -> str:
-    return f"""Review this prospective methods plan against literature and methodology best practices.
+def combined_plan_review_prompt(
+    methods_plan: str,
+    analysis_plan: str,
+    workspace_context: str,
+    sources: list[dict],
+    adhoc_tests: str = "",
+) -> str:
+    return f"""Review the methods plan and the analysis plan as one protocol.
+Do not list a gap if the other plan already covers it (for example sample size, outcomes, covariates, or tests).
+Treat the two texts as complementary, not competing.
 
-User plan:
-{user_plan}
+Methods plan:
+{methods_plan or "(empty)"}
+
+Analysis plan:
+{analysis_plan or "(empty)"}
+
+Sensitivity / ad hoc tests:
+{adhoc_tests or "not specified"}
 
 Project context:
 {workspace_context}
@@ -280,11 +294,21 @@ Literature context:
 Return JSON only:
 {{
   "strengths": ["string"],
-  "gaps": ["string with chunk_id where relevant"],
+  "gaps": ["string with chunk_id where relevant — omit items already answered in either plan"],
   "ethics_flags": ["string"],
   "recommendations": ["string"],
   "limitations": ["string"]
 }}"""
+
+
+def methods_plan_review_prompt(user_plan: str, workspace_context: str, sources: list[dict]) -> str:
+    return combined_plan_review_prompt(user_plan, "", workspace_context, sources)
+
+
+def analysis_plan_review_prompt(
+    user_plan: str, workspace_context: str, sources: list[dict], adhoc_tests: str = ""
+) -> str:
+    return combined_plan_review_prompt("", user_plan, workspace_context, sources, adhoc_tests=adhoc_tests)
 
 
 def analysis_plan_suggest_prompt(
@@ -319,33 +343,6 @@ Return JSON only:
   "software": ["string"],
   "budget_tiers": {{"low": "string", "medium": "string"}},
   "citations": ["chunk_id refs"],
-  "limitations": ["string"]
-}}"""
-
-
-def analysis_plan_review_prompt(
-    user_plan: str, workspace_context: str, sources: list[dict], adhoc_tests: str = ""
-) -> str:
-    return f"""Review this analysis plan.
-
-User plan:
-{user_plan}
-
-Project context:
-{workspace_context}
-
-Sensitivity / ad hoc tests (include these in your review):
-{adhoc_tests or "not specified"}
-
-Literature context:
-{format_context(sources)}
-
-Return JSON only:
-{{
-  "strengths": ["string"],
-  "gaps": ["string with chunk_id where relevant"],
-  "ethics_flags": ["string"],
-  "recommendations": ["string"],
   "limitations": ["string"]
 }}"""
 

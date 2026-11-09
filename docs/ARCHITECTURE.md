@@ -185,7 +185,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/results/methods` | 05 · Methods | Placeholder |
 | `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
 | `/results/comparison` | 05 · Comparison | Finding vs ingested literature; optional live PubMed/OpenAlex/Europe PMC abstracts (`include_live`) |
-| `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. |
+| `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. Conference abstract JSON is coerced to `full_text` so the draft panel always has text to show. |
 | `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
 | `/chat` | 08 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |
 | `/login` | — | Supabase email magic link |
@@ -212,6 +212,8 @@ Migration: `009_objective_links.sql` adds the `objective_links` column. See [DAT
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).
 - **Study design save** — each section has a Save button. It stays disabled when that section matches the stored row. Edits stay in the form until Save. Uploaded PDFs are linked on Save and do not replace typed fields.
+- **Methods + analysis review** — Review on either planner sends both pasted plans (plus steps) as one protocol. Gaps already covered in the other plan should not be listed. The same `lastResult` is stored on both sections.
+- **Analysis tool last results** — `analysisTool` may include `lastRunSummary` and aggregates. The data file is not required to stay loaded; rows stay in IndexedDB only if the researcher leaves them.
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

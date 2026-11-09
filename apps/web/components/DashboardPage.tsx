@@ -128,6 +128,13 @@ export function DashboardPage() {
           {samples.studyType ? String(samples.studyType) : "Human-subjects study"}
         </Typography>
       </Stack>
+      {activeWorkspace?.privacy_mode === "strict" ? (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Strict means Peggy will not send this project's aim, plans, findings, chat, or dataset summaries to a hosted
+          model. Literature search and saved records still work. Switch to Standard in project settings if you want Ask
+          Peggy and plan review on this project.
+        </Alert>
+      ) : null}
 
       <WorkspaceEditDialog
         open={editOpen}

@@ -8,7 +8,7 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 
 - [ ] **Smoke** — `./scripts/smoke-local.sh` with `AUTH_REQUIRED=false` when testing solo
 - [ ] **Extraction benchmark** — `scripts/benchmark-extraction.py` when gold PDFs exist
-- [ ] **Planner form reshuffle (3.4)** — deferred
+- [ ] **Planner form reshuffle (3.4)** — deferred (review of methods + analysis is now combined; layout shuffle still later)
 - [ ] **Retrieval eval on gold** — `scripts/eval-retrieval.py`; target recall@5 ≥ 0.6 / @10 ≥ 0.75; hash baseline may miss; sparse BM25 only if Gemini misses
 - [ ] **Dashboard demo placeholders** — sample stats when corpus empty (code TODO)
 - [ ] **GitHub OAuth env** — [ENV.md](ENV.md) if project README sync is needed

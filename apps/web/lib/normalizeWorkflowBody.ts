@@ -84,6 +84,24 @@ export function normalizeWorkflowBody(
     delete b.raw;
   }
 
+  const nestedAbstract = b.abstract;
+  if (nestedAbstract && typeof nestedAbstract === "object" && !Array.isArray(nestedAbstract)) {
+    const inner = nestedAbstract as Record<string, unknown>;
+    b = { ...inner, ...b };
+  }
+  const lowerMap: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(b)) lowerMap[k.toLowerCase().replace(/\s+/g, "_")] = v;
+  for (const key of ["introduction", "methods", "results", "conclusion", "full_text"]) {
+    if (!(key in b) && typeof lowerMap[key] === "string") b[key] = lowerMap[key];
+  }
+  if (!coerceString(b.full_text)) {
+    const joined = ["introduction", "methods", "results", "conclusion"]
+      .map((k) => coerceString(b[k]))
+      .filter(Boolean)
+      .join("\n\n");
+    if (joined) b.full_text = joined;
+  }
+
   return flattenStrings(b);
 }
 
@@ -98,11 +116,22 @@ export function hasProposalSections(body: Record<string, unknown>): boolean {
   return false;
 }
 
-export function hasAbstractSections(body: Record<string, unknown>): boolean {
-  const full = typeof body.full_text === "string" ? body.full_text.trim() : "";
-  if (full) return true;
-  for (const key of ["introduction", "methods", "results", "conclusion"]) {
-    if (typeof body[key] === "string" && (body[key] as string).trim()) return true;
+function pickAbstractText(body: Record<string, unknown>): string {
+  const keys = ["full_text", "text", "abstract", "introduction", "methods", "results", "conclusion"];
+  const lower: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(body)) lower[k.toLowerCase()] = v;
+  const nested = lower.abstract;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    return pickAbstractText(nested as Record<string, unknown>);
   }
-  return false;
+  const parts: string[] = [];
+  for (const key of keys) {
+    const val = lower[key];
+    if (typeof val === "string" && val.trim()) parts.push(val.trim());
+  }
+  return parts.join("\n\n");
+}
+
+export function hasAbstractSections(body: Record<string, unknown>): boolean {
+  return pickAbstractText(body).length > 0;
 }
