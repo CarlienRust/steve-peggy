@@ -73,7 +73,7 @@ Embeddings run on the **API host**. Render defaults to hash (not semantic). Host
 | `EXPOSE_API_DOCS` | No | `true` when auth is off | Swagger `/docs`. Leave `false` on Render |
 | `LLM_PROVIDER` | No | `ollama` locally; `gemini` when `RENDER=true` | |
 | `GEMINI_API_KEY` | If gemini LLM or embed | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| `GEMINI_MODEL` | No | `gemini-2.0-flash` | |
+| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Google generateContent id (`models/` prefix is stripped). Set this on Render if a stale `gemini-2.0-flash` env remains. |
 | `GEMINI_EMBED_MODEL` | No | `text-embedding-004` | Used when `EMBEDDING_BACKEND=gemini` |
 | `EMBEDDING_BACKEND` | No | `hash` on Render; `auto` local | `gemini` creates new collections; do not overwrite old vectors |
 | `JOB_TOKEN` | Hosted jobs | empty | Header `X-Job-Token` for retraction recheck and re-embed |

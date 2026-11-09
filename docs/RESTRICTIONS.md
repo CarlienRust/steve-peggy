@@ -109,7 +109,7 @@ On Render, `EMBEDDING_BACKEND` defaults to `hash` when `RENDER=true`.
 
 For developers and small projects getting started with the Gemini API.
 
-- Limited access to certain models (Peggy uses `gemini-2.0-flash` on Render)
+- Limited access to certain models (Peggy uses `gemini-3.8-flash` on Render)
 - Free input and output tokens
 - Google AI Studio access ([aistudio.google.com/apikey](https://aistudio.google.com/apikey))
 - Content may be used to improve Google products
