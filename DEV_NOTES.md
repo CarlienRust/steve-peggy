@@ -55,6 +55,7 @@ ISSUES (2026-03-24 batches 1–7) — done: setup wizard, dashboard, ethics save
 Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama remain a dev path.
 
 **Phase 1 — privacy**
+
 - `GEMINI_TIER` (`paid` / `unpaid`, default unpaid). `core/safety/policy.py` + wrapper on `get_llm()`. Unpaid: class A only; class B/D → `provider_not_approved`. Unpaid Gemini does **not** block chat itself; it blocks class D share. `DEMO_MODE` for synthetic demo project.
 - `privacy_mode`: `strict` / `standard` (was `local_only` / `hosted_allowed`). UI: AI help off until standard. Enforced in `policy.py`.
 - Migration `024`: maps old modes; `deleting` flag; paper unique per `(workspace_id, source_type, pmid/doi/title)`; orphan papers backfill; `export_audit`; `ai_consent`. Postgres: drop `workspaces_privacy_mode_check` **before** UPDATE, then add CHECK (`strict`,`standard`). First 024 run on Supabase failed 23514 until that drop (Exposome row). Re-run the fixed file, then 025 and 026.
@@ -66,22 +67,26 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 - `docs/PRIVACY.md`, `docs/SECURITY.md` (search scoped by project). First-run consent. Hosted copy; no “stays on this computer”.
 
 **Phase 2 — evidence**
+
 - Hosted Gemini embeddings (768-d); collection name + dim; re-embed job. `scripts/eval-retrieval.py`.
 - Migration `025`: publication types, `peer_review_status`, preprint/retraction, study design, full_text. Ingest from PubMed / OpenAlex / Europe PMC. `classify_peer_review` default `unknown`.
 - `peer_reviewed_only` (default on). Retracted always excluded. Retracted/corrected notice job.
 - Source labels in prompts and “What Peggy used”. `citation_check` after generate. Compare / gap / validate use extraction counts.
 
 **Phase 3 — hub / literature / smoke**
+
 - `/projects/new` (privacy mode + which services see text). Project hub cards. Corpus table: journal, status, notes, expand abstract, CSV with formula guard.
 - Playwright smoke: create project, paper, gap, What Peggy used, delete paper, delete project.
 - Objective history / 3.1 and 3.6 dashboard cards not fully as planned; next SQL after 025 is **026** (`agent_proposals`), not 027. `docs/FIGMA_HANDOFF.md` still missing for 3.8.
 
 **Phase 4 — analysis tool**
+
 - Rows in IndexedDB only (“this browser”, Clear). Server still allowlists metadata.
 - Identifier / admin pre-tag; small-cell threshold 5; descriptives with `<5`; dictionary CSV; plan check on column names.
 - Share summary (class D) with confirm; blocked on unpaid + `strict`. Starter R/Python (column names; Peggy does not run it).
 
 **Phase 5 — agent**
+
 - Intent confidence; fallback to agent. `ToolContext` (user/workspace from server, not model).
 - Read tools + propose tools (`propose_objective_edit`, method step, budget, search queries). Accept/Edit/Dismiss. Guardrails, session expiry.
 - Migration `026` `agent_proposals`. Eval gold set (`eval-agent`); not run against live Gemini in this batch.
@@ -91,16 +96,11 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 ## Batch 17
 
 1) Showing 20 of 628 rows (same table view as the Analysis tool). - this doesn't need to include the text "(same table view as the Analysis tool)"
-
 2) Things flagged in Methods Plan is actually answered in Analysis Plan - we need to consider this. Methods and Analysis shoukd rather be combined. Review of plans should be done on these two together as a whole. 
-
 3) Abstract generation still giving issue and not showing the generated abstract
-
 4) Analysis tool - don't have to save the dataset file, but can save and allow last results to presist and be viewable. 
-
 5) Explain more on: Strict (AI help off) + CTAs on Analysis Tool
-
-6) AI shouldn't be off for project - when user sets up new project, we need to tell them to turn train opt-out off on their AI model select (our gemini default - on my account, is already turned off). In future we will implement user to set up own AI and link to the platform. Include: 
+6) AI shouldn't be off for project - when user sets up new project, we need to tell them to turn train opt-out off on their AI model select (our gemini default - on my account, is already turned off). In future we will implement user to set up own AI and link to the platform. Include:
 
 | AI platform       | Free opt-out available? | How it works                                                            |
 | ----------------- | ----------------------- | ----------------------------------------------------------------------- |
@@ -111,15 +111,22 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 | Perplexity        | Yes                   | Turn off AI Data Retention                                              |
 | Meta AI           | Limited               | Objection mechanisms exist in certain regions, but availability varies. |
 
+## Batch 18
 
+- Files uploaded (all files uploaded, except for Analysis tool) - only works on preview in session where file is first uploaded, and throws "Original file not stored" error if user opens a new session later. This is not the functionality we want. Uploaded files need to be stored. Including Samples and datasets
+- Methods and Analysis plan - combination doesn't work. You can't have a "Review methods and analysis" CTA on Methods plan but user might not even have done anything for analysis plan. That doesn't make sense. One tab - Methods plan; then under that tab we need to address both method and analysis. Rather do steps tabs with Methods plan -> From your project -> methods + constraints + adv options  -> analysis + constraints + adv options -> Review output + Steps links + Checklist. Once a step is completed user can always go back and view/edit the info in that step. 
+
+## NEXT:
+
+1) Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
+2) Correct RLS for all Supabase tables.
+3) MFA for sign-in
 
 ## FUTURE:
 
 **Still open:**
 
 - GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
-
-Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
 
 Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
 
@@ -128,3 +135,5 @@ In research groups, there might already be specific SOPs or published methods th
 Meeting scheduler/Doodle
 
 Invite collaborators/share project with other user
+
+Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 

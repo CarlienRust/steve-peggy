@@ -109,24 +109,13 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
         methodsPlan.draftStatus === "completed" ||
         methodsPlan.userPlan?.trim() ||
         methodsPlan.lastResult ||
-        (methodsPlan.steps?.length ?? 0) > 0
-      ),
-      href: "/study-design/methods-plan",
-      reason: "Draft how you will run the study.",
-    },
-    {
-      id: "analysis",
-      label: "Analysis plan",
-      done: !!(
-        analysisPlan.draftStatus === "completed" ||
-        analysisPlan.outcomeTypes?.trim() ||
-        analysisPlan.analysisMethod?.trim() ||
+        (methodsPlan.steps?.length ?? 0) > 0 ||
         analysisPlan.userPlan?.trim() ||
         analysisPlan.lastResult ||
         (analysisPlan.steps?.length ?? 0) > 0
       ),
-      href: "/study-design/analysis-plan",
-      reason: "Plan outcomes, covariates, and analysis approach.",
+      href: "/study-design/methods-plan",
+      reason: "Draft methods and analysis in one place.",
     },
     {
       id: "budget",

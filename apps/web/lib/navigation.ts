@@ -78,13 +78,7 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Methods plan",
         href: "/study-design/methods-plan",
-        description: "Prospective study design, endpoints, and procedures.",
-        ready: true,
-      },
-      {
-        label: "Analysis plan",
-        href: "/study-design/analysis-plan",
-        description: "Pre-specified statistics, power, and analysis pipeline.",
+        description: "Methods and analysis in one flow: project context, methods, analysis, then review.",
         ready: true,
       },
       {

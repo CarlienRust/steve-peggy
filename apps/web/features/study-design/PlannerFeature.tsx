@@ -10,6 +10,8 @@ import {
   CircularProgress,
   Paper,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   Typography,
 } from "@mui/material";
@@ -32,11 +34,7 @@ import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { monoSx, peggyColors, textWrapSx } from "@/theme/peggyTheme";
 
-type PlannerSection = "methods" | "analysis";
-
-type PlannerFeatureProps = {
-  section: PlannerSection;
-};
+const STEPS = ["From your project", "Methods", "Analysis", "Review"] as const;
 
 const MODULE_LABELS: Record<string, string> = {
   core: "Core",
@@ -114,7 +112,7 @@ function SummaryRow({
   );
 }
 
-export function PlannerFeature({ section }: PlannerFeatureProps) {
+export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
   const queryClient = useQueryClient();
   const { userId } = useAuthSession();
   const { activeWorkspace, refetch: refetchWorkspace } = useWorkspace();
@@ -130,23 +128,31 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const [draftOutcomes, setDraftOutcomes] = useState("");
   const [draftStudyType, setDraftStudyType] = useState("");
   const [draftCovariates, setDraftCovariates] = useState("");
-  const planKey = section === "methods" ? "methodsPlan" : "analysisPlan";
-  const plan = studyDesign[planKey] ?? {};
-  const samples = studyDesign.samples ?? {};
-  const methodsPlan = studyDesign.methodsPlan ?? {};
+  const [wizardStep, setWizardStep] = useState(0);
 
-  const [tab, setTab] = useState<"review" | "suggest">(plan.mode ?? "review");
-  const [userPlan, setUserPlan] = useState(plan.userPlan ?? "");
-  const [constraints, setConstraints] = useState(plan.constraints ?? plan.preferredTools ?? "");
-  const [userNotes, setUserNotes] = useState(plan.userNotes ?? "");
-  const [steps, setSteps] = useState<PlanStep[]>(plan.steps ?? []);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [preferredTools, setPreferredTools] = useState(plan.preferredTools ?? "");
-  const [outcomeTypes, setOutcomeTypes] = useState(plan.outcomeTypes ?? "");
-  const [covariates, setCovariates] = useState(plan.covariates ?? "");
-  const [covariateEntries, setCovariateEntries] = useState<CovariateEntry[]>(plan.covariateEntries ?? []);
-  const [adhocAnalyses, setAdhocAnalyses] = useState<AdhocAnalysis[]>(plan.adhocAnalyses ?? []);
-  const [analysisMethod, setAnalysisMethod] = useState(plan.analysisMethod ?? "");
+  const methodsPlan = studyDesign.methodsPlan ?? {};
+  const analysisPlan = studyDesign.analysisPlan ?? {};
+  const samples = studyDesign.samples ?? {};
+
+  const [methodsUserPlan, setMethodsUserPlan] = useState(methodsPlan.userPlan ?? "");
+  const [methodsConstraints, setMethodsConstraints] = useState(methodsPlan.constraints ?? "");
+  const [methodsTools, setMethodsTools] = useState(methodsPlan.preferredTools ?? "");
+  const [methodsNotes, setMethodsNotes] = useState(methodsPlan.userNotes ?? "");
+  const [methodsSteps, setMethodsSteps] = useState<PlanStep[]>(methodsPlan.steps ?? []);
+  const [methodsAdvanced, setMethodsAdvanced] = useState(false);
+
+  const [analysisUserPlan, setAnalysisUserPlan] = useState(analysisPlan.userPlan ?? "");
+  const [analysisConstraints, setAnalysisConstraints] = useState(analysisPlan.constraints ?? "");
+  const [analysisTools, setAnalysisTools] = useState(analysisPlan.preferredTools ?? "");
+  const [analysisNotes, setAnalysisNotes] = useState(analysisPlan.userNotes ?? "");
+  const [analysisSteps, setAnalysisSteps] = useState<PlanStep[]>(analysisPlan.steps ?? []);
+  const [analysisAdvanced, setAnalysisAdvanced] = useState(false);
+  const [outcomeTypes, setOutcomeTypes] = useState(analysisPlan.outcomeTypes ?? "");
+  const [covariates, setCovariates] = useState(analysisPlan.covariates ?? "");
+  const [covariateEntries, setCovariateEntries] = useState<CovariateEntry[]>(analysisPlan.covariateEntries ?? []);
+  const [adhocAnalyses, setAdhocAnalyses] = useState<AdhocAnalysis[]>(analysisPlan.adhocAnalyses ?? []);
+  const [analysisMethod, setAnalysisMethod] = useState(analysisPlan.analysisMethod ?? "");
+
   const objectives = normalizeObjectives(activeWorkspace?.objectives);
   const aims = normalizeAims(activeWorkspace?.aims, activeWorkspace?.aim, activeWorkspace ? `${activeWorkspace.id}:overall` : undefined);
   const linkOptions = linkTargetOptions(activeWorkspace?.aim, objectives, aims);
@@ -215,85 +221,133 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
   const llmBlocked = blocksLlmGuidance(samples.identifierLevel);
 
   useEffect(() => {
-    setSteps(plan.steps ?? []);
-    setUserNotes(plan.userNotes ?? "");
-    setCovariateEntries(plan.covariateEntries ?? []);
-    setAdhocAnalyses(plan.adhocAnalyses ?? []);
-    setCovariates(plan.covariates ?? "");
-  }, [activeWorkspace?.id, planKey, plan.steps, plan.userNotes, plan.covariateEntries, plan.adhocAnalyses, plan.covariates]);
+    setMethodsUserPlan(methodsPlan.userPlan ?? "");
+    setMethodsConstraints(methodsPlan.constraints ?? "");
+    setMethodsTools(methodsPlan.preferredTools ?? "");
+    setMethodsNotes(methodsPlan.userNotes ?? "");
+    setMethodsSteps(methodsPlan.steps ?? []);
+    setAnalysisUserPlan(analysisPlan.userPlan ?? "");
+    setAnalysisConstraints(analysisPlan.constraints ?? "");
+    setAnalysisTools(analysisPlan.preferredTools ?? "");
+    setAnalysisNotes(analysisPlan.userNotes ?? "");
+    setAnalysisSteps(analysisPlan.steps ?? []);
+    setCovariateEntries(analysisPlan.covariateEntries ?? []);
+    setAdhocAnalyses(analysisPlan.adhocAnalyses ?? []);
+    setCovariates(analysisPlan.covariates ?? "");
+    setOutcomeTypes(analysisPlan.outcomeTypes ?? "");
+    setAnalysisMethod(analysisPlan.analysisMethod ?? "");
+  }, [activeWorkspace?.id]);
 
-  const updateSteps = (next: PlanStep[]) => {
-    setSteps(next);
-    saveSection(planKey, { steps: next });
-  };
-
-  const run = useMutation({
-    mutationFn: (modeOverride?: "review" | "suggest") => {
-      const mode = modeOverride ?? tab;
-      const body = {
-        workspaceId: activeWorkspace!.id,
-        mode,
-        userPlan: mode === "review" ? userPlan : "",
-        budget: "",
-        tools: preferredTools,
-        outcomeTypes: outcomeTypes || undefined,
-        covariates: summarizeCovariates(covariateEntries, covariates) || undefined,
-        analysisMethod: analysisMethod || undefined,
-        adhocTests: formatAdhoc(adhocAnalyses) || undefined,
-        constraints,
-      };
-      return section === "methods" ? peggyApi.methodsPlan(body) : peggyApi.analysisPlan(body);
-    },
-  });
-
-  const pendingBody = run.data?.body as Record<string, unknown> | undefined;
-  const savedBody = plan.lastResult;
-  const displayBody = pendingBody ?? savedBody;
-  const hasUnsavedResult = !!pendingBody && !resultsEqual(pendingBody, savedBody);
-  const hasSavedResult = !!savedBody;
-
-  const workflowMode = section === "methods" ? "methods_plan" : "analysis_plan";
-
-  const sectionFields = useMemo(
+  const methodsFields = useMemo(
     () => ({
-      mode: tab,
-      userPlan,
-      constraints,
-      preferredTools,
+      mode: "review" as const,
+      userPlan: methodsUserPlan,
+      constraints: methodsConstraints,
+      preferredTools: methodsTools,
+      steps: methodsSteps,
+      userNotes: methodsNotes,
+      draftStatus: methodsPlan.draftStatus,
+    }),
+    [methodsUserPlan, methodsConstraints, methodsTools, methodsSteps, methodsNotes, methodsPlan.draftStatus]
+  );
+
+  const analysisFields = useMemo(
+    () => ({
+      mode: "review" as const,
+      userPlan: analysisUserPlan,
+      constraints: analysisConstraints,
+      preferredTools: analysisTools,
       outcomeTypes,
       covariates: summarizeCovariates(covariateEntries, covariates),
       covariateEntries,
       adhocAnalyses,
       analysisMethod,
-      steps,
-      userNotes,
-      draftStatus: plan.draftStatus,
+      steps: analysisSteps,
+      userNotes: analysisNotes,
+      draftStatus: analysisPlan.draftStatus,
     }),
-    [tab, userPlan, constraints, preferredTools, outcomeTypes, covariates, covariateEntries, adhocAnalyses, analysisMethod, steps, userNotes, linkOptions, plan.draftStatus]
+    [
+      analysisUserPlan,
+      analysisConstraints,
+      analysisTools,
+      outcomeTypes,
+      covariates,
+      covariateEntries,
+      adhocAnalyses,
+      analysisMethod,
+      analysisSteps,
+      analysisNotes,
+      analysisPlan.draftStatus,
+      linkOptions,
+    ]
   );
 
-  const companionPlan = section === "methods" ? studyDesign.analysisPlan : studyDesign.methodsPlan;
-  const hasEitherPlan = Boolean(userPlan.trim() || (companionPlan?.userPlan ?? "").trim());
-  const reviewDisabled = llmBlocked || run.isPending || (tab === "review" && !hasEitherPlan);
-  const reviewTooltip =
-    tab === "review" && !hasEitherPlan
-      ? "Paste a methods or analysis plan (either page) to get a combined review"
-      : llmBlocked
-        ? "Update Samples to de-identified before using AI planners."
-        : "";
+  const saveDrafts = async () => {
+    await commitSection("methodsPlan", methodsFields);
+    await commitSection("analysisPlan", analysisFields);
+  };
 
-  const changedStepCount = steps.filter((s) => (s.objectiveChangedObjectiveIds ?? []).length > 0).length;
-  const unlinkedAnalysis = steps.filter((s) => (s.objectiveIds ?? []).length === 0).length;
-  const modules = (activeWorkspace?.enabled_modules ?? ["core"])
-    .map((id) => MODULE_LABELS[id] ?? id)
-    .filter(Boolean);
+  const run = useMutation({
+    mutationFn: async (mode: "review" | "suggest") => {
+      await saveDrafts();
+      const body = {
+        workspaceId: activeWorkspace!.id,
+        mode,
+        userPlan: mode === "review" ? methodsUserPlan : "",
+        budget: "",
+        tools: methodsTools,
+        outcomeTypes: outcomeTypes || undefined,
+        covariates: summarizeCovariates(covariateEntries, covariates) || undefined,
+        analysisMethod: analysisMethod || undefined,
+        adhocTests: formatAdhoc(adhocAnalyses) || undefined,
+        constraints: methodsConstraints,
+      };
+      const methods = await peggyApi.methodsPlan(body);
+      if (analysisUserPlan.trim() || analysisMethod.trim() || adhocAnalyses.length) {
+        await peggyApi.analysisPlan({
+          workspaceId: body.workspaceId,
+          mode,
+          userPlan: mode === "review" ? analysisUserPlan : "",
+          budget: body.budget,
+          tools: analysisTools,
+          outcomeTypes: body.outcomeTypes,
+          covariates: body.covariates,
+          analysisMethod: body.analysisMethod,
+          adhocTests: body.adhocTests,
+        });
+      }
+      return methods;
+    },
+  });
+
+  const pendingBody = run.data?.body as Record<string, unknown> | undefined;
+  const savedBody = (methodsPlan.lastResult ?? analysisPlan.lastResult) as Record<string, unknown> | undefined;
+  const displayBody = pendingBody ?? savedBody;
+  const hasUnsavedResult = !!pendingBody && !resultsEqual(pendingBody, savedBody);
+  const hasSavedResult = !!savedBody;
+
+  const hasPlanText = Boolean(methodsUserPlan.trim() || analysisUserPlan.trim());
+  const reviewDisabled = llmBlocked || run.isPending || !hasPlanText;
+  const reviewTooltip = !hasPlanText
+    ? "Add a methods plan, an analysis plan, or both before review"
+    : llmBlocked
+      ? "Update Samples to de-identified before using AI planners."
+      : "";
+
+  const changedStepCount = [...methodsSteps, ...analysisSteps].filter(
+    (s) => (s.objectiveChangedObjectiveIds ?? []).length > 0
+  ).length;
+  const unlinkedAnalysis = analysisSteps.filter((s) => (s.objectiveIds ?? []).length === 0).length;
+  const modules = (activeWorkspace?.enabled_modules ?? ["core"]).map((id) => MODULE_LABELS[id] ?? id).filter(Boolean);
   const cohortBits = [samples.expectedN ? `${samples.expectedN} planned participants` : "", samples.setting ?? ""].filter(
     Boolean
   );
   const methodsEndpoints = asStringList(methodsPlan.lastResult?.endpoints);
   const analysisOutcomes = asStringList(displayBody?.primary_analyses).slice(0, 2);
-
-  const similarCount = Math.max(run.data?.sources?.length ?? 0, Array.isArray(savedBody?.citations) ? (savedBody?.citations as unknown[]).length : 0);
+  const similarCount = Math.max(
+    run.data?.sources?.length ?? 0,
+    Array.isArray(savedBody?.citations) ? (savedBody?.citations as unknown[]).length : 0
+  );
   const gapItems = asStringList(displayBody?.gaps);
   const strengthItems = asStringList(displayBody?.strengths);
   const modelItems = asStringList(displayBody?.models_or_tests);
@@ -306,610 +360,269 @@ export function PlannerFeature({ section }: PlannerFeatureProps) {
         ]
       : [];
 
+  const dirty = isSectionDirty("methodsPlan") || isSectionDirty("analysisPlan");
+  const saving = savingSection === "methodsPlan" || savingSection === "analysisPlan";
+
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to plan {section}.</Alert>;
+    return <Alert severity="info">Select a project to plan methods and analysis.</Alert>;
   }
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" spacing={1}>
-        <Chip
-          label="Review my plan"
-          onClick={() => {
-            setTab("review");
-            saveSection(planKey, { mode: "review" });
-            if (hasEitherPlan && !llmBlocked) run.mutate("review");
-          }}
-          sx={
-            tab === "review"
-              ? { bgcolor: peggyColors.primary, color: peggyColors.primaryForeground, "& .MuiChip-label": { ...monoSx, fontSize: 11 } }
-              : { bgcolor: peggyColors.muted, border: `0.5px solid ${peggyColors.border}`, "& .MuiChip-label": { ...monoSx, fontSize: 11, color: peggyColors.mutedForeground } }
-          }
-        />
-        <Chip
-          label="Help me design"
-          onClick={() => {
-            setTab("suggest");
-            saveSection(planKey, { mode: "suggest" });
-          }}
-          sx={
-            tab === "suggest"
-              ? { bgcolor: peggyColors.primary, color: peggyColors.primaryForeground, "& .MuiChip-label": { ...monoSx, fontSize: 11 } }
-              : { bgcolor: peggyColors.muted, border: `0.5px solid ${peggyColors.border}`, "& .MuiChip-label": { ...monoSx, fontSize: 11, color: peggyColors.mutedForeground } }
-          }
-        />
-      </Stack>
+      <Tabs value={wizardStep} onChange={(_, v) => setWizardStep(v)} variant="scrollable" allowScrollButtonsMobile>
+        {STEPS.map((label, i) => (
+          <Tab key={label} label={label} value={i} sx={{ textTransform: "none" }} />
+        ))}
+      </Tabs>
 
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 0.5 }}>
-          FROM YOUR PROJECT
-        </Typography>
-        {section === "methods" ? (
-          <>
-            <SummaryRow
-              label="Aim"
-              value={activeWorkspace.aim?.trim() || "Not set"}
-              editing={editingField === "aim"}
-              onEdit={() => openProjectEdit("aim")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <TextField
-                    label="Aim"
-                    multiline
-                    minRows={2}
-                    value={draftAim}
-                    onChange={(e) => setDraftAim(e.target.value)}
-                    fullWidth
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={workspaceSave.isPending}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() => workspaceSave.mutate({ aim: draftAim.trim() })}
-                  >
-                    {workspaceSave.isPending ? "Saving…" : "Save aim"}
-                  </Button>
-                  {workspaceSave.isError && editingField === "aim" && (
-                    <Alert severity="error">{formatApiError(workspaceSave.error)}</Alert>
-                  )}
+      {wizardStep === 0 ? (
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 0.5 }}>
+            FROM YOUR PROJECT
+          </Typography>
+          <SummaryRow
+            label="Aim"
+            value={activeWorkspace.aim?.trim() || "Not set"}
+            editing={editingField === "aim"}
+            onEdit={() => openProjectEdit("aim")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <TextField label="Aim" multiline minRows={2} value={draftAim} onChange={(e) => setDraftAim(e.target.value)} fullWidth />
+                <Button variant="contained" size="small" disabled={workspaceSave.isPending} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => workspaceSave.mutate({ aim: draftAim.trim() })}>
+                  {workspaceSave.isPending ? "Saving…" : "Save aim"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Objectives"
+            value={
+              objectives.length
+                ? `${objectives.length} drafted.${changedStepCount ? ` ${changedStepCount} linked steps flag an objective change.` : ""}${unlinkedAnalysis ? ` ${unlinkedAnalysis} analysis steps have no objective yet.` : ""}`
+                : "None drafted."
+            }
+            editing={editingField === "objectives"}
+            onEdit={() => openProjectEdit("objectives")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <ObjectiveListEditor value={draftObjectives} onChange={setDraftObjectives} studyDesign={studyDesign} aims={aims} />
+                <Button variant="contained" size="small" disabled={workspaceSave.isPending} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => workspaceSave.mutate({ objectives: normalizeObjectives(draftObjectives).filter((o) => o.text.trim()) })}>
+                  {workspaceSave.isPending ? "Saving…" : "Save objectives"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Cohort"
+            value={cohortBits.join(", ") || "Not set"}
+            editing={editingField === "cohort"}
+            onEdit={() => openProjectEdit("cohort")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <TextField label="Planned participants (N)" value={draftExpectedN} onChange={(e) => setDraftExpectedN(e.target.value)} fullWidth />
+                <TextField label="Setting" value={draftSetting} onChange={(e) => setDraftSetting(e.target.value)} fullWidth />
+                <Button variant="contained" size="small" disabled={savingSection === "samples"} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => void commitSection("samples", { ...samples, expectedN: draftExpectedN.trim(), setting: draftSetting.trim() }).then(() => setEditingField(null))}>
+                  {savingSection === "samples" ? "Saving…" : "Save cohort"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Evidence modules"
+            value={modules.length ? `${modules.join(", ")}.` : "Core."}
+            editing={editingField === "modules"}
+            onEdit={() => openProjectEdit("modules")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <Stack direction="row" flexWrap="wrap" gap={1}>
+                  {EVIDENCE_MODULES.map((mod) => {
+                    const on = draftModules.includes(mod.id);
+                    return (
+                      <Chip key={mod.id} label={mod.title} onClick={mod.required ? undefined : () => toggleDraftModule(mod.id)} color={on ? "primary" : "default"} variant={on ? "filled" : "outlined"} sx={{ cursor: mod.required ? "default" : "pointer" }} />
+                    );
+                  })}
                 </Stack>
-              }
-            />
-            <SummaryRow
-              label="Objectives"
-              value={
-                objectives.length
-                  ? `${objectives.length} drafted.${changedStepCount ? ` ${changedStepCount} linked step${changedStepCount === 1 ? "" : "s"} flag an objective change.` : ""}`
-                  : "None drafted."
-              }
-              editing={editingField === "objectives"}
-              onEdit={() => openProjectEdit("objectives")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <ObjectiveListEditor
-                    value={draftObjectives}
-                    onChange={setDraftObjectives}
-                    studyDesign={studyDesign}
-                    aims={aims}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={workspaceSave.isPending}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() =>
-                      workspaceSave.mutate({
-                        objectives: normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
-                      })
-                    }
-                  >
-                    {workspaceSave.isPending ? "Saving…" : "Save objectives"}
-                  </Button>
-                </Stack>
-              }
-            />
-            <SummaryRow
-              label="Cohort"
-              value={cohortBits.join(", ") || "Not set"}
-              editing={editingField === "cohort"}
-              onEdit={() => openProjectEdit("cohort")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <TextField
-                    label="Planned participants (N)"
-                    value={draftExpectedN}
-                    onChange={(e) => setDraftExpectedN(e.target.value)}
-                    fullWidth
-                  />
-                  <TextField
-                    label="Setting"
-                    value={draftSetting}
-                    onChange={(e) => setDraftSetting(e.target.value)}
-                    fullWidth
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={savingSection === "samples"}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() =>
-                      void commitSection("samples", {
-                        ...samples,
-                        expectedN: draftExpectedN.trim(),
-                        setting: draftSetting.trim(),
-                      }).then(() => setEditingField(null))
-                    }
-                  >
-                    {savingSection === "samples" ? "Saving…" : "Save cohort"}
-                  </Button>
-                </Stack>
-              }
-            />
-            <SummaryRow
-              label="Evidence modules"
-              value={modules.length ? `${modules.join(", ")}.` : "Core."}
-              editing={editingField === "modules"}
-              onEdit={() => openProjectEdit("modules")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <Stack direction="row" flexWrap="wrap" gap={1}>
-                    {EVIDENCE_MODULES.map((mod) => {
-                      const on = draftModules.includes(mod.id);
-                      return (
-                        <Chip
-                          key={mod.id}
-                          label={mod.title}
-                          onClick={mod.required ? undefined : () => toggleDraftModule(mod.id)}
-                          color={on ? "primary" : "default"}
-                          variant={on ? "filled" : "outlined"}
-                          sx={{ cursor: mod.required ? "default" : "pointer" }}
-                        />
-                      );
-                    })}
-                  </Stack>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={workspaceSave.isPending}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() => workspaceSave.mutate({ enabled_modules: draftModules })}
-                  >
-                    {workspaceSave.isPending ? "Saving…" : "Save modules"}
-                  </Button>
-                </Stack>
-              }
-            />
-          </>
-        ) : (
-          <>
-            <SummaryRow
-              label="Outcomes"
-              value={
-                methodsEndpoints.length
-                  ? methodsEndpoints.join(", ")
-                  : analysisOutcomes.length
-                    ? analysisOutcomes.join(", ")
-                    : samples.dataTypes?.length
-                      ? samples.dataTypes.join(", ")
-                      : "Not set"
-              }
-              editing={editingField === "outcomes"}
-              onEdit={() => openProjectEdit("outcomes")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <TextField
-                    label="Outcome types"
-                    value={draftOutcomes}
-                    onChange={(e) => setDraftOutcomes(e.target.value)}
-                    fullWidth
-                    helperText="Comma-separated outcomes for analysis planning."
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={savingSection === planKey}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() => {
-                      setOutcomeTypes(draftOutcomes);
-                      void commitSection(planKey, { ...sectionFields, outcomeTypes: draftOutcomes }).then(() =>
-                        setEditingField(null)
-                      );
-                    }}
-                  >
-                    {savingSection === planKey ? "Saving…" : "Save outcomes"}
-                  </Button>
-                </Stack>
-              }
-            />
-            <SummaryRow
-              label="Exposures"
-              value={modules.includes("Exposure") ? "From your exposure module." : samples.studyType || "Not set"}
-              editing={editingField === "exposures"}
-              onEdit={() => openProjectEdit("exposures")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <TextField
-                    label="Study type / exposure"
-                    value={draftStudyType}
-                    onChange={(e) => setDraftStudyType(e.target.value)}
-                    fullWidth
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={savingSection === "samples"}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() =>
-                      void commitSection("samples", {
-                        ...samples,
-                        studyType: draftStudyType.trim(),
-                      }).then(() => setEditingField(null))
-                    }
-                  >
-                    {savingSection === "samples" ? "Saving…" : "Save exposure"}
-                  </Button>
-                </Stack>
-              }
-            />
-            <SummaryRow
-              label="Covariates"
-              value={summarizeCovariates(covariateEntries, covariates) || "Not set"}
-              editing={editingField === "covariates"}
-              onEdit={() => openProjectEdit("covariates")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  {section === "analysis" ? (
-                    <CovariateEntriesEditor
-                      entries={covariateEntries}
-                      options={linkOptions}
-                      onChange={(next) => {
-                        setCovariateEntries(next);
-                        saveSection(planKey, {
-                          covariateEntries: next,
-                          covariates: summarizeCovariates(next, ""),
-                        });
-                      }}
-                    />
-                  ) : (
-                    <TextField
-                      label="Covariates"
-                      value={draftCovariates}
-                      onChange={(e) => setDraftCovariates(e.target.value)}
-                      fullWidth
-                    />
-                  )}
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={savingSection === planKey}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() => {
-                      const nextText = section === "analysis" ? summarizeCovariates(covariateEntries, draftCovariates) : draftCovariates;
-                      setCovariates(nextText);
-                      void commitSection(planKey, {
-                        ...sectionFields,
-                        covariates: nextText,
-                        covariateEntries: section === "analysis" ? covariateEntries : undefined,
-                      }).then(() => setEditingField(null));
-                    }}
-                  >
-                    {savingSection === planKey ? "Saving…" : "Save covariates"}
-                  </Button>
-                </Stack>
-              }
-            />
-            <SummaryRow
-              label="Objectives"
-              value={
-                objectives.length
-                  ? `${objectives.length} drafted.${unlinkedAnalysis ? ` ${unlinkedAnalysis} have no analysis step yet.` : ""}`
-                  : "None drafted."
-              }
-              editing={editingField === "objectives"}
-              onEdit={() => openProjectEdit("objectives")}
-              onCancel={cancelProjectEdit}
-              editPanel={
-                <Stack spacing={1.5}>
-                  <ObjectiveListEditor
-                    value={draftObjectives}
-                    onChange={setDraftObjectives}
-                    studyDesign={studyDesign}
-                    aims={aims}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    disabled={workspaceSave.isPending}
-                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
-                    onClick={() =>
-                      workspaceSave.mutate({
-                        objectives: normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
-                      })
-                    }
-                  >
-                    {workspaceSave.isPending ? "Saving…" : "Save objectives"}
-                  </Button>
-                </Stack>
-              }
-            />
-          </>
-        )}
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-          YOUR PLAN
-        </Typography>
-        <Typography variant="h6" sx={{ mt: 0.5 }}>
-          {section === "methods" ? "Paste your draft methods plan" : "Paste your draft analysis plan"}
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Review treats methods and analysis as one protocol. Gaps already covered on the other plan are not flagged.
-        </Typography>
-        <TextField
-          placeholder={section === "methods" ? "Paste or type your methods plan" : "Paste or type your analysis plan"}
-          multiline
-          minRows={6}
-          value={userPlan}
-          onChange={(e) => {
-            setUserPlan(e.target.value);
-            saveSection(planKey, { userPlan: e.target.value });
-          }}
-          fullWidth
-        />
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.mutedForeground, mt: 2, mb: 1 }}>
-          CONSTRAINTS (OPTIONAL)
-        </Typography>
-        <TextField
-          placeholder={section === "methods" ? "Time, staff, equipment" : "Software, skills, time"}
-          value={constraints}
-          onChange={(e) => {
-            setConstraints(e.target.value);
-            saveSection(planKey, { constraints: e.target.value });
-          }}
-          fullWidth
-        />
-        <Button
-          variant="text"
-          onClick={() => setAdvancedOpen((v) => !v)}
-          sx={{ textTransform: "none", color: peggyColors.accent, mt: 1, px: 0 }}
-        >
-          Advanced options
-        </Button>
-        {advancedOpen && (
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            {section === "analysis" && (
-              <>
-                <TextField
-                  label="Outcome types"
-                  value={outcomeTypes}
-                  onChange={(e) => {
-                    setOutcomeTypes(e.target.value);
-                    saveSection(planKey, { outcomeTypes: e.target.value });
-                  }}
-                  fullWidth
-                />
+                <Button variant="contained" size="small" disabled={workspaceSave.isPending} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => workspaceSave.mutate({ enabled_modules: draftModules })}>
+                  {workspaceSave.isPending ? "Saving…" : "Save modules"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Outcomes"
+            value={methodsEndpoints.length ? methodsEndpoints.join(", ") : analysisOutcomes.length ? analysisOutcomes.join(", ") : samples.dataTypes?.length ? samples.dataTypes.join(", ") : "Not set"}
+            editing={editingField === "outcomes"}
+            onEdit={() => openProjectEdit("outcomes")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <TextField label="Outcome types" value={draftOutcomes} onChange={(e) => setDraftOutcomes(e.target.value)} fullWidth helperText="Comma-separated outcomes for analysis planning." />
+                <Button variant="contained" size="small" disabled={saving} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => { setOutcomeTypes(draftOutcomes); void commitSection("analysisPlan", { ...analysisFields, outcomeTypes: draftOutcomes }).then(() => setEditingField(null)); }}>
+                  {saving ? "Saving…" : "Save outcomes"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Exposures"
+            value={modules.includes("Exposure") ? "From your exposure module." : samples.studyType || "Not set"}
+            editing={editingField === "exposures"}
+            onEdit={() => openProjectEdit("exposures")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
+                <TextField label="Study type / exposure" value={draftStudyType} onChange={(e) => setDraftStudyType(e.target.value)} fullWidth />
+                <Button variant="contained" size="small" disabled={savingSection === "samples"} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => void commitSection("samples", { ...samples, studyType: draftStudyType.trim() }).then(() => setEditingField(null))}>
+                  {savingSection === "samples" ? "Saving…" : "Save exposure"}
+                </Button>
+              </Stack>
+            }
+          />
+          <SummaryRow
+            label="Covariates"
+            value={summarizeCovariates(covariateEntries, covariates) || "Not set"}
+            editing={editingField === "covariates"}
+            onEdit={() => openProjectEdit("covariates")}
+            onCancel={cancelProjectEdit}
+            editPanel={
+              <Stack spacing={1.5}>
                 <CovariateEntriesEditor
                   entries={covariateEntries}
                   options={linkOptions}
                   onChange={(next) => {
                     setCovariateEntries(next);
-                    const text = summarizeCovariates(next, "");
-                    setCovariates(text);
-                    saveSection(planKey, { covariateEntries: next, covariates: text });
+                    saveSection("analysisPlan", { covariateEntries: next, covariates: summarizeCovariates(next, "") });
                   }}
                 />
-                <TextField
-                  label="Analysis method"
-                  value={analysisMethod}
-                  onChange={(e) => {
-                    setAnalysisMethod(e.target.value);
-                    saveSection(planKey, { analysisMethod: e.target.value });
-                  }}
-                  fullWidth
-                />
-                <Typography variant="subtitle2">Sensitivity and ad hoc tests</Typography>
-                <AdhocAnalysesEditor
-                  items={adhocAnalyses}
-                  options={linkOptions}
-                  onChange={(next) => {
-                    setAdhocAnalyses(next);
-                    saveSection(planKey, { adhocAnalyses: next });
-                  }}
-                />
-              </>
-            )}
-            <TextField
-              label="Preferred tools"
-              value={preferredTools}
-              onChange={(e) => {
-                setPreferredTools(e.target.value);
-                saveSection(planKey, { preferredTools: e.target.value });
-              }}
-              fullWidth
-            />
-          </Stack>
-        )}
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 2 }}>
-          <DisabledTooltipButton title={reviewTooltip}>
-            <span>
-              <Button
-                variant="contained"
-                disabled={reviewDisabled}
-                onClick={() => run.mutate(tab)}
-                sx={{ textTransform: "none" }}
-              >
-                {run.isPending ? (
-                  <CircularProgress size={22} color="inherit" />
-                ) : tab === "review" ? (
-                  "Review methods and analysis"
-                ) : (
-                  "Help me design"
-                )}
-              </Button>
-            </span>
-          </DisabledTooltipButton>
-          <Button
-            variant="outlined"
-            disabled={!isSectionDirty(planKey) || savingSection === planKey}
-            onClick={() => commitSection(planKey, sectionFields)}
-            sx={{ textTransform: "none" }}
-          >
-            {savingSection === planKey ? <CircularProgress size={22} /> : "Save draft"}
-          </Button>
-        </Stack>
-      </Paper>
-
-      {llmBlocked && (
-        <Alert severity="warning">Update Samples to de-identified before using AI planners.</Alert>
-      )}
-      {run.isError && <Alert severity="error">{formatApiError(run.error)}</Alert>}
-
-      {(displayBody || run.isSuccess) && (
-        <WorkflowOutputPanel
-          mode={workflowMode}
-          title={section === "methods" ? "Methods plan result" : "Analysis plan result"}
-          body={displayBody ?? {}}
-          sources={run.data?.sources}
-          confidence={run.data?.confidence}
-          limitations={run.data?.limitations}
-          hasUnsavedResult={hasUnsavedResult}
-          hasSavedResult={hasSavedResult}
-          saving={savingSection === planKey}
-          onSaveResult={() =>
-            void commitSection(planKey, {
-              ...sectionFields,
-              lastResult: pendingBody ?? savedBody,
-            }).then(() => run.reset())
-          }
-          onClearSaved={() =>
-            void commitSection(planKey, {
-              ...sectionFields,
-              lastResult: undefined,
-            }).then(() => run.reset())
-          }
-          userNotes={userNotes}
-          onUserNotesChange={(notes) => {
-            setUserNotes(notes);
-            saveSection(planKey, { userNotes: notes });
-          }}
-        />
-      )}
-
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-          {section === "methods" ? "METHODS STEPS" : "ANALYSIS STEPS"}
-        </Typography>
-        <Typography variant="h6" sx={{ mt: 0.5 }}>
-          Steps linked to objectives
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Link to the project, an aim, or objectives.
-        </Typography>
-        <PlanStepsEditor
-          steps={steps}
-          aim={activeWorkspace.aim}
-          objectives={objectives}
-          aims={aims}
-          onChange={updateSteps}
-        />
-      </Paper>
-
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-          CHECKLIST FROM SIMILAR STUDIES
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
-          {section === "methods"
-            ? similarCount
-              ? `Based on ${similarCount} papers that match your design. Checked once you add a plan.`
-              : "Based on papers that match your design. Checked once you add a plan."
-            : similarCount
-              ? `Analysis methods used in ${similarCount} papers that match your design.`
-              : "Analysis methods used in papers that match your design."}
-        </Typography>
-        {checklistItems.length === 0 ? (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
-            Review or design a plan to fill this checklist from similar studies.
-          </Typography>
-        ) : (
-          checklistItems.map((item) => (
-            <Stack
-              key={`${item.status}-${item.title}`}
-              direction="row"
-              spacing={2}
-              alignItems="center"
-              sx={{ py: 1, px: 1, borderBottom: `0.5px solid ${peggyColors.border}` }}
-            >
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  borderRadius: "999px",
-                  bgcolor: item.tone === "accent" ? peggyColors.accent : peggyColors.warning,
-                  border: `0.5px solid ${peggyColors.border}`,
-                  flexShrink: 0,
-                }}
-              />
-              <Stack sx={{ flex: 1, minWidth: 0 }}>
-                <Typography fontWeight={500}>{item.title}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {item.note}
-                </Typography>
+                <Button variant="contained" size="small" disabled={saving} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => { const nextText = summarizeCovariates(covariateEntries, draftCovariates); setCovariates(nextText); void commitSection("analysisPlan", { ...analysisFields, covariates: nextText, covariateEntries }).then(() => setEditingField(null)); }}>
+                  {saving ? "Saving…" : "Save covariates"}
+                </Button>
               </Stack>
-              <StatusChip
-                tone={item.tone}
-                label={item.status}
-                sx={
-                  item.tone === "warning"
-                    ? { bgcolor: peggyColors.warning, color: peggyColors.foreground, borderColor: "transparent" }
-                    : undefined
-                }
-              />
-            </Stack>
-          ))
-        )}
-      </Paper>
+            }
+          />
+        </Paper>
+      ) : null}
 
-      <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-          DRAFT STATUS
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1.5 }}>
-          {plan.draftStatus === "completed" ? "Marked complete." : "Happy with this draft for now?"}
-        </Typography>
-        <Button
-          variant={plan.draftStatus === "completed" ? "outlined" : "contained"}
-          sx={{ textTransform: "none" }}
-          disabled={savingSection === planKey}
-          onClick={() =>
-            void commitSection(planKey, {
-              ...sectionFields,
-              draftStatus: plan.draftStatus === "completed" ? "draft" : "completed",
-            })
-          }
-        >
-          {savingSection === planKey
-            ? "Saving…"
-            : plan.draftStatus === "completed"
-              ? "Back to draft"
-              : "Completed"}
-        </Button>
-      </Paper>
+      {wizardStep === 1 ? (
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>METHODS</Typography>
+          <Typography variant="h6" sx={{ mt: 0.5 }}>Paste your draft methods plan</Typography>
+          <TextField placeholder="Paste or type your methods plan" multiline minRows={6} value={methodsUserPlan} onChange={(e) => { setMethodsUserPlan(e.target.value); saveSection("methodsPlan", { userPlan: e.target.value }); }} fullWidth sx={{ mt: 2 }} />
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.mutedForeground, mt: 2, mb: 1 }}>CONSTRAINTS (OPTIONAL)</Typography>
+          <TextField placeholder="Time, staff, equipment" value={methodsConstraints} onChange={(e) => { setMethodsConstraints(e.target.value); saveSection("methodsPlan", { constraints: e.target.value }); }} fullWidth />
+          <Button variant="text" onClick={() => setMethodsAdvanced((v) => !v)} sx={{ textTransform: "none", color: peggyColors.accent, mt: 1, px: 0 }}>Advanced options</Button>
+          {methodsAdvanced ? (
+            <TextField label="Preferred tools" value={methodsTools} onChange={(e) => { setMethodsTools(e.target.value); saveSection("methodsPlan", { preferredTools: e.target.value }); }} fullWidth sx={{ mt: 1 }} />
+          ) : null}
+        </Paper>
+      ) : null}
+
+      {wizardStep === 2 ? (
+        <Paper variant="outlined" sx={{ p: 2.5 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>ANALYSIS</Typography>
+          <Typography variant="h6" sx={{ mt: 0.5 }}>Paste your draft analysis plan</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Optional until you have one. Review later looks at methods and analysis together if both are filled.</Typography>
+          <TextField placeholder="Paste or type your analysis plan" multiline minRows={6} value={analysisUserPlan} onChange={(e) => { setAnalysisUserPlan(e.target.value); saveSection("analysisPlan", { userPlan: e.target.value }); }} fullWidth />
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.mutedForeground, mt: 2, mb: 1 }}>CONSTRAINTS (OPTIONAL)</Typography>
+          <TextField placeholder="Software, skills, time" value={analysisConstraints} onChange={(e) => { setAnalysisConstraints(e.target.value); saveSection("analysisPlan", { constraints: e.target.value }); }} fullWidth />
+          <Button variant="text" onClick={() => setAnalysisAdvanced((v) => !v)} sx={{ textTransform: "none", color: peggyColors.accent, mt: 1, px: 0 }}>Advanced options</Button>
+          {analysisAdvanced ? (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField label="Outcome types" value={outcomeTypes} onChange={(e) => { setOutcomeTypes(e.target.value); saveSection("analysisPlan", { outcomeTypes: e.target.value }); }} fullWidth />
+              <CovariateEntriesEditor entries={covariateEntries} options={linkOptions} onChange={(next) => { setCovariateEntries(next); const text = summarizeCovariates(next, ""); setCovariates(text); saveSection("analysisPlan", { covariateEntries: next, covariates: text }); }} />
+              <TextField label="Analysis method" value={analysisMethod} onChange={(e) => { setAnalysisMethod(e.target.value); saveSection("analysisPlan", { analysisMethod: e.target.value }); }} fullWidth />
+              <Typography variant="subtitle2">Sensitivity and ad hoc tests</Typography>
+              <AdhocAnalysesEditor items={adhocAnalyses} options={linkOptions} onChange={(next) => { setAdhocAnalyses(next); saveSection("analysisPlan", { adhocAnalyses: next }); }} />
+              <TextField label="Preferred tools" value={analysisTools} onChange={(e) => { setAnalysisTools(e.target.value); saveSection("analysisPlan", { preferredTools: e.target.value }); }} fullWidth />
+            </Stack>
+          ) : null}
+        </Paper>
+      ) : null}
+
+      {wizardStep === 3 ? (
+        <>
+          {llmBlocked ? <Alert severity="warning">Update Samples to de-identified before using AI planners.</Alert> : null}
+          {run.isError ? <Alert severity="error">{formatApiError(run.error)}</Alert> : null}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            <DisabledTooltipButton title={reviewTooltip}>
+              <span>
+                <Button variant="contained" disabled={reviewDisabled} onClick={() => run.mutate("review")} sx={{ textTransform: "none" }}>
+                  {run.isPending ? <CircularProgress size={22} color="inherit" /> : "Review plan"}
+                </Button>
+              </span>
+            </DisabledTooltipButton>
+            <DisabledTooltipButton title={llmBlocked ? "Update Samples to de-identified before using AI planners." : ""}>
+              <span>
+                <Button variant="outlined" disabled={llmBlocked || run.isPending} onClick={() => run.mutate("suggest")} sx={{ textTransform: "none" }}>
+                  Help me design
+                </Button>
+              </span>
+            </DisabledTooltipButton>
+          </Stack>
+          {(displayBody || run.isSuccess) && (
+            <WorkflowOutputPanel
+              mode="methods_plan"
+              title="Review output"
+              body={displayBody ?? {}}
+              sources={run.data?.sources}
+              confidence={run.data?.confidence}
+              limitations={run.data?.limitations}
+              hasUnsavedResult={hasUnsavedResult}
+              hasSavedResult={hasSavedResult}
+              saving={saving}
+              onSaveResult={() => void saveDrafts().then(() => commitSection("methodsPlan", { ...methodsFields, lastResult: pendingBody ?? savedBody })).then(() => run.reset())}
+              onClearSaved={() => void commitSection("methodsPlan", { ...methodsFields, lastResult: undefined }).then(() => run.reset())}
+              userNotes={methodsNotes}
+              onUserNotesChange={(notes) => { setMethodsNotes(notes); saveSection("methodsPlan", { userNotes: notes }); }}
+            />
+          )}
+          <Paper variant="outlined" sx={{ p: 2.5 }}>
+            <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>METHODS STEPS</Typography>
+            <PlanStepsEditor steps={methodsSteps} aim={activeWorkspace.aim} objectives={objectives} aims={aims} onChange={(next) => { setMethodsSteps(next); saveSection("methodsPlan", { steps: next }); }} />
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 2.5 }}>
+            <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>ANALYSIS STEPS</Typography>
+            <PlanStepsEditor steps={analysisSteps} aim={activeWorkspace.aim} objectives={objectives} aims={aims} onChange={(next) => { setAnalysisSteps(next); saveSection("analysisPlan", { steps: next }); }} />
+          </Paper>
+          <Paper variant="outlined" sx={{ p: 2.5 }}>
+            <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>CHECKLIST FROM SIMILAR STUDIES</Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
+              {similarCount ? `Based on ${similarCount} papers that match your design.` : "Checked once you run a review."}
+            </Typography>
+            {checklistItems.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>Run a review to fill this checklist.</Typography>
+            ) : (
+              checklistItems.map((item) => (
+                <Stack key={`${item.status}-${item.title}`} direction="row" spacing={2} alignItems="center" sx={{ py: 1, px: 1, borderBottom: `0.5px solid ${peggyColors.border}` }}>
+                  <Box sx={{ width: 20, height: 20, borderRadius: "999px", bgcolor: item.tone === "accent" ? peggyColors.accent : peggyColors.warning, border: `0.5px solid ${peggyColors.border}`, flexShrink: 0 }} />
+                  <Stack sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography fontWeight={500}>{item.title}</Typography>
+                    <Typography variant="caption" color="text.secondary">{item.note}</Typography>
+                  </Stack>
+                  <StatusChip tone={item.tone} label={item.status} />
+                </Stack>
+              ))
+            )}
+          </Paper>
+        </>
+      ) : null}
+
+      <Stack direction="row" justifyContent="space-between">
+        <Button disabled={wizardStep === 0} onClick={() => setWizardStep((s) => s - 1)} sx={{ textTransform: "none" }}>Back</Button>
+        {wizardStep < 3 ? (
+          <Button variant="contained" onClick={() => { void saveDrafts(); setWizardStep((s) => s + 1); }} sx={{ textTransform: "none" }}>Next</Button>
+        ) : null}
+      </Stack>
 
       <StudyDesignSaveBar
-        dirty={isSectionDirty(planKey)}
-        saving={savingSection === planKey}
-        note="Fields in From your project save on their own. Save here for your plan text, steps, and advanced options."
-        onSave={() => commitSection(planKey, sectionFields)}
+        dirty={dirty}
+        saving={saving}
+        note="Save stores methods and analysis drafts. You can reopen any step later."
+        onSave={() => void saveDrafts()}
       />
     </Stack>
   );

@@ -23,7 +23,6 @@ const HUB_PREREQUISITES: Record<string, string> = {
   "/study-design/samples": "Project aim helps Peggy prefill cohort and recruitment fields.",
   "/study-design/ethics": "Samples section filled in enough to describe participants and data.",
   "/study-design/methods-plan": "Literature ingested if you want grounded plan suggestions.",
-  "/study-design/analysis-plan": "Methods plan started, or a clear analysis intent in mind.",
   "/study-design/budget": "Study type and expected N from samples (optional but helpful).",
   "/study-design/proposal": "Any study design sections you want included in the draft.",
   "/results/findings": "Your results as narrative text, PDF, or HTML upload.",

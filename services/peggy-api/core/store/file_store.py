@@ -67,20 +67,17 @@ async def put_bytes(
     key = storage_object_path(workspace_id, paper_id, filename, source_type)
     _write_local(key, data)
     if uses_supabase_storage():
-        try:
-            await _sb_upload(key, data, content_type or "application/octet-stream")
-            return f"sb:{key}"
-        except Exception:
-            logger.exception("Supabase Storage upload failed; keeping local copy")
+        await _sb_upload(key, data, content_type or "application/octet-stream")
+        return f"sb:{key}"
     return f"local:{key}"
 
 
 async def get_bytes(storage_key: str) -> bytes:
-    kind, key = _split_key(storage_key)
+    _kind, key = _split_key(storage_key)
     local_path = _local_root() / key
     if local_path.is_file():
         return local_path.read_bytes()
-    if kind == "sb":
+    if uses_supabase_storage():
         data = await _sb_download(key)
         try:
             _write_local(key, data)

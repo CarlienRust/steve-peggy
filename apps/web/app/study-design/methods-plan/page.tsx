@@ -5,9 +5,9 @@ export default function MethodsPlanPage() {
   return (
     <StudyDesignShell
       title="Methods plan"
-      description="Peggy fills in what it can from your project. Add your own plan to get a review."
+      description="Walk through project context, methods, then analysis. Review both together when you are ready."
     >
-      <PlannerFeature section="methods" />
+      <PlannerFeature />
     </StudyDesignShell>
   );
 }

@@ -166,8 +166,8 @@ async def upload_document(
         }
     except ValueError as e:
         raise HTTPException(400, str(e)) from e
-    except Exception:
-        raise
+    except RuntimeError as e:
+        raise HTTPException(503, str(e)) from e
     return {
         "status": "ok",
         "chunks": result["chunks"],

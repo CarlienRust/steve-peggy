@@ -62,6 +62,47 @@ def test_study_docs_path(tmp_path, monkeypatch):
     assert (Path(tmp_path) / "w1" / "study_docs" / "cohort.sav").is_file()
 
 
+def test_get_bytes_falls_back_to_supabase_when_local_missing(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URL", "postgres://x")
+    monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setattr(config, "SUPABASE_SERVICE_ROLE_KEY", "service-role")
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path))
+
+    async def fake_download(path: str) -> bytes:
+        assert path == "w1/table.csv"
+        return b"from-sb"
+
+    monkeypatch.setattr(file_store, "_sb_download", fake_download)
+    data = asyncio.run(file_store.get_bytes("local:w1/table.csv"))
+    assert data == b"from-sb"
+
+
+def test_hosted_put_raises_when_storage_fails(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URL", "postgres://x")
+    monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")
+    monkeypatch.setattr(config, "SUPABASE_SERVICE_ROLE_KEY", "service-role")
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path))
+
+    async def boom(*_a, **_k):
+        raise RuntimeError("Supabase Storage upload failed (400)")
+
+    monkeypatch.setattr(file_store, "_sb_upload", boom)
+    try:
+        asyncio.run(
+            file_store.put_bytes(
+                user_id="u1",
+                workspace_id="w1",
+                paper_id=1,
+                filename="a.csv",
+                data=b"x",
+                source_type="sample_datasets",
+            )
+        )
+        assert False, "expected raise"
+    except RuntimeError as e:
+        assert "Storage" in str(e) or "failed" in str(e).lower()
+
+
 def test_migrate_legacy_path_and_delete(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATABASE_URL", "")
     monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path))

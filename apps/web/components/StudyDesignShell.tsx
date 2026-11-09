@@ -9,7 +9,6 @@ const TABS = [
   { label: "Samples and datasets", href: "/study-design/samples" },
   { label: "Ethics", href: "/study-design/ethics" },
   { label: "Methods plan", href: "/study-design/methods-plan" },
-  { label: "Analysis plan", href: "/study-design/analysis-plan" },
   { label: "Budget", href: "/study-design/budget" },
   { label: "Proposal", href: "/study-design/proposal" },
 ] as const;

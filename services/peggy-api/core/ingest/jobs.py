@@ -131,18 +131,17 @@ async def _persist_upload_bytes(
         content_type=content_type,
         source_type=source_type,
     )
-    try:
-        await catalog.update_paper(
-            user_id,
-            paper_id,
-            {
-                "storage_key": storage_key,
-                "original_filename": filename or "",
-                "content_type": content_type or "",
-            },
-        )
-    except Exception:
-        logger.exception("Could not save storage_key on paper %s", paper_id)
+    updated = await catalog.update_paper(
+        user_id,
+        paper_id,
+        {
+            "storage_key": storage_key,
+            "original_filename": filename or "",
+            "content_type": content_type or "",
+        },
+    )
+    if not updated:
+        raise RuntimeError(f"Could not save storage_key on paper {paper_id}")
 
 
 async def ingest_upload_bytes(

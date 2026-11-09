@@ -147,7 +147,7 @@ Smoke test (Qdrant + API running):
 | `/validate/aim`               | 02 · Validate aim      | Check aim/objectives against literature                  |
 | `/study-design`               | 03 Study Design        | Hub — samples, ethics, plans, budget, proposal           |
 | `/study-design/methods-plan`  | 03 · Methods plan      | Plan + optional steps linked to objectives               |
-| `/study-design/analysis-plan` | 03 · Analysis plan     | Plan + optional steps linked to objectives               |
+| `/study-design/methods-plan` | 03 · Methods plan      | Methods + analysis steps; old analysis-plan URL redirects |
 | `/study-design/proposal`      | 03 · Proposal          | Study/grant draft from project context                   |
 | `/calendar`                   | 03 Calendar            | Account calendar (home sidebar)                          |
 | `/reading-journal`            | 04 Reading journal     | Paper notes and read/unread (home sidebar)               |
