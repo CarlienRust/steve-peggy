@@ -19,15 +19,13 @@ export function ConditionalShell({ children }: { children: ReactNode }) {
     pathname === "/calendar" ||
     pathname === "/reading-journal" ||
     pathname.startsWith("/setup");
-  if (NO_SHELL_PREFIXES.some((p) => pathname.startsWith(p))) {
-    return <>{children}</>;
-  }
-  if (isHomeShell) {
-    return <HomeAppShell>{children}</HomeAppShell>;
-  }
-  return (
-    <WorkspaceProvider>
-      <AppShell>{children}</AppShell>
-    </WorkspaceProvider>
+  const inner = NO_SHELL_PREFIXES.some((p) => pathname.startsWith(p)) ? (
+    children
+  ) : isHomeShell ? (
+    <HomeAppShell>{children}</HomeAppShell>
+  ) : (
+    <AppShell>{children}</AppShell>
   );
+
+  return <WorkspaceProvider>{inner}</WorkspaceProvider>;
 }
