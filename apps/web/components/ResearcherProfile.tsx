@@ -27,6 +27,7 @@ import { isAuthOptional } from "@/lib/localMode";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { StatusChip } from "@/components/StatusChip";
 import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { useOptionalWorkspace } from "@/lib/workspaceContext";
 
 export type SidebarProfileVariant = "project" | "home";
 
@@ -53,8 +54,10 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
 
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const workspace = useOptionalWorkspace();
 
   const logout = async () => {
+    workspace?.setActiveWorkspaceId(null);
     saveActiveWorkspaceId(null);
     const supabase = createClient();
     await supabase.auth.signOut();
@@ -62,7 +65,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
   };
 
   const switchProject = () => {
-    saveActiveWorkspaceId(null);
+    workspace?.setActiveWorkspaceId(null);
     router.push("/");
   };
 

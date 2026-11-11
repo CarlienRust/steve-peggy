@@ -9,7 +9,7 @@ import { loadActiveWorkspaceId, saveActiveWorkspaceId, type Workspace } from "@/
 type WorkspaceContextValue = {
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
-  setActiveWorkspaceId: (id: string) => void;
+  setActiveWorkspaceId: (id: string | null) => void;
   isLoading: boolean;
   refetch: () => void;
 };
@@ -26,7 +26,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
     setActiveIdState(loadActiveWorkspaceId());
   }, [ready, userId]);
 
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
     queryFn: () => peggyApi.listWorkspaces(),
     enabled: ready && !!userId,
@@ -35,15 +35,16 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const workspaces = data?.workspaces ?? [];
 
   useEffect(() => {
-    if (!ready || !userId || isLoading) return;
+    if (!ready || !userId || isLoading || isFetching) return;
     if (!activeId) return;
+    if (workspaces.length === 0) return;
     if (!workspaces.some((workspace) => workspace.id === activeId)) {
       saveActiveWorkspaceId(null);
       setActiveIdState(null);
     }
-  }, [ready, userId, isLoading, activeId, workspaces]);
+  }, [ready, userId, isLoading, isFetching, activeId, workspaces]);
 
-  const setActiveWorkspaceId = useCallback((id: string) => {
+  const setActiveWorkspaceId = useCallback((id: string | null) => {
     saveActiveWorkspaceId(id);
     setActiveIdState(id);
   }, []);

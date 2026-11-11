@@ -19,7 +19,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { eyebrowSx } from "@/theme/peggyTheme";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -29,6 +29,7 @@ export function ProjectHubPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { ready, userId } = useAuthSession();
+  const { setActiveWorkspaceId } = useWorkspace();
   const { data, isLoading, error: loadError } = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
     queryFn: () => peggyApi.listWorkspaces(),
@@ -45,7 +46,7 @@ export function ProjectHubPage() {
   const pageLoading = !ready || isLoading;
 
   const openProject = (id: string) => {
-    saveActiveWorkspaceId(id);
+    setActiveWorkspaceId(id);
     void peggyApi.updateWorkspace(id, { last_opened_at: new Date().toISOString() }).then(() => {
       if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
     });

@@ -8,7 +8,7 @@ import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { PeggyWelcomeHub } from "@/components/PeggyWelcomeHub";
 import { formatApiError, peggyApi, queryKeys, type Workspace } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
 type ActivityItem = { key: string; label: string; at: string };
@@ -44,6 +44,7 @@ export function HomePage() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { ready, userId } = useAuthSession();
+  const { setActiveWorkspaceId } = useWorkspace();
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -102,7 +103,7 @@ export function HomePage() {
   const loadError = workspacesQuery.error || papersQuery.error;
 
   const openProject = (id: string) => {
-    saveActiveWorkspaceId(id);
+    setActiveWorkspaceId(id);
     void peggyApi.updateWorkspace(id, { last_opened_at: new Date().toISOString() }).then(() => {
       if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
     });

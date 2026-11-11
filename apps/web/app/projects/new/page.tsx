@@ -10,7 +10,7 @@ import { ModuleToggleRow } from "@/components/ModuleToggleRow";
 import { SetupShell } from "@/components/setup/SetupShell";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { useWorkspace } from "@/lib/workspaceContext";
 
 const MODULES = [
   { id: "core", label: "Core", description: "Literature, findings, Ask Peggy", required: true },
@@ -22,6 +22,7 @@ export default function NewProjectPage() {
   const router = useRouter();
   const qc = useQueryClient();
   const { userId } = useAuthSession();
+  const { setActiveWorkspaceId } = useWorkspace();
   const [step, setStep] = useState(1);
   const [title, setTitle] = useState("");
   const [idea, setIdea] = useState("");
@@ -50,7 +51,7 @@ export default function NewProjectPage() {
       }),
     onSuccess: (ws) => {
       if (userId) void qc.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      saveActiveWorkspaceId(ws.id);
+      setActiveWorkspaceId(ws.id);
       router.push("/dashboard");
     },
     onError: (e: unknown) => setError(formatApiError(e)),

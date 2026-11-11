@@ -11,12 +11,13 @@ import { TrainingOptOutTable } from "@/components/TrainingOptOutTable";
 import { useSetupState } from "@/components/setup/SetupState";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
-import { saveActiveWorkspaceId } from "@/lib/userProfile";
+import { useWorkspace } from "@/lib/workspaceContext";
 
 export default function SetupStep4Page() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const { userId } = useAuthSession();
+  const { setActiveWorkspaceId } = useWorkspace();
   const { state, setState } = useSetupState();
   const [error, setError] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
@@ -47,7 +48,7 @@ export default function SetupStep4Page() {
     },
     onSuccess: (ws) => {
       if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      saveActiveWorkspaceId(ws.id);
+      setActiveWorkspaceId(ws.id);
       router.push("/dashboard");
     },
     onError: (err: unknown) => setError(formatApiError(err)),
