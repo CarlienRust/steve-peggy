@@ -441,7 +441,7 @@ async def _summarise_context(args: dict, ctx: dict) -> ToolResult:
     focus = args.get("focus", "key facts and chunk_id references")
     if not text.strip():
         return {"result": "", "source_ids": [], "confidence": 0.0, "error": "Empty text"}
-    llm = get_llm()
+    llm = await get_llm()
     summary = await llm.complete(
         "You condense research tool output for another reasoning step. Preserve chunk_id citations.",
         f"Focus: {focus}\n\nContent:\n{text[:12000]}\n\nReturn a concise summary.",

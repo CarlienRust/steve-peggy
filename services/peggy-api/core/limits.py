@@ -62,8 +62,29 @@ async def user_usage_snapshot(user_id: str) -> dict:
     }
 
 
+async def effective_daily_token_cap(user_id: str) -> int:
+    platform = config.MAX_LLM_TOKENS_PER_DAY
+    if platform <= 0:
+        return 0
+    cap = platform
+    if user_id:
+        try:
+            row = await catalog.get_llm_settings(user_id)
+        except Exception:
+            row = None
+        user_cap = (row or {}).get("daily_token_cap") if row else None
+        if user_cap is not None:
+            try:
+                n = int(user_cap)
+            except (TypeError, ValueError):
+                n = 0
+            if n > 0:
+                cap = min(platform, n)
+    return cap
+
+
 async def enforce_daily_llm_tokens(user_id: str, token_estimate: int) -> None:
-    cap = config.MAX_LLM_TOKENS_PER_DAY
+    cap = await effective_daily_token_cap(user_id)
     if cap <= 0:
         return
     key = f"user:{user_id}:llm_tokens_day"

@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `026_agent_proposals.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `027_user_llm_rls.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -80,6 +80,10 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 `020_paper_journal.sql` adds `papers.notes` (text, default empty) and `papers.read_at` (timestamptz, nullable). Screening status stays a separate column.
 
 `024_privacy_isolation.sql` is Phase 1 privacy. `025_evidence_metadata.sql` adds publication types, peer-review/preprint/retraction flags, paper `study_design` text (not workspace JSON), `full_text`, `abstract`, `url`, and optional workspace notices. `026_agent_proposals.sql` adds `agent_proposals` and `agent_sessions.workspace_id` / `expires_at`.
+
+`027_user_llm_rls.sql` adds `user_llm_settings` (encrypted BYOK key, provider, optional daily cap). It enables RLS on `export_audit`, `ai_consent`, `agent_proposals`, and `user_llm_settings` (`auth.uid() = user_id`). It `REVOKE`s catalog tables from `anon`. Storage policies on `peggy-uploads` allow `authenticated` only when the first path segment is a `workspaces.id` they own. **RLS protects PostgREST / a leaked anon key.** peggy-api still uses `DATABASE_URL` (bypasses RLS); isolation there is JWT `sub` filters in `pg_catalog`.
+
+RLS owner policies (`auth.uid() = user_id`) should stay on: papers, ingest_jobs, feedback_queue, agent_sessions, agent_messages, researcher_profiles, workspaces, github_connections, workflow_runs, study_design, findings_summaries, findings_summaries_by_workspace, extractions, objective_history, user_calendar_events, lab_book_entries, export_audit, ai_consent, agent_proposals, user_llm_settings.
 
 `021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`.
 

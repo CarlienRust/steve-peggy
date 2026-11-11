@@ -49,10 +49,28 @@ function LoginForm() {
   const [sentMagicLink, setSentMagicLink] = useState(false);
   const [error, setError] = useState<string | null>(authError ? "Sign-in failed. Try again." : null);
   const [loading, setLoading] = useState(false);
+  const [mfa, setMfa] = useState(searchParams.get("mfa") === "1");
+  const [mfaFactorId, setMfaFactorId] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
 
   const redirectAfterAuth = () => {
     router.push(tab === 1 ? "/" : next);
     router.refresh();
+  };
+
+  const continueIfMfaRequired = async (supabase: ReturnType<typeof createClient>) => {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal?.currentLevel === "aal1" && aal?.nextLevel === "aal2") {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const totp = factors?.totp?.[0];
+      if (totp) {
+        setMfaFactorId(totp.id);
+        setMfa(true);
+        setLoading(false);
+        return;
+      }
+    }
+    redirectAfterAuth();
   };
 
   useEffect(() => {
@@ -60,6 +78,51 @@ function LoginForm() {
       router.replace("/");
     }
   }, [router]);
+
+  useEffect(() => {
+    if (searchParams.get("mfa") !== "1") return;
+    const supabase = createClient();
+    void supabase.auth.mfa.listFactors().then(({ data }) => {
+      const totp = data?.totp?.[0];
+      if (totp) setMfaFactorId(totp.id);
+      setMfa(true);
+    });
+  }, [searchParams]);
+
+  const verifyMfa = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!mfaFactorId) {
+      setError("No authenticator is enrolled on this account.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({
+        factorId: mfaFactorId,
+      });
+      if (challengeError || !challenge) {
+        setLoading(false);
+        setError(challengeError?.message ?? "Could not start authenticator check");
+        return;
+      }
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: mfaFactorId,
+        challengeId: challenge.id,
+        code: mfaCode.trim(),
+      });
+      setLoading(false);
+      if (verifyError) {
+        setError(verifyError.message);
+        return;
+      }
+      redirectAfterAuth();
+    } catch (err) {
+      setLoading(false);
+      setError(authRequestErrorMessage(err));
+    }
+  };
 
   const ensureSupabase = (): boolean => {
     if (isSupabaseConfigured()) return true;
@@ -111,7 +174,7 @@ function LoginForm() {
         setError(signInError.message);
         return;
       }
-      redirectAfterAuth();
+      await continueIfMfaRequired(supabase);
     } catch (err) {
       setLoading(false);
       setError(authRequestErrorMessage(err));
@@ -225,12 +288,33 @@ function LoginForm() {
       <Stack spacing={3}>
         <PeggyBrandLockup variant="auth" centered showSubtitle />
 
+        {!mfa ? (
         <Tabs value={tab} onChange={handleTabChange} variant="fullWidth">
           <Tab label="Sign in" />
           <Tab label="Register" />
         </Tabs>
+        ) : null}
 
-        {sent ? (
+        {mfa ? (
+          <Box component="form" onSubmit={(e) => void verifyMfa(e)}>
+            <Stack spacing={2}>
+              <Typography variant="body2">Enter the code from your authenticator app.</Typography>
+              {error ? <Alert severity="error">{error}</Alert> : null}
+              <TextField
+                label="Authenticator code"
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                autoComplete="one-time-code"
+                required
+                fullWidth
+                autoFocus
+              />
+              <Button type="submit" variant="contained" disabled={loading} fullWidth>
+                {loading ? "Checking…" : "Continue"}
+              </Button>
+            </Stack>
+          </Box>
+        ) : sent ? (
           <Alert severity="success">
             {tab === 1 ? (
               <>

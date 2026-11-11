@@ -72,7 +72,7 @@ async def extract_paper_fields(
         }
 
     truncated = text[: config.MAX_EXTRACTION_TEXT_LEN]
-    llm = get_llm()
+    llm = await get_llm()
     system = build_extraction_system_prompt()
     user = build_extraction_user_prompt(
         title=title,

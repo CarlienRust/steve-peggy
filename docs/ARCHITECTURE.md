@@ -133,6 +133,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/manuscript-framing` | Discussion draft (API only) |
 | `POST /feedback` | Correction queue (API only) |
 | `GET /health` | Qdrant, LLM, embeddings, Gemini tier, database, storage |
+| `GET/PUT /profile/llm-settings` | Per-user provider, key last-4, daily cap. PUT may set `api_key` (write-only). GET never returns the secret. |
 | `GET /setup/checks` | Hosted status; local fix commands only when `AUTH_REQUIRED=false` |
 | `POST /workflows/idea-from-resources` | 3–5 questions from project resources (class B) |
 | `GET /workspaces/{id}/confounder-audit` | Covariates from extractions |
@@ -207,7 +208,7 @@ Migration: `009_objective_links.sql` adds the `objective_links` column. See [DAT
 - **Dashboard** — `buildObjectiveProgress()` shows each objective with manual done status, counts of linked methods/analysis steps and findings, and links to the relevant screens. `buildProjectProgress()` drives the project setup roadmap (next step, possible next steps, full timeline). Sidebar nav remains the primary way to open Validate, Study Design, Results, and Ask Peggy.
 - **Objective linking** — Workspace `objectives` are `{ id, text, status }[]` (legacy `string[]` migrated on read). Methods and analysis plans store optional `steps[]` with `objectiveIds` (including `"aim"`). Finding sets store tags in `study_design.objective_links.findingLinks` as `{ paperId, objectiveIds[] }`. When objective text changes, linked steps and finding links receive derived flags (`objectiveChanged`, `objectiveChangedObjectiveIds`) to surface “Objective changed” in the UI.
 - **Help** — `/help` (linked above Log out in the sidebar) summarizes navigation and core workflows. Sidebar nav links show hover tooltips where useful.
-- **Profile menu** — name at the bottom of the sidebar: Update profile, Settings (`/setup/checks`), **Peggy AI settings** (dialog: Standard vs Strict for the active project, plus training opt-out table). Switch project and Help sit below the menu. `WorkspaceProvider` wraps HomeAppShell and AppShell so that dialog works on setup and home, not only inside a project.
+- **Profile menu** — name at the bottom of the sidebar: Update profile, Settings (`/setup/checks`), **Peggy AI settings** (project Strict/Standard, provider + optional own API key, daily cap, training opt-out, optional TOTP). Switch project and Help sit below the menu. `WorkspaceProvider` wraps HomeAppShell and AppShell so that dialog works on setup and home, not only inside a project.
 - **Section tabs** — Study Design and Results use `SectionGroupLayout` (section eyebrow + `SectionSubNav` tabs). Sidebar child links for those groups stay collapsed on sub-routes so tabs are the primary wayfinding.
 - **Page surfaces** — Inner routes use `PageSection` (single bordered panel) and `PageHeader` with `compact` under section layouts; top-level pages (Dashboard, Corpus, Chat) keep full headers.
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).

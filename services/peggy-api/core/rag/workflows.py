@@ -141,7 +141,7 @@ async def grounded_chat(
 
         set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
     sources = _search(query, source_types=source_types, user_id=user_id, workspace_id=workspace_id, ws=ws, peer=False)
-    llm = get_llm()
+    llm = await get_llm()
     system = prompts.build_system_prompt()
     user = prompts.chat_user_prompt(query, sources)
     response = await llm.complete(system, user)
@@ -229,7 +229,7 @@ async def run_gap_analysis(
         evidence_basis = "full_text"
 
     distinct_papers = len({s.get("pmid") or s.get("title") for s in sources})
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.gap_analysis_prompt(
@@ -286,7 +286,7 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
     sources = _search(
         search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.validate_aim_prompt(aim, objectives, sources, aims_block=aims_block),
@@ -355,7 +355,7 @@ async def run_compare(
                 sources.append(extra)
                 seen.add(key)
     project_context = await load_project_context(user_id, workspace_id)
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.compare_prompt(finding, sources, project_context),
@@ -397,7 +397,7 @@ async def run_future_design(
         user_id=user_id,
         workspace_id=workspace_id,
     )
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.future_design_prompt(gap_summary, constraints, sources),
@@ -426,7 +426,7 @@ async def run_manuscript_framing(
         user_id=user_id,
         workspace_id=workspace_id,
     )
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.manuscript_framing_prompt(results_summary, sources),
@@ -470,7 +470,7 @@ async def run_ethics_guidance(
     samples = sd.get("samples") or {}
     assert_study_design_safe(samples, user_question)
     samples_context = _workspace_context(ws, sd)
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.ethics_guidance_prompt(samples_context, FMHS_ETHICS_FACTS, user_question),
@@ -514,7 +514,7 @@ async def run_methods_plan(
     sources = _search(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
-    llm = get_llm()
+    llm = await get_llm()
     methods_text = user_plan.strip() or _plan_review_text(sd.get("methodsPlan"))
     analysis_text = _plan_review_text(sd.get("analysisPlan"))
     if mode == "review":
@@ -585,7 +585,7 @@ async def run_analysis_plan(
     sources = _search(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
-    llm = get_llm()
+    llm = await get_llm()
     analysis_text = user_plan.strip() or _plan_review_text(plan)
     methods_text = _plan_review_text(sd.get("methodsPlan"))
     if mode == "review":
@@ -643,7 +643,7 @@ async def run_proposal(
     sources = _search(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         prompts.proposal_prompt(ctx, focus_notes, sources),
@@ -702,7 +702,7 @@ async def run_idea_from_resources(user_id: str, workspace_id: str) -> dict:
         raise ValueError("Workspace not found")
     set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
     resources = ws.get("resources") or {}
-    llm = get_llm()
+    llm = await get_llm()
     raw = await llm.complete(
         prompts.build_system_prompt(),
         "From these project resources (JSON), propose 3 to 5 feasible research questions. "
@@ -754,7 +754,7 @@ async def run_findings_summary(user_id: str, workspace_id: str) -> dict:
     summary = ""
     points: list[str] = []
     try:
-        llm = get_llm()
+        llm = await get_llm()
         raw = await llm.complete(
             prompts.build_system_prompt(),
             prompts.findings_summary_prompt(document_blob),
@@ -801,7 +801,7 @@ async def run_conference_abstract(
     target = max(100, min(int(min_words), 600))
     body: dict = {}
     try:
-        llm = get_llm()
+        llm = await get_llm()
         raw = await llm.complete(
             prompts.build_system_prompt(),
             prompts.conference_abstract_prompt(ctx, summary, points, target),

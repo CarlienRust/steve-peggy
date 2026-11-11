@@ -182,7 +182,7 @@ async def _agent_events(
     messages.append({"role": "user", "content": query})
     messages = await memory.summarise_if_long(messages)
 
-    llm = get_llm()
+    llm = await get_llm()
     steps: list[AgentStep] = []
     tools_used: list[str] = []
     tool_confidences: list[float] = []

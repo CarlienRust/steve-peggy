@@ -193,11 +193,14 @@ def _parse_gemini_response(data: dict) -> ToolResponse:
 
 
 class GeminiProvider(LLMProvider):
+    def __init__(self, api_key: str | None = None):
+        self._api_key = api_key or config.GEMINI_API_KEY
+
     def _url(self) -> str:
-        return f"{GEMINI_API_BASE}/models/{config.GEMINI_MODEL}:generateContent?key={config.GEMINI_API_KEY}"
+        return f"{GEMINI_API_BASE}/models/{config.GEMINI_MODEL}:generateContent?key={self._api_key}"
 
     async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
-        if not config.GEMINI_API_KEY:
+        if not self._api_key:
             return _fallback_response(system, user, json_mode)
         body: dict[str, Any] = {
             "systemInstruction": {"parts": [{"text": system}]},
@@ -212,7 +215,7 @@ class GeminiProvider(LLMProvider):
             return _parse_gemini_response(response.json()).text
 
     async def complete_with_tools(self, messages: list[dict], tools: list[dict]) -> ToolResponse:
-        if not config.GEMINI_API_KEY:
+        if not self._api_key:
             return FinalAnswer(text=_fallback_response("", messages[-1].get("content", ""), False))
         system, contents = _messages_to_gemini_contents(messages)
         body: dict[str, Any] = {
@@ -332,10 +335,162 @@ class PolicyWrappedProvider(LLMProvider):
         return await self._inner.complete_with_tools(messages, tools)
 
 
-def get_llm() -> LLMProvider:
+class OpenAICompatibleProvider(LLMProvider):
+    def __init__(
+        self,
+        api_key: str,
+        base_url: str,
+        model: str,
+        extra_headers: dict[str, str] | None = None,
+    ):
+        self._api_key = api_key
+        self._base_url = base_url.rstrip("/")
+        self._model = model
+        self._extra_headers = extra_headers or {}
+
+    def _headers(self) -> dict[str, str]:
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+            **self._extra_headers,
+        }
+        return headers
+
+    async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+        if not self._api_key:
+            return _fallback_response(system, user, json_mode)
+        body: dict[str, Any] = {
+            "model": self._model,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "temperature": 0.3,
+            "store": False,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                f"{self._base_url}/chat/completions",
+                headers=self._headers(),
+                json=body,
+            )
+            if not response.is_success:
+                raise LLMProviderError(response.text[:400], status_code=response.status_code)
+            return response.json()["choices"][0]["message"]["content"]
+
+    async def complete_with_tools(self, messages: list[dict], tools: list[dict]) -> ToolResponse:
+        body: dict[str, Any] = {
+            "model": self._model,
+            "messages": messages,
+            "temperature": 0.3,
+            "store": False,
+        }
+        if tools:
+            body["tools"] = tools
+            body["tool_choice"] = "auto"
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                f"{self._base_url}/chat/completions",
+                headers=self._headers(),
+                json=body,
+            )
+            if not response.is_success:
+                raise LLMProviderError(response.text[:400], status_code=response.status_code)
+            msg = response.json()["choices"][0]["message"]
+            return _parse_openai_message(msg)
+
+
+class ClaudeProvider(LLMProvider):
+    def __init__(self, api_key: str):
+        self._api_key = api_key
+
+    async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
+        if not self._api_key:
+            return _fallback_response(system, user, json_mode)
+        body: dict[str, Any] = {
+            "model": config.CLAUDE_MODEL,
+            "max_tokens": 2048,
+            "system": system,
+            "messages": [{"role": "user", "content": user}],
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            response = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": self._api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json=body,
+            )
+            if not response.is_success:
+                raise LLMProviderError(response.text[:400], status_code=response.status_code)
+            parts = response.json().get("content") or []
+            return "".join(p.get("text", "") for p in parts if p.get("type") == "text")
+
+    async def complete_with_tools(self, messages: list[dict], tools: list[dict]) -> ToolResponse:
+        system = next((m.get("content") or "" for m in messages if m.get("role") == "system"), "")
+        user_parts = [str(m.get("content") or "") for m in messages if m.get("role") in ("user", "assistant", "tool")]
+        tool_desc = json.dumps([t.get("function") for t in tools])
+        prompt = (
+            f"Tools:\n{tool_desc}\n\n"
+            'Reply JSON only: {"type":"final","text":"..."} or {"type":"tool_call","name":"...","arguments":{}}\n\n'
+            f"{chr(10).join(user_parts[-6:])}"
+        )
+        raw = await self.complete(system, prompt)
+        parsed = _parse_json_tool_fallback(raw)
+        return parsed or FinalAnswer(text=raw)
+
+
+def _user_provider(provider: str, api_key: str) -> LLMProvider:
+    if provider == "claude":
+        return ClaudeProvider(api_key)
+    if provider == "chatgpt":
+        return OpenAICompatibleProvider(api_key, "https://api.openai.com/v1", config.CHATGPT_MODEL)
+    if provider == "groq":
+        return OpenAICompatibleProvider(api_key, "https://api.groq.com/openai/v1", config.GROQ_MODEL)
+    if provider == "openrouter":
+        return OpenAICompatibleProvider(
+            api_key,
+            "https://openrouter.ai/api/v1",
+            config.OPENROUTER_MODEL,
+            extra_headers={"HTTP-Referer": "https://peggy-ra.vercel.app", "X-Title": "Peggy"},
+        )
+    return GeminiProvider(api_key=api_key)
+
+
+def _platform_provider() -> LLMProvider:
     providers = {
         "ollama": OllamaProvider,
         "gemini": GeminiProvider,
     }
     cls = providers.get(config.LLM_PROVIDER, OllamaProvider)
-    return PolicyWrappedProvider(cls())
+    return cls()
+
+
+async def get_llm() -> LLMProvider:
+    from core.safety.policy import policy_user_id
+    from core.store import catalog
+
+    user_id = policy_user_id()
+    inner: LLMProvider | None = None
+    if user_id:
+        try:
+            row = await catalog.get_llm_settings(user_id)
+        except Exception:
+            row = None
+        cipher = (row or {}).get("api_key_ciphertext") if row else None
+        if cipher:
+            try:
+                from core.secrets import decrypt_secret
+
+                key = decrypt_secret(cipher)
+            except Exception:
+                key = ""
+            if key:
+                inner = _user_provider((row or {}).get("provider") or "gemini", key)
+    if inner is None:
+        inner = _platform_provider()
+    return PolicyWrappedProvider(inner)

@@ -24,7 +24,7 @@ async def expand_discovery_queries(query: str, workspace_aim: str | None = None)
     try:
         from core.llm.provider import get_llm
 
-        llm = get_llm()
+        llm = await get_llm()
         prompt = (
             "Convert this research topic into 1-2 PubMed-style search queries. "
             "Return JSON only: {\"queries\": [\"...\"]}. "

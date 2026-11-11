@@ -99,7 +99,7 @@ Qdrant `chat_history_logs` remains unused (cross-session semantic memory deferre
 - **Groq / OpenAI:** native OpenAI-style `tools` API
 - **Ollama:** native tools if supported; else JSON fallback `{"type":"tool_call",…}`
 
-For agent development, use `LLM_PROVIDER=ollama` locally or `gemini` on Render ([LOCAL.md](LOCAL.md)).
+For agent development, use `LLM_PROVIDER=ollama` locally or `gemini` on Render ([LOCAL.md](LOCAL.md)). `get_llm()` is async: no user key uses the platform provider; a stored ciphertext uses Gemini, Claude, ChatGPT, Groq, or OpenRouter with that key. Daily token cap is `min(MAX_LLM_TOKENS_PER_DAY, user.daily_token_cap)`.
 
 ## Guardrails
 

@@ -29,6 +29,7 @@ sequenceDiagram
 | Supabase email magic link | Next.js `/login`, `/auth/callback`, `middleware.ts` |
 | Supabase email + password | `/login` — password or magic link; register with password |
 | Password reset | `/login/forgot-password` → email link → `/auth/update-password` |
+| Optional TOTP MFA | Peggy AI settings → Add authenticator app. If a factor exists, password sign-in and magic-link callback require an aal2 code (`/login?mfa=1`). Enable MFA in Supabase: Authentication → MFA. Solo/`AUTH_REQUIRED=false` skips this. |
 | Bearer token on API calls | `lib/api.ts` + `AuthTokenBridge` in `providers.tsx` |
 | API JWT verification | `core/auth/jwt.py`, `core/auth/deps.py` |
 | User-scoped catalog | `user_id` on all tables; SQLite fallback when `DATABASE_URL` unset |
@@ -90,7 +91,8 @@ When `AUTH_REQUIRED=false` (default in pytest), the API uses a fixed `dev-user` 
 
 - Never expose `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_JWT_SECRET` in the browser or git.
 - Use `NEXT_PUBLIC_SUPABASE_ANON_KEY` only in Next.js.
-- Store LLM keys only on the API host.
+- Store LLM keys only on the API host (`PEGGY_SECRETS_KEY` + Fernet). Never in `apps/web` or GET JSON.
+- Enable **Authentication → MFA** in the Supabase dashboard if researchers will enroll TOTP.
 
 ## Key files
 

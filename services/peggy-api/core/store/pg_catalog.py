@@ -1571,3 +1571,65 @@ async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> 
             user_id,
         )
     return _row_to_dict(row) if row else None
+
+
+async def get_llm_settings(user_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM user_llm_settings WHERE user_id = $1::uuid", user_id
+        )
+    return _row_to_dict(row) if row else None
+
+
+async def upsert_llm_settings(user_id: str, fields: dict) -> dict:
+    existing = await get_llm_settings(user_id)
+    provider = fields.get("provider") or (existing or {}).get("provider") or "gemini"
+    if "api_key_ciphertext" in fields:
+        ciphertext = fields.get("api_key_ciphertext")
+        last4 = fields.get("key_last4")
+    else:
+        ciphertext = (existing or {}).get("api_key_ciphertext")
+        last4 = (existing or {}).get("key_last4")
+    cap = fields["daily_token_cap"] if "daily_token_cap" in fields else (existing or {}).get("daily_token_cap")
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO user_llm_settings (user_id, provider, api_key_ciphertext, key_last4, daily_token_cap, updated_at)
+               VALUES ($1::uuid, $2, $3, $4, $5, NOW())
+               ON CONFLICT (user_id) DO UPDATE SET
+                 provider = EXCLUDED.provider,
+                 api_key_ciphertext = EXCLUDED.api_key_ciphertext,
+                 key_last4 = EXCLUDED.key_last4,
+                 daily_token_cap = EXCLUDED.daily_token_cap,
+                 updated_at = NOW()
+               RETURNING *""",
+            user_id,
+            provider,
+            ciphertext,
+            last4,
+            cap,
+        )
+    return _row_to_dict(row) if row else {}
+
+
+async def get_ai_consent(user_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT * FROM ai_consent WHERE user_id = $1::uuid", user_id)
+    return _row_to_dict(row) if row else None
+
+
+async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO ai_consent (user_id, accepted_at, training_opt_out_acknowledged)
+               VALUES ($1::uuid, NOW(), $2)
+               ON CONFLICT (user_id) DO UPDATE SET
+                 training_opt_out_acknowledged = EXCLUDED.training_opt_out_acknowledged
+               RETURNING *""",
+            user_id,
+            acknowledged,
+        )
+    return _row_to_dict(row) if row else {"user_id": user_id, "training_opt_out_acknowledged": acknowledged}

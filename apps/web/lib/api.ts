@@ -849,6 +849,24 @@ export const peggyApi = {
     return res.json() as Promise<ResearcherProfile>;
   },
 
+  getLlmSettings: () =>
+    apiFetch<{
+      provider: string;
+      has_key: boolean;
+      key_last4: string | null;
+      daily_token_cap: number | null;
+      training_opt_out_acknowledged: boolean;
+      platform_token_cap: number;
+    }>("/profile/llm-settings"),
+
+  putLlmSettings: (body: {
+    provider: string;
+    api_key?: string;
+    daily_token_cap?: number | null;
+    training_opt_out_acknowledged?: boolean;
+    clear_key?: boolean;
+  }) => apiFetch("/profile/llm-settings", { method: "PUT", body: JSON.stringify(body) }),
+
   upsertProfile: (body: {
     title: string;
     name: string;
@@ -1137,6 +1155,7 @@ export const queryKeys = {
   findingsSummary: (workspaceId?: string) => ["findings-summary", workspaceId] as const,
   job: (id: string) => ["job", id] as const,
   profile: (userId?: string) => (userId ? (["profile", userId] as const) : (["profile"] as const)),
+  llmSettings: (userId?: string) => (userId ? (["llm-settings", userId] as const) : (["llm-settings"] as const)),
   workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),
   calendar: (workspaceId?: string) => ["calendar", workspaceId ?? "all"] as const,
   labBook: (workspaceId?: string) => ["lab-book", workspaceId] as const,

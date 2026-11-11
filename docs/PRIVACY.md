@@ -33,6 +33,8 @@ Set the mode on create (setup step 4 or New project). Change it later from the p
 
 Peggy cannot see your Google (or other) account. Turn off training or activity yourself.
 
+Own keys: stored as Fernet ciphertext in `user_llm_settings` on the API only. Default is platform Gemini with `GEMINI_API_KEY`. OpenAI-compatible calls set `store: false`. Anthropic API traffic is not used for training by default. Gemini Keep Activity is still a Google-account setting.
+
 ## Free-tier training opt-out
 
 Peggy does not control these settings. Terms can change.

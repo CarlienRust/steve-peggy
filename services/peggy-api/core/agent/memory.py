@@ -46,7 +46,7 @@ async def summarise_if_long(messages: list[dict]) -> list[dict]:
     from core.safety.policy import CLASS_B, assert_can_send
 
     assert_can_send([CLASS_B])
-    llm = get_llm()
+    llm = await get_llm()
     older_text = json.dumps(older, default=str)[:10000]
     summary = await llm.complete(
         "Summarise prior agent conversation turns for continuity. Keep user goals and key findings.",

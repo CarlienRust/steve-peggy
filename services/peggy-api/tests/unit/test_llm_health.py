@@ -19,9 +19,10 @@ def test_is_llm_configured_gemini_requires_key():
             assert is_llm_configured() is True
 
 
-def test_get_llm_returns_gemini():
+@pytest.mark.asyncio
+async def test_get_llm_returns_gemini():
     with patch.object(config, "LLM_PROVIDER", "gemini"):
-        llm = get_llm()
+        llm = await get_llm()
         assert isinstance(llm, PolicyWrappedProvider)
         assert isinstance(llm._inner, GeminiProvider)
 

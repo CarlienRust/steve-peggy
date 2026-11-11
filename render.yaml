@@ -18,6 +18,8 @@ services:
         value: gemini-3.8-flash
       - key: AUTH_REQUIRED
         value: "true"
+      - key: PEGGY_SECRETS_KEY
+        sync: false
       - key: EMBEDDING_BACKEND
         value: hash
       - key: PUBLIC_HEALTH_DETAIL

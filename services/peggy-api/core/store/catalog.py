@@ -348,3 +348,19 @@ async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> 
 
 async def delete_lab_book_entry(user_id: str, workspace_id: str, entry_id: str) -> bool:
     return await _backend().delete_lab_book_entry(user_id, workspace_id, entry_id)
+
+
+async def get_llm_settings(user_id: str) -> dict | None:
+    return await _backend().get_llm_settings(user_id)
+
+
+async def upsert_llm_settings(user_id: str, fields: dict) -> dict:
+    return await _backend().upsert_llm_settings(user_id, fields)
+
+
+async def get_ai_consent(user_id: str) -> dict | None:
+    return await _backend().get_ai_consent(user_id)
+
+
+async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
+    return await _backend().upsert_ai_consent(user_id, acknowledged)

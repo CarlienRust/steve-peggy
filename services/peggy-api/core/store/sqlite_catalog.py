@@ -184,6 +184,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_privacy_024(db)
         await _migrate_evidence_025(db)
         await _migrate_agent_026(db)
+        await _migrate_llm_027(db)
         await db.commit()
 
 
@@ -509,6 +510,19 @@ async def _migrate_agent_026(db: aiosqlite.Connection) -> None:
             payload TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT
+        )"""
+    )
+
+
+async def _migrate_llm_027(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS user_llm_settings (
+            user_id TEXT PRIMARY KEY,
+            provider TEXT NOT NULL DEFAULT 'gemini',
+            api_key_ciphertext TEXT,
+            key_last4 TEXT,
+            daily_token_cap INTEGER,
+            updated_at TEXT
         )"""
     )
 
@@ -1931,3 +1945,78 @@ async def update_agent_proposal(user_id: str, proposal_id: str, status: str) -> 
         d["payload"] = {}
     d["status"] = status
     return d
+
+
+def _llm_settings_public_row(d: dict | None) -> dict | None:
+    if not d:
+        return None
+    return {
+        "user_id": d.get("user_id"),
+        "provider": d.get("provider") or "gemini",
+        "api_key_ciphertext": d.get("api_key_ciphertext"),
+        "key_last4": d.get("key_last4"),
+        "daily_token_cap": d.get("daily_token_cap"),
+    }
+
+
+async def get_llm_settings(user_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM user_llm_settings WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+    return _llm_settings_public_row(dict(row)) if row else None
+
+
+async def upsert_llm_settings(user_id: str, fields: dict) -> dict:
+    existing = await get_llm_settings(user_id)
+    provider = fields.get("provider") or (existing or {}).get("provider") or "gemini"
+    ciphertext = fields.get("api_key_ciphertext")
+    last4 = fields.get("key_last4")
+    if "api_key_ciphertext" not in fields and existing:
+        ciphertext = existing.get("api_key_ciphertext")
+        last4 = existing.get("key_last4")
+    cap = fields["daily_token_cap"] if "daily_token_cap" in fields else (existing or {}).get("daily_token_cap")
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO user_llm_settings (user_id, provider, api_key_ciphertext, key_last4, daily_token_cap, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET
+                 provider = excluded.provider,
+                 api_key_ciphertext = excluded.api_key_ciphertext,
+                 key_last4 = excluded.key_last4,
+                 daily_token_cap = excluded.daily_token_cap,
+                 updated_at = excluded.updated_at""",
+            (user_id, provider, ciphertext, last4, cap, now),
+        )
+        await db.commit()
+    row = await get_llm_settings(user_id)
+    return row or {"user_id": user_id, "provider": provider, "api_key_ciphertext": ciphertext, "key_last4": last4, "daily_token_cap": cap}
+
+
+async def get_ai_consent(user_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute("SELECT * FROM ai_consent WHERE user_id = ?", (user_id,))
+        row = await cur.fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["training_opt_out_acknowledged"] = bool(d.get("training_opt_out_acknowledged"))
+    return d
+
+
+async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO ai_consent (user_id, accepted_at, training_opt_out_acknowledged)
+               VALUES (?, ?, ?)
+               ON CONFLICT(user_id) DO UPDATE SET training_opt_out_acknowledged = excluded.training_opt_out_acknowledged""",
+            (user_id, now, 1 if acknowledged else 0),
+        )
+        await db.commit()
+    return (await get_ai_consent(user_id)) or {
+        "user_id": user_id,
+        "training_opt_out_acknowledged": acknowledged,
+    }
