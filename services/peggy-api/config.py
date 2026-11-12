@@ -21,7 +21,26 @@ GEMINI_EMBED_MODEL = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
 _LLM_DEFAULT = "gemini" if os.getenv("RENDER") else "ollama"
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", _LLM_DEFAULT).lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").removeprefix("models/")
+
+_RETIRED_GEMINI_MODELS = {
+    "gemini-2.0-flash": "gemini-3.8-flash",
+    "gemini-2.0-flash-001": "gemini-3.8-flash",
+    "gemini-2.0-flash-lite": "gemini-3.8-flash",
+    "gemini-1.5-flash": "gemini-3.8-flash",
+    "gemini-1.5-flash-latest": "gemini-3.8-flash",
+    "gemini-1.5-pro": "gemini-3.8-flash",
+    "gemini-1.5-pro-latest": "gemini-3.8-flash",
+}
+
+
+def normalize_gemini_model(raw: str | None) -> str:
+    name = (raw or "gemini-3.8-flash").strip().removeprefix("models/")
+    if not name:
+        return "gemini-3.8-flash"
+    return _RETIRED_GEMINI_MODELS.get(name, name)
+
+
+GEMINI_MODEL = normalize_gemini_model(os.getenv("GEMINI_MODEL", "gemini-3.8-flash"))
 PEGGY_SECRETS_KEY = os.getenv("PEGGY_SECRETS_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
 CHATGPT_MODEL = os.getenv("CHATGPT_MODEL", "gpt-4o-mini")

@@ -197,7 +197,8 @@ class GeminiProvider(LLMProvider):
         self._api_key = api_key or config.GEMINI_API_KEY
 
     def _url(self) -> str:
-        return f"{GEMINI_API_BASE}/models/{config.GEMINI_MODEL}:generateContent?key={self._api_key}"
+        model = config.normalize_gemini_model(config.GEMINI_MODEL)
+        return f"{GEMINI_API_BASE}/models/{model}:generateContent?key={self._api_key}"
 
     async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
         if not self._api_key:
