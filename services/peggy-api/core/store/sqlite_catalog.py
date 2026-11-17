@@ -186,6 +186,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_agent_026(db)
         await _migrate_llm_027(db)
         await _migrate_project_admin(db)
+        await _migrate_papers_guidance_role(db)
         await db.commit()
 
 
@@ -547,6 +548,13 @@ async def _migrate_agent_026(db: aiosqlite.Connection) -> None:
     )
 
 
+async def _migrate_papers_guidance_role(db: aiosqlite.Connection) -> None:
+    try:
+        await db.execute("ALTER TABLE papers ADD COLUMN guidance_role TEXT NOT NULL DEFAULT ''")
+    except Exception:
+        pass
+
+
 async def _migrate_llm_027(db: aiosqlite.Connection) -> None:
     await db.execute(
         """CREATE TABLE IF NOT EXISTS user_llm_settings (
@@ -786,6 +794,7 @@ async def update_paper(user_id: str, paper_id: int, fields: dict) -> dict | None
         "full_text",
         "abstract",
         "url",
+        "guidance_role",
     }
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:

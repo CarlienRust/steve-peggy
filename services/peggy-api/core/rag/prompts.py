@@ -237,17 +237,28 @@ Return JSON only:
 }}"""
 
 
+def _guidance_section(guidance: str) -> str:
+    text = (guidance or "").strip()
+    if not text:
+        return ""
+    return (
+        "Must-follow group methods and SOPs (follow these; retrieval is extra):\n"
+        f"{text}\n\n"
+    )
+
+
 def methods_plan_suggest_prompt(
     workspace_context: str,
     constraints: str,
     sources: list[dict],
+    guidance: str = "",
 ) -> str:
     return f"""Propose a prospective methods plan for this study.
 
 Project context:
 {workspace_context}
 
-Constraints (budget, tools, sample size):
+{_guidance_section(guidance)}Constraints (budget, tools, sample size):
 {constraints}
 
 Similar literature from corpus:
@@ -271,12 +282,13 @@ def combined_plan_review_prompt(
     workspace_context: str,
     sources: list[dict],
     adhoc_tests: str = "",
+    guidance: str = "",
 ) -> str:
     return f"""Review the methods plan and the analysis plan as one protocol.
 Do not list a gap if the other plan already covers it (for example sample size, outcomes, covariates, or tests).
 Treat the two texts as complementary, not competing.
 
-Methods plan:
+{_guidance_section(guidance)}Methods plan:
 {methods_plan or "(empty)"}
 
 Analysis plan:
@@ -321,13 +333,14 @@ def analysis_plan_suggest_prompt(
     analysis_method: str,
     sources: list[dict],
     adhoc_tests: str = "",
+    guidance: str = "",
 ) -> str:
     return f"""Propose a statistical analysis plan.
 
 Project context:
 {workspace_context}
 
-Outcome types: {outcome_types or "not specified"}
+{_guidance_section(guidance)}Outcome types: {outcome_types or "not specified"}
 Covariates (if specified): {covariates or "not specified"}
 Pre-specified analysis method (if any): {analysis_method or "none — suggest appropriate methods"}
 Sensitivity / ad hoc tests: {adhoc_tests or "not specified"}

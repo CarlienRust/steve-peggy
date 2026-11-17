@@ -113,6 +113,15 @@ export function PlanStepsEditor({ steps, aim, objectives, aims, onChange, disabl
                   onChange={(ids) => updateAt(index, { objectiveIds: ids })}
                   disabled={disabled}
                 />
+                <TextField
+                  type="date"
+                  label="Reminder"
+                  value={step.reminderDate ?? ""}
+                  onChange={(e) => updateAt(index, { reminderDate: e.target.value })}
+                  disabled={disabled}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ maxWidth: 220 }}
+                />
                 <IconButton aria-label="Remove step" disabled={disabled} onClick={() => removeAt(index)} sx={{ alignSelf: "flex-start" }}>
                   <DeleteOutlineIcon />
                 </IconButton>

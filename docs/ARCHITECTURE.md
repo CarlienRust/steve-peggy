@@ -126,8 +126,10 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
 | `POST /workflows/study-design/ethics-guidance` | FMHS ethics checklist from samples profile + optional question |
-| `POST /workflows/study-design/methods-plan` | Methods review or suggest (`mode`: review \| suggest) |
-| `POST /workflows/study-design/analysis-plan` | Analysis review or suggest (`adhoc_tests` plus saved `analysisPlan.adhocAnalyses`) |
+| `POST /workflows/study-design/methods-plan` | Methods review or suggest (`mode`: review \| suggest). Flagged SOP / required-method papers are prepended to the prompt. |
+| `POST /workflows/study-design/analysis-plan` | Analysis review or suggest (`adhoc_tests` plus saved `analysisPlan.adhocAnalyses`). Same SOP prepend as methods. |
+| `POST /workflows/seed-from-document` | LLM preview of title, aim, objectives, samples, plans, dates from a corpus `paper_id` (class B, PHI guard) |
+| `POST /workflows/apply-document-seed` | Apply preview into empty workspace, `study_design`, and `project_admin` fields (`overwrite` optional) |
 | `POST /workflows/study-design/proposal` | 1–2 page proposal from workspace study design + literature |
 | `POST /workflows/compare` | Finding vs literature; optional `workspace_id` injects study design + plans; retrieval is literature + own findings only |
 | `GET /workspaces/{id}/transfer-pack` | ZIP: export JSON + original files + chunk texts (no vectors) |

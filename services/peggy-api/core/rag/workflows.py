@@ -555,13 +555,18 @@ async def run_methods_plan(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
     sources = await _with_live_peer_sources(query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws)
+    from core.rag.guidance import flagged_methods_text
+
+    guidance = await flagged_methods_text(user_id, workspace_id)
     llm = await get_llm()
     methods_text = user_plan.strip() or _plan_review_text(sd.get("methodsPlan"))
     analysis_text = _plan_review_text(sd.get("analysisPlan"))
     if mode == "review":
-        prompt = prompts.combined_plan_review_prompt(methods_text, analysis_text, ctx, sources)
+        prompt = prompts.combined_plan_review_prompt(
+            methods_text, analysis_text, ctx, sources, guidance=guidance
+        )
     else:
-        prompt = prompts.methods_plan_suggest_prompt(ctx, constraints, sources)
+        prompt = prompts.methods_plan_suggest_prompt(ctx, constraints, sources, guidance=guidance)
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)
     patch = {"methodsPlan": {"mode": mode, "userPlan": user_plan, "constraints": constraints, "lastResult": body}}
@@ -627,16 +632,26 @@ async def run_analysis_plan(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
     sources = await _with_live_peer_sources(query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws)
+    from core.rag.guidance import flagged_methods_text
+
+    guidance = await flagged_methods_text(user_id, workspace_id)
     llm = await get_llm()
     analysis_text = user_plan.strip() or _plan_review_text(plan)
     methods_text = _plan_review_text(sd.get("methodsPlan"))
     if mode == "review":
         prompt = prompts.combined_plan_review_prompt(
-            methods_text, analysis_text, ctx, sources, adhoc_tests=adhoc
+            methods_text, analysis_text, ctx, sources, adhoc_tests=adhoc, guidance=guidance
         )
     else:
         prompt = prompts.analysis_plan_suggest_prompt(
-            ctx, constraints, outcome_types, covariates, analysis_method, sources, adhoc_tests=adhoc
+            ctx,
+            constraints,
+            outcome_types,
+            covariates,
+            analysis_method,
+            sources,
+            adhoc_tests=adhoc,
+            guidance=guidance,
         )
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
     body = _parse_json(raw)

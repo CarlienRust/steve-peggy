@@ -510,3 +510,33 @@ async def dataset_summary(body: DatasetSummaryRequest, user: AuthUser = Depends(
         confidence="low",
         limitations=["Dataset summary, aggregates only"],
     )
+
+
+class SeedFromDocumentRequest(BaseModel):
+    workspace_id: str
+    paper_id: int
+
+
+class ApplyDocumentSeedRequest(BaseModel):
+    workspace_id: str
+    preview: dict
+    overwrite: bool = False
+
+
+@router.post("/seed-from-document")
+async def seed_from_document(body: SeedFromDocumentRequest, user: AuthUser = Depends(get_current_user)):
+    from core.rag.document_seed import preview_document_seed
+
+    try:
+        return await preview_document_seed(user.id, body.workspace_id, body.paper_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
+
+
+@router.post("/apply-document-seed")
+async def apply_document_seed_route(body: ApplyDocumentSeedRequest, user: AuthUser = Depends(get_current_user)):
+    from core.rag.document_seed import apply_document_seed
+
+    return await apply_document_seed(
+        user.id, body.workspace_id, body.preview, overwrite=body.overwrite
+    )

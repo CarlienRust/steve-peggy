@@ -128,3 +128,37 @@ async def sync_project_admin_calendar(user_id: str, workspace_id: str, admin: di
             source_id=f"output:{oid}",
             notes=str(output.get("venue") or output.get("status") or ""),
         )
+
+
+async def sync_plan_step_calendar(user_id: str, workspace_id: str, design: dict) -> None:
+    wanted: set[str] = set()
+    for plan_key, prefix in (("methodsPlan", "methods"), ("analysisPlan", "analysis")):
+        plan = design.get(plan_key) or {}
+        steps = plan.get("steps") or []
+        if not isinstance(steps, list):
+            continue
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            sid = str(step.get("id") or "").strip()
+            if not sid:
+                continue
+            source_id = f"{prefix}:{sid}"
+            wanted.add(source_id)
+            title = str(step.get("title") or "").strip() or "Plan step"
+            await upsert_source_event(
+                user_id,
+                workspace_id,
+                title=title[:256],
+                kind="step",
+                date_str=str(step.get("reminderDate") or ""),
+                source_type="plan_step",
+                source_id=source_id,
+            )
+    events = await catalog.list_calendar_events(user_id, workspace_id)
+    for event in events:
+        if str(event.get("source_type") or "") != "plan_step":
+            continue
+        sid = str(event.get("source_id") or "")
+        if sid not in wanted:
+            await catalog.delete_calendar_event(user_id, str(event["id"]))

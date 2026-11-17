@@ -350,6 +350,7 @@ export type PaperRecord = {
   url?: string;
   full_text?: boolean;
   study_design?: string;
+  guidance_role?: "" | "sop" | "required_method";
 };
 
 export type CalendarEventKind =
@@ -1109,6 +1110,30 @@ export const peggyApi = {
       source_count: number;
       updated_at: string | null;
     }>(`/workflows/findings-summary?workspace_id=${encodeURIComponent(workspaceId)}`),
+
+  seedFromDocument: (body: { workspaceId: string; paperId: number }) =>
+    apiFetch<{
+      preview: Record<string, unknown>;
+      paper: { id: number; title: string };
+    }>("/workflows/seed-from-document", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: body.workspaceId, paper_id: body.paperId }),
+    }),
+
+  applyDocumentSeed: (body: { workspaceId: string; preview: Record<string, unknown>; overwrite?: boolean }) =>
+    apiFetch<{
+      workspace: unknown;
+      study_design: unknown;
+      project_admin: unknown;
+      applied: unknown;
+    }>("/workflows/apply-document-seed", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: body.workspaceId,
+        preview: body.preview,
+        overwrite: body.overwrite ?? false,
+      }),
+    }),
 
   refreshFindingsSummary: (workspaceId: string) =>
     apiFetch<{

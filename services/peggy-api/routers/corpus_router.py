@@ -24,6 +24,7 @@ class PaperUpdate(BaseModel):
     source_type: Optional[str] = None
     notes: Optional[str] = None
     read_at: Optional[str] = None
+    guidance_role: Optional[str] = None
 
 
 @router.get("")
@@ -172,6 +173,11 @@ async def update_corpus_item(paper_id: int, body: PaperUpdate, user: AuthUser = 
     from core.safety.phi_guard import assert_no_phi
 
     fields = body.model_dump(exclude_unset=True)
+    if "guidance_role" in fields:
+        role = str(fields.get("guidance_role") or "").strip()
+        if role not in ("", "sop", "required_method"):
+            raise HTTPException(400, "guidance_role must be sop, required_method, or empty")
+        fields["guidance_role"] = role
     if "notes" in fields and fields["notes"]:
         enforce_text_length(str(fields["notes"]), max_len=20000, label="Paper notes")
         assert_no_phi(str(fields["notes"]), label="Paper notes")

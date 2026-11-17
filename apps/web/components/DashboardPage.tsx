@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -28,6 +28,7 @@ import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
 import { StatusChip } from "@/components/StatusChip";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { DocumentSeedDialog } from "@/components/DocumentSeedDialog";
 
 const DEFAULT_TITLE = process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Research project";
 
@@ -36,6 +37,7 @@ export function DashboardPage() {
   const { studyDesign } = useStudyDesign(activeWorkspace?.id);
   const { ready: authReady, userId } = useAuthSession();
   const [editOpen, setEditOpen] = useState(false);
+  const [seedOpen, setSeedOpen] = useState(false);
 
   const health = useQuery({
     queryKey: queryKeys.health,
@@ -49,6 +51,14 @@ export function DashboardPage() {
     queryFn: () => peggyApi.listCorpus(undefined, activeWorkspace?.id),
     enabled: authReady && !!userId && !!activeWorkspace?.id,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (sessionStorage.getItem("peggy-seed") === "1") {
+      sessionStorage.removeItem("peggy-seed");
+      setSeedOpen(true);
+    }
+  }, []);
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
   const papers = corpus.data?.papers ?? [];
@@ -107,6 +117,11 @@ export function DashboardPage() {
             </IconButton>
           </Tooltip>
         ) : null}
+        {activeWorkspace ? (
+          <Button variant="outlined" size="small" onClick={() => setSeedOpen(true)} sx={{ textTransform: "none", ml: 1 }}>
+            Fill from a proposal or brief
+          </Button>
+        ) : null}
       </Stack>
 
       <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" sx={{ mb: 3 }} useFlexGap>
@@ -139,6 +154,7 @@ export function DashboardPage() {
         studyDesign={studyDesign}
         onSaved={refetch}
       />
+      <DocumentSeedDialog open={seedOpen} onClose={() => setSeedOpen(false)} />
 
       {serviceDown ? (
         <Alert

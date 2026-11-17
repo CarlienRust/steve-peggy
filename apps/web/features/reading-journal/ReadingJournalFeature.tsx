@@ -219,6 +219,29 @@ export function ReadingJournalFeature() {
                   >
                     Save notes
                   </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() =>
+                      savePaper.mutate({
+                        id,
+                        data: {
+                          guidance_role:
+                            paper.guidance_role === "sop"
+                              ? "required_method"
+                              : paper.guidance_role === "required_method"
+                                ? ""
+                                : "sop",
+                        },
+                      })
+                    }
+                  >
+                    {paper.guidance_role === "sop"
+                      ? "SOP"
+                      : paper.guidance_role === "required_method"
+                        ? "Required method"
+                        : "Use as SOP"}
+                  </Button>
                   <Button size="small" color="error" variant="outlined" onClick={() => setDeletePaper(paper)}>
                     Delete
                   </Button>

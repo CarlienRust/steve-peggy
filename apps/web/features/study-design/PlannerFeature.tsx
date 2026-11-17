@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
   Box,
@@ -164,6 +165,15 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
     });
     return parts.join("; ") || fallback;
   };
+
+  const corpus = useQuery({
+    queryKey: queryKeys.corpus(undefined, activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus(undefined, activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const flaggedDocs = (corpus.data?.papers ?? []).filter(
+    (p) => p.guidance_role === "sop" || p.guidance_role === "required_method"
+  );
 
   const workspaceSave = useMutation({
     mutationFn: (body: Parameters<typeof peggyApi.updateWorkspace>[1]) => {
@@ -379,6 +389,13 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 0.5 }}>
             FROM YOUR PROJECT
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            Group SOPs / required methods:{" "}
+            {flaggedDocs.length
+              ? flaggedDocs.map((p) => p.title || "Untitled").join("; ")
+              : "none flagged."}{" "}
+            <Link href="/validate/literature">Literature</Link>
           </Typography>
           <SummaryRow
             label="Aim"

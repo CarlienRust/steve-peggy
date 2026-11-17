@@ -296,6 +296,30 @@ export function CorpusManagement() {
                         <StatusChip label={extractionChipLabel(p)} tone={extractionChipTone(p)} />
                       </TableCell>
                       <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                        {p.id ? (
+                          <Button
+                            size="small"
+                            sx={{ textTransform: "none", mr: 0.5 }}
+                            onClick={() =>
+                              peggyApi
+                                .updatePaper(p.id!, {
+                                  guidance_role:
+                                    p.guidance_role === "sop"
+                                      ? "required_method"
+                                      : p.guidance_role === "required_method"
+                                        ? ""
+                                        : "sop",
+                                })
+                                .then(() => papersSummary.refetch())
+                            }
+                          >
+                            {p.guidance_role === "sop"
+                              ? "SOP"
+                              : p.guidance_role === "required_method"
+                                ? "Required method"
+                                : "Use as SOP"}
+                          </Button>
+                        ) : null}
                         <IconButton
                           size="small"
                           aria-label="Delete paper"

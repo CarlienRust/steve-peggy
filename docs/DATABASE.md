@@ -31,7 +31,7 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `030_project_admin_docs.sql`. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `031_papers_guidance_role.sql`. `031` adds `papers.guidance_role` (`sop` \| `required_method` \| empty) for methods/analysis must-follow text. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -85,7 +85,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 
 RLS owner policies (`auth.uid() = user_id`) should stay on: papers, ingest_jobs, feedback_queue, agent_sessions, agent_messages, researcher_profiles, workspaces, github_connections, workflow_runs, study_design, findings_summaries, findings_summaries_by_workspace, extractions, objective_history, user_calendar_events, lab_book_entries, export_audit, ai_consent, agent_proposals, user_llm_settings, project_admin.
 
-`021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`. `028` adds `image_storage_key`, `image_filename`, `image_content_type` on lab book rows. `029` creates `project_admin` (one row per workspace; not study_design JSON). `030` adds JSON paper-id lists for registration, data-transfer, co-investigator, and funding PDFs.
+`021_lab_book.sql` creates `lab_book_entries` (`category` progress|meeting|idea|methods|other, `body`, workspace + user). RLS owner via `user_id`. `028` adds `image_storage_key`, `image_filename`, `image_content_type` on lab book rows. `029` creates `project_admin` (one row per workspace; not study_design JSON). `030` adds JSON paper-id lists for registration, data-transfer, co-investigator, and funding PDFs. `031` adds `papers.guidance_role`.
 
 Analysis tool metadata is `study_design.analysisTool` (`fileName`, `headers`, `columnTypes`, `adminColumns`, `lastSelector`). Table **rows** are not stored (API 400 if sent). Save configuration keeps headers/types only; the grid lives in the browser until refresh. The Analysis tool reads a file chosen on that page. Study design → Samples stores originals (`sample_datasets`) and **Preview** parses CSV/TSV/SAV with the same client parsers (`parsePastedTable` / `parseSavTable`). `024_privacy_isolation.sql` adds `workspaces.deleting`, `export_audit`, `ai_consent`, and unique paper keys per `(workspace_id, source_type, pmid/doi/title)`.
 
@@ -117,6 +117,7 @@ erDiagram
     text peer_review_status
     boolean is_retracted
     text abstract
+    text guidance_role
   }
   user_calendar_events {
     uuid id PK

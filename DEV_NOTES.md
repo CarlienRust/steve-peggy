@@ -140,12 +140,6 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 6) EVIDENCE COVERAGE - Exposure by study design: This doesn't seem to currently be wired or functioning. 
 7) Ethics: Ethics approval -> add reminder for next renewal and shown in Calendar
 8) Peggy should always be able to pull info from the web - peer-reviewed journals/publications to support AI output/suggestions/review as default. 
-
-## NEXT:
-
-1) /Users/carlienrust/Library/Mobile Documents/com~apple~CloudDocs/steve+peggy/.cursor/plans/seed_docs_and_admin_[7d765b86.plan.md](http://7d765b86.plan.md)
-
-- Project admin (single user only) - student registration, grants awarded, outputs (manuscripts/conferences), MOU, start and end dates
 - Reminders
 - Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
 

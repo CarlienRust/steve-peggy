@@ -492,9 +492,11 @@ async def patch_study_design(
     merged = await catalog.patch_study_design(user.id, workspace_id, patch)
     if merged is None:
         raise HTTPException(404, "Workspace not found")
-    from core.calendar_sync import sync_ethics_calendar
+    from core.calendar_sync import sync_ethics_calendar, sync_plan_step_calendar
 
     await sync_ethics_calendar(user.id, workspace_id, merged)
+    if "methodsPlan" in patch or "analysisPlan" in patch:
+        await sync_plan_step_calendar(user.id, workspace_id, merged)
     return {"study_design": merged}
 
 

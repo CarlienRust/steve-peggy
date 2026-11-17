@@ -30,6 +30,7 @@ export default function NewProjectPage() {
   const [privacy, setPrivacy] = useState<"standard" | "strict">("standard");
   const [modules, setModules] = useState<string[]>(["core", "study-design"]);
   const [consent, setConsent] = useState(false);
+  const [fillFromDoc, setFillFromDoc] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canNext = useMemo(() => {
@@ -39,8 +40,8 @@ export default function NewProjectPage() {
   }, [step, title, privacy, consent]);
 
   const create = useMutation({
-    mutationFn: () =>
-      peggyApi.createWorkspace({
+    mutationFn: async () => {
+      const ws = await peggyApi.createWorkspace({
         title: title.trim() || "Untitled project",
         aim: idea.trim(),
         resources: { notes: resources.trim() },
@@ -48,10 +49,15 @@ export default function NewProjectPage() {
         privacy_mode: privacy,
         last_opened_at: new Date().toISOString(),
         settings: { peer_reviewed_only: true },
-      }),
-    onSuccess: (ws) => {
+      });
+      return { ws, fillFromDoc };
+    },
+    onSuccess: ({ ws, fillFromDoc: openSeed }) => {
       if (userId) void qc.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
       setActiveWorkspaceId(ws.id);
+      if (openSeed && typeof window !== "undefined") {
+        sessionStorage.setItem("peggy-seed", "1");
+      }
       router.push("/dashboard");
     },
     onError: (e: unknown) => setError(formatApiError(e)),
@@ -69,7 +75,13 @@ export default function NewProjectPage() {
             </>
           ) : null}
           {step === 2 ? (
-            <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+            <>
+              <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required />
+              <FormControlLabel
+                control={<Checkbox checked={fillFromDoc} onChange={(e) => setFillFromDoc(e.target.checked)} />}
+                label="Fill from a proposal or brief after create"
+              />
+            </>
           ) : null}
           {step === 3 ? (
             <Box>
