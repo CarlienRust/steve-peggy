@@ -26,7 +26,7 @@ router = APIRouter(prefix="/ingest", tags=["ingest"])
 discover_router = APIRouter(tags=["discover"])
 
 ALLOWED_UPLOAD_SOURCE_TYPES = frozenset(
-    {"literature", "own_findings", "sample_datasets", "ethics_documents"}
+    {"literature", "own_findings", "sample_datasets", "ethics_documents", "project_documents"}
 )
 
 

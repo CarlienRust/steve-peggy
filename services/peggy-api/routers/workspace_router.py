@@ -492,4 +492,51 @@ async def patch_study_design(
     merged = await catalog.patch_study_design(user.id, workspace_id, patch)
     if merged is None:
         raise HTTPException(404, "Workspace not found")
+    from core.calendar_sync import sync_ethics_calendar
+
+    await sync_ethics_calendar(user.id, workspace_id, merged)
     return {"study_design": merged}
+
+
+class ProjectAdminPatch(BaseModel):
+    studentRegistration: Optional[str] = None
+    startDate: Optional[str] = None
+    endDate: Optional[str] = None
+    mouPaperId: Optional[int] = None
+    studentRegistrationPaperIds: Optional[list[int]] = None
+    dataTransferPaperIds: Optional[list[int]] = None
+    coInvestigatorPaperIds: Optional[list[int]] = None
+    fundingPaperIds: Optional[list[int]] = None
+    grants: Optional[list[dict[str, Any]]] = None
+    outputs: Optional[list[dict[str, Any]]] = None
+
+
+@router.get("/{workspace_id}/project-admin")
+async def get_project_admin(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    data = await catalog.get_project_admin(user.id, workspace_id)
+    if data is None:
+        raise HTTPException(404, "Workspace not found")
+    return {"project_admin": data}
+
+
+@router.put("/{workspace_id}/project-admin")
+async def put_project_admin(
+    workspace_id: str,
+    body: ProjectAdminPatch,
+    user: AuthUser = Depends(get_current_user),
+):
+    from core.calendar_sync import sync_project_admin_calendar
+    from core.safety.phi_guard import assert_no_phi
+
+    patch = body.model_dump(exclude_unset=True)
+    if patch.get("studentRegistration"):
+        assert_no_phi(str(patch["studentRegistration"]), label="Student registration")
+    for grant in patch.get("grants") or []:
+        assert_no_phi(" ".join(str(grant.get(k) or "") for k in ("name", "notes")), label="Grant")
+    for output in patch.get("outputs") or []:
+        assert_no_phi(" ".join(str(output.get(k) or "") for k in ("title", "venue")), label="Output")
+    data = await catalog.upsert_project_admin(user.id, workspace_id, patch)
+    if data is None:
+        raise HTTPException(404, "Workspace not found")
+    await sync_project_admin_calendar(user.id, workspace_id, data)
+    return {"project_admin": data}

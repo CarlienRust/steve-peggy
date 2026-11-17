@@ -11,6 +11,7 @@ from core.store.qdrant_store import sanitize_llm_source_types
 def test_sanitize_drops_sample_datasets():
     assert sanitize_llm_source_types(["literature", "sample_datasets"]) == ["literature"]
     assert sanitize_llm_source_types(["sample_datasets"]) == ["literature", "own_findings"]
+    assert sanitize_llm_source_types(["project_documents", "literature"]) == ["literature"]
     assert sanitize_llm_source_types(None) == ["literature", "own_findings"]
 
 

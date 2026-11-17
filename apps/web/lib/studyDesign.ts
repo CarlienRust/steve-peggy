@@ -188,6 +188,36 @@ export type ProjectTask = {
   linkId?: string | null;
 };
 
+export type ProjectAdminGrant = {
+  id: string;
+  name: string;
+  amount: string;
+  awardedAt: string;
+  notes: string;
+};
+
+export type ProjectAdminOutput = {
+  id: string;
+  kind: "manuscript" | "conference" | "other";
+  title: string;
+  date: string;
+  venue: string;
+  status: string;
+};
+
+export type ProjectAdminData = {
+  studentRegistration?: string;
+  startDate?: string;
+  endDate?: string;
+  mouPaperId?: number | null;
+  studentRegistrationPaperIds?: number[];
+  dataTransferPaperIds?: number[];
+  coInvestigatorPaperIds?: number[];
+  fundingPaperIds?: number[];
+  grants?: ProjectAdminGrant[];
+  outputs?: ProjectAdminOutput[];
+};
+
 export type StudyDesignData = {
   v?: number;
   samples?: StudyDesignSamples;

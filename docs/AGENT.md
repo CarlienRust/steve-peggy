@@ -9,7 +9,7 @@ Peggy ships a **reactive agent** (ReAct loop with tools) alongside **single-shot
 | **Agent** | Ask Peggy → **Auto** mode | `POST /agent/run` or `POST /agent/stream` |
 | **Single-shot** | Ask / Gaps / Compare chips | `POST /chat` or `/workflows/*` |
 
-`POST /chat` with Auto and low intent confidence falls through to the agent. High-confidence gap/compare still use fixed workflows. Auto in the UI uses `/agent/*`. Tools cannot take `user_id` or `workspace_id` from the model. Propose tools insert `agent_proposals` only. Agent eval: `scripts/eval-agent.py` (gold in `scripts/eval-agent-gold.json`). `/chat` shows a conversation thread (user bubble + Peggy cards with citation chips) and a composer with those mode chips. Chat, agent, gap, and compare require `workspace_id`. Search filters that project only. `privacy_mode=strict` refuses hosted LLM calls on project text.
+`POST /chat` with Auto and low intent confidence falls through to the agent. High-confidence gap/compare still use fixed workflows. Auto in the UI uses `/agent/*`. Tools cannot take `user_id` or `workspace_id` from the model. Propose tools insert `agent_proposals` only. Agent eval: `scripts/eval-agent.py` (gold in `scripts/eval-agent-gold.json`). `/chat` shows a conversation thread (user bubble + Peggy cards with citation chips) and a composer with those mode chips. Chat, agent, gap, compare, methods/analysis review, and validate-aim require `workspace_id`. Search uses that project's corpus and, unless `privacy_mode=strict`, also PubMed/OpenAlex/Europe PMC abstracts for peer-reviewed support. `privacy_mode=strict` refuses hosted LLM calls on project text.
 
 ## Agent architecture
 

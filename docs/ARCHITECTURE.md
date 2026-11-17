@@ -108,10 +108,13 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET/PATCH/DELETE /workspaces/{id}` | Read / update / purge project (files + Qdrant + catalog) |
 | `GET /account/export` | Zip of all projects (rate-limited; `include_files=false` optional) |
 | `DELETE /account` | Purge all projects then delete the auth user |
-| `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET/PATCH /workspaces/{id}/study-design` | One `study_design` row per project. Save updates that section’s column (`samples`, `ethics`, `budget`, `methods_plan`, `analysis_plan`, `proposal`, `objective_links`). Saving ethics expiry upserts a calendar event. PDF uploads stay in `papers`; Save stores their ids as `linkedDocuments` on samples or ethics. |
+| `GET/PUT /workspaces/{id}/project-admin` | One `project_admin` row per workspace (registration, dates, grants, outputs, MOU, registration PDF, co-investigator, optional data-transfer, funding PDFs). Files are `project_documents`. Dated fields upsert calendar events. |
 | `GET/POST /calendar/events` | User calendar; optional `workspace_id` filter |
 | `PATCH/DELETE /calendar/events/{id}` | Update or delete a calendar event |
 | `GET/POST /workspaces/{id}/lab-book` | Project lab book notes |
+| `POST /workspaces/{id}/lab-book/image` | Lab book note with image |
+| `GET /workspaces/{id}/lab-book/{id}/file` | Stored lab book image |
 | `PATCH/DELETE /workspaces/{id}/lab-book/{id}` | Edit or delete a lab book note |
 | `GET /workspaces/{id}/papers/summary` | Literature table payload: papers + computed review status from `extractions` |
 | `GET /workspaces/{id}/coverage` | Coverage matrix aggregation for dashboard/gap analysis (grouped counts from `extractions`) |
@@ -161,7 +164,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
-| `/calendar` | 03 Calendar | Month/list events; optional project filter; add from aims, objectives, plan steps, ethics expiry; weekly/monthly/yearly repeat (one stored series, expanded on list) |
+| `/calendar` | 03 Calendar | Month/list events; optional project filter; Add event; weekly/monthly/yearly repeat (one stored series, expanded on list). Ethics renewal and project-admin dates arrive from those screens. |
 | `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF; delete one paper or all literature; migrate stored files on load |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
 | `/useful-links` | 06 Useful links | Curated external resources by category |
@@ -169,25 +172,26 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
 | `/setup/step-*` | — | New-project wizard (uses HomeAppShell) |
-| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON**, **Download transfer pack**, **Import transfer pack** |
-| `/validate` | 02 Validate | Section hub (when to use each step); tab bar on sub-pages |
+| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON**, **Download transfer pack**, **Import transfer pack**. Evidence coverage counts literature by study-design and exposure keywords. |
+| `/project-admin` | 02 Project admin | Owner fields: student registration, start/end, grants, outputs; MOU PDF upload/view (`project_documents`). Dated fields write `user_calendar_events`. Not a Study Design tab. |
+| `/validate` | 03 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
-| `/study-design` | 03 Study Design | Section hub; tab bar on sub-pages |
-| `/study-design/samples` | 03 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |
-| `/study-design/ethics` | 03 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`) |
-| `/study-design/budget` | 03 · Budget | Grid-style line-item budget (category, amount, notes) |
-| `/study-design/methods-plan` | 03 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
-| `/study-design/proposal` | 03 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 04 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers and types in `study_design.analysisTool` (not rows). SAV via `POST /api/parse-sav`. |
-| `/results` | 05 Results | Section hub; tab bar on sub-pages |
-| `/results/methods` | 05 · Methods | Placeholder |
-| `/results/findings` | 05 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
-| `/results/comparison` | 05 · Comparison | Finding vs ingested literature; optional live PubMed/OpenAlex/Europe PMC abstracts (`include_live`) |
-| `/outputs` | 06 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. Conference abstract JSON is coerced to `full_text` so the draft panel always has text to show. |
-| `/lab-book` | 07 Lab book | Project notes (progress, meeting, idea, methods, other) |
-| `/chat` | 08 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |
+| `/study-design` | 04 Study Design | Section hub; tab bar on sub-pages |
+| `/study-design/samples` | 04 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |
+| `/study-design/ethics` | 04 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`). Saving an expiry date upserts an `ethics_renewal` calendar event. |
+| `/study-design/budget` | 04 · Budget | Grid-style line-item budget (category, amount, notes) |
+| `/study-design/methods-plan` | 04 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). Review also lists limitations, improvements, and supporting literature. `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
+| `/study-design/proposal` | 04 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
+| `/analysis-tool` | 05 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers and types in `study_design.analysisTool` (not rows). SAV via `POST /api/parse-sav`. |
+| `/results` | 06 Results | Section hub; tab bar on sub-pages |
+| `/results/methods` | 06 · Methods | Placeholder |
+| `/results/findings` | 06 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
+| `/results/comparison` | 06 · Comparison | Finding vs ingested literature; optional live PubMed/OpenAlex/Europe PMC abstracts (`include_live`) |
+| `/outputs` | 07 · Outputs | Figures: Start from results is enabled only when `own_findings` exist. Tables persist in `study_design.outputs.tables`. Abstract versions persist in `study_design.outputs.abstractDrafts` (nested in proposal JSON). Generate/import disabled until findings are uploaded. Conference abstract JSON is coerced to `full_text` so the draft panel always has text to show. |
+| `/lab-book` | 08 Lab book | Project notes (progress, meeting, idea, methods, other) plus JPEG/PNG/WebP/GIF |
+| `/chat` | 09 · Ask Peggy (project sidebar) | Same Ask Peggy layout as `/ask`, with project locked; Gaps/Compare, import from project, and Add to Methods stay available |
 | `/login` | — | Supabase email magic link |
 
 Legacy redirects: `/ingest` → literature search, `/gaps` → gap analysis, `/study-design/gap-analysis` → gap analysis, `/findings` → our findings, `/compare` → comparison.

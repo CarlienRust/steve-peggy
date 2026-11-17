@@ -10,6 +10,8 @@ def test_combined_review_includes_both_plans():
     assert "RCT crossover" in text
     assert "mixed models for SCFA" in text
     assert "one protocol" in text
+    assert "improvements" in text
+    assert "supporting_literature" in text
 
 
 def test_plan_review_text_uses_steps():

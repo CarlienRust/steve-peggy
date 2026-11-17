@@ -185,6 +185,7 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_evidence_025(db)
         await _migrate_agent_026(db)
         await _migrate_llm_027(db)
+        await _migrate_project_admin(db)
         await db.commit()
 
 
@@ -425,6 +426,38 @@ async def _migrate_lab_book_entries(db: aiosqlite.Connection) -> None:
     await db.execute(
         "CREATE INDEX IF NOT EXISTS idx_lab_book_workspace_created ON lab_book_entries (workspace_id, created_at)"
     )
+    for col in ("image_storage_key", "image_filename", "image_content_type"):
+        try:
+            await db.execute(f"ALTER TABLE lab_book_entries ADD COLUMN {col} TEXT")
+        except Exception:
+            pass
+
+
+async def _migrate_project_admin(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS project_admin (
+            workspace_id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            student_registration TEXT NOT NULL DEFAULT '',
+            start_date TEXT,
+            end_date TEXT,
+            mou_paper_id INTEGER,
+            grants TEXT NOT NULL DEFAULT '[]',
+            outputs TEXT NOT NULL DEFAULT '[]',
+            updated_at TEXT
+        )"""
+    )
+    await db.execute("CREATE INDEX IF NOT EXISTS idx_project_admin_user ON project_admin (user_id)")
+    for col in (
+        "student_registration_paper_ids",
+        "data_transfer_paper_ids",
+        "co_investigator_paper_ids",
+        "funding_paper_ids",
+    ):
+        try:
+            await db.execute(f"ALTER TABLE project_admin ADD COLUMN {col} TEXT NOT NULL DEFAULT '[]'")
+        except Exception:
+            pass
 
 
 async def _migrate_papers_storage(db: aiosqlite.Connection) -> None:
@@ -1268,6 +1301,77 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     return merged
 
 
+async def get_project_admin(user_id: str, workspace_id: str) -> dict | None:
+    from core.project_admin import row_to_admin
+
+    ws = await get_workspace(user_id, workspace_id)
+    if not ws:
+        return None
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM project_admin WHERE workspace_id = ? AND user_id = ?",
+            (workspace_id, user_id),
+        )
+        row = await cur.fetchone()
+    return row_to_admin(dict(row) if row else None)
+
+
+async def upsert_project_admin(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    from core.project_admin import merge_admin, row_to_admin
+
+    existing = await get_project_admin(user_id, workspace_id)
+    if existing is None:
+        return None
+    merged = merge_admin(existing, patch)
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        await db.execute(
+            """INSERT INTO project_admin (
+                   workspace_id, user_id, student_registration, start_date, end_date,
+                   mou_paper_id, grants, outputs,
+                   student_registration_paper_ids, data_transfer_paper_ids,
+                   co_investigator_paper_ids, funding_paper_ids, updated_at
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               ON CONFLICT(workspace_id) DO UPDATE SET
+                   student_registration = excluded.student_registration,
+                   start_date = excluded.start_date,
+                   end_date = excluded.end_date,
+                   mou_paper_id = excluded.mou_paper_id,
+                   grants = excluded.grants,
+                   outputs = excluded.outputs,
+                   student_registration_paper_ids = excluded.student_registration_paper_ids,
+                   data_transfer_paper_ids = excluded.data_transfer_paper_ids,
+                   co_investigator_paper_ids = excluded.co_investigator_paper_ids,
+                   funding_paper_ids = excluded.funding_paper_ids,
+                   updated_at = excluded.updated_at
+               WHERE project_admin.user_id = excluded.user_id""",
+            (
+                workspace_id,
+                user_id,
+                merged["studentRegistration"],
+                merged["startDate"] or None,
+                merged["endDate"] or None,
+                merged["mouPaperId"],
+                json.dumps(merged["grants"]),
+                json.dumps(merged["outputs"]),
+                json.dumps(merged["studentRegistrationPaperIds"]),
+                json.dumps(merged["dataTransferPaperIds"]),
+                json.dumps(merged["coInvestigatorPaperIds"]),
+                json.dumps(merged["fundingPaperIds"]),
+                now,
+            ),
+        )
+        await db.commit()
+        cur = await db.execute(
+            "SELECT * FROM project_admin WHERE workspace_id = ? AND user_id = ?",
+            (workspace_id, user_id),
+        )
+        row = await cur.fetchone()
+    return row_to_admin(dict(row) if row else merged)
+
+
 async def delete_workspace(user_id: str, workspace_id: str) -> bool:
     async with aiosqlite.connect(config.SQLITE_DB) as db:
         await db.execute(
@@ -1781,14 +1885,17 @@ async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -
         db.row_factory = aiosqlite.Row
         await db.execute(
             """INSERT INTO lab_book_entries
-               (id, workspace_id, user_id, category, body, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+               (id, workspace_id, user_id, category, body, image_storage_key, image_filename, image_content_type, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 entry_id,
                 workspace_id,
                 user_id,
                 fields.get("category") or "progress",
-                fields["body"],
+                fields.get("body") or "",
+                fields.get("image_storage_key"),
+                fields.get("image_filename"),
+                fields.get("image_content_type"),
                 now,
                 now,
             ),
@@ -1805,7 +1912,7 @@ async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -
 async def update_lab_book_entry(
     user_id: str, workspace_id: str, entry_id: str, fields: dict
 ) -> dict | None:
-    allowed = {"category", "body"}
+    allowed = {"category", "body", "image_storage_key", "image_filename", "image_content_type"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         async with aiosqlite.connect(config.SQLITE_DB) as db:

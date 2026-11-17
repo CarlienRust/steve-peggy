@@ -7,16 +7,10 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   IconButton,
   Paper,
   Stack,
   Tooltip,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
   Typography,
 } from "@mui/material";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
@@ -28,6 +22,7 @@ import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
 import { countLiterature } from "@/lib/projectProgress";
+import { EvidenceCoverageMatrix } from "@/components/EvidenceCoverageMatrix";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
@@ -204,9 +199,9 @@ export function DashboardPage() {
           <Typography fontWeight={600} sx={{ mb: 2 }}>
             Exposure by study design
           </Typography>
-          <ExposureByDesignMatrix />
+          <EvidenceCoverageMatrix dimension="core.exposure" dimension2="core.design" compact />
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
-            Based on {literatureCount} paper{literatureCount === 1 ? "" : "s"}, abstracts only.
+            Based on {literatureCount} paper{literatureCount === 1 ? "" : "s"}. Counts use extracted exposure and design fields. Run extraction on Literature search if the grid is empty.
           </Typography>
         </Paper>
       </Stack>
@@ -366,44 +361,3 @@ function FlowMarker({
   );
 }
 
-function ExposureByDesignMatrix() {
-  const cols = ["Cohort", "Cross-sec.", "Trial", "Review"];
-  const rows = ["Environmental", "Psychosocial", "Diet", "Microbiome"];
-  return (
-    <Table size="small" sx={{ "& td, & th": { borderBottom: "none", px: 0.5 } }}>
-      <TableHead>
-        <TableRow>
-          <TableCell />
-          {cols.map((c) => (
-            <TableCell key={c} align="center">
-              <Typography variant="caption" color="text.secondary">
-                {c}
-              </Typography>
-            </TableCell>
-          ))}
-        </TableRow>
-      </TableHead>
-      <TableBody>
-        {rows.map((r) => (
-          <TableRow key={r}>
-            <TableCell sx={{ pr: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                {r}
-              </Typography>
-            </TableCell>
-            {cols.map((c) => (
-              <TableCell key={`${r}-${c}`} align="center">
-                <Chip
-                  label="0"
-                  size="small"
-                  variant="filled"
-                  sx={{ width: 48, justifyContent: "center", bgcolor: "background.default", color: "text.secondary" }}
-                />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
-  );
-}

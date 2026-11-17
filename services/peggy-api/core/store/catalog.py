@@ -248,6 +248,14 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     return await _backend().patch_study_design(user_id, workspace_id, patch)
 
 
+async def get_project_admin(user_id: str, workspace_id: str) -> dict | None:
+    return await _backend().get_project_admin(user_id, workspace_id)
+
+
+async def upsert_project_admin(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    return await _backend().upsert_project_admin(user_id, workspace_id, patch)
+
+
 async def get_findings_summary(user_id: str, workspace_id: str) -> dict | None:
     return await _backend().get_findings_summary(user_id, workspace_id)
 

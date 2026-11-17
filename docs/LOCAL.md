@@ -129,7 +129,7 @@ And in `services/peggy-api/.env`: `AUTH_REQUIRED=true` + Supabase vars. Use **Pa
 
 ## Supabase auth (optional, not needed for solo local)
 
-1. Run migrations in order in the Supabase SQL Editor: `001` through `022_calendar_recurrence.sql` (see [DATABASE.md](DATABASE.md))
+1. Run migrations in order in the Supabase SQL Editor: `001` through `030_project_admin_docs.sql` (see [DATABASE.md](DATABASE.md))
 2. Redirect URLs: `http://localhost:3000/auth/callback` and your Vercel URL
 3. Password sign-in recommended for local dev
 4. Use the **transaction pooler** URI (port **6543**) for `DATABASE_URL`; restart API after env changes

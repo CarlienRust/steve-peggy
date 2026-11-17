@@ -20,6 +20,7 @@ import PsychologyOutlinedIcon from "@mui/icons-material/PsychologyOutlined";
 import SettingsOutlinedIcon from "@mui/icons-material/SettingsOutlined";
 import SwapHorizIcon from "@mui/icons-material/SwapHoriz";
 import { PeggyAiSettingsDialog } from "@/components/PeggyAiSettingsDialog";
+import { ProfileSettingsDialog } from "@/components/ProfileSettingsDialog";
 import { monoSx } from "@/theme/peggyTheme";
 import { createClient } from "@/lib/supabase/client";
 import { useAuthSession } from "@/lib/authContext";
@@ -54,6 +55,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
 
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const workspace = useOptionalWorkspace();
 
   const logout = async () => {
@@ -126,6 +128,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
           </MenuItem>
         </Menu>
         <PeggyAiSettingsDialog open={aiOpen} onClose={() => setAiOpen(false)} />
+        <ProfileSettingsDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
         <Tooltip title="Tips for navigation, validate, and chat">
           <Button
             fullWidth
@@ -193,7 +196,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
           <MenuItem
             onClick={() => {
               setMenuAnchor(null);
-              router.push(profile ? "/onboarding?update=1" : "/onboarding");
+              setProfileOpen(true);
             }}
           >
             <ListItemIcon>
@@ -225,6 +228,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
           </MenuItem>
         </Menu>
         <PeggyAiSettingsDialog open={aiOpen} onClose={() => setAiOpen(false)} />
+        <ProfileSettingsDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
 
         {showSwitchProject ? (
           <Tooltip title="Return to Home and pick another project">

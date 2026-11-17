@@ -141,6 +141,7 @@ async def grounded_chat(
 
         set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
     sources = _search(query, source_types=source_types, user_id=user_id, workspace_id=workspace_id, ws=ws, peer=False)
+    sources = await _with_live_peer_sources(query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws)
     llm = await get_llm()
     system = prompts.build_system_prompt()
     user = prompts.chat_user_prompt(query, sources)
@@ -156,6 +157,42 @@ async def grounded_chat(
         "confidence": checked.get("confidence") or _confidence(sources),
         "limitations": limitations,
     }
+
+
+async def _with_live_peer_sources(
+    query: str,
+    sources: list[dict],
+    *,
+    user_id: str,
+    workspace_id: str | None,
+    ws: dict | None,
+) -> list[dict]:
+    from core.safety.policy import STRICT, normalize_privacy_mode
+
+    if ws and normalize_privacy_mode(ws.get("privacy_mode")) == STRICT:
+        return sources
+    try:
+        from core.ingest.discovery import discover_literature
+
+        disc = await discover_literature(
+            topic=query,
+            max_results=12,
+            user_id=user_id,
+            workspace_aim=(ws or {}).get("aim"),
+        )
+        extra = _discovery_candidates_to_sources(disc.get("candidates") or [])
+    except Exception:
+        logger.exception("live literature lookup failed workspace=%s", workspace_id)
+        return sources
+    seen = {(s.get("pmid") or s.get("title")) for s in sources}
+    merged = list(sources)
+    for item in extra:
+        key = item.get("pmid") or item.get("title")
+        if key in seen:
+            continue
+        merged.append(item)
+        seen.add(key)
+    return merged
 
 
 def _discovery_candidates_to_sources(candidates: list[dict]) -> list[dict]:
@@ -285,6 +322,9 @@ async def run_validate_aim(user_id: str, workspace_id: str) -> dict:
 
     sources = _search(
         search_query, source_types=["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
+    )
+    sources = await _with_live_peer_sources(
+        search_query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws
     )
     llm = await get_llm()
     raw = await llm.complete(
@@ -514,6 +554,7 @@ async def run_methods_plan(
     sources = _search(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
+    sources = await _with_live_peer_sources(query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws)
     llm = await get_llm()
     methods_text = user_plan.strip() or _plan_review_text(sd.get("methodsPlan"))
     analysis_text = _plan_review_text(sd.get("analysisPlan"))
@@ -585,6 +626,7 @@ async def run_analysis_plan(
     sources = _search(
         query, source_types=source_types or ["literature"], user_id=user_id, workspace_id=workspace_id, ws=ws, peer=True
     )
+    sources = await _with_live_peer_sources(query, sources, user_id=user_id, workspace_id=workspace_id, ws=ws)
     llm = await get_llm()
     analysis_text = user_plan.strip() or _plan_review_text(plan)
     methods_text = _plan_review_text(sd.get("methodsPlan"))

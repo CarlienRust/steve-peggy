@@ -916,6 +916,71 @@ async def patch_study_design(user_id: str, workspace_id: str, patch: dict) -> di
     return merged
 
 
+async def get_project_admin(user_id: str, workspace_id: str) -> dict | None:
+    from core.project_admin import row_to_admin
+
+    ws = await get_workspace(user_id, workspace_id)
+    if not ws:
+        return None
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM project_admin WHERE workspace_id = $1::uuid AND user_id = $2::uuid",
+            workspace_id,
+            user_id,
+        )
+    return row_to_admin(_row_to_dict(row) if row else None)
+
+
+async def upsert_project_admin(user_id: str, workspace_id: str, patch: dict) -> dict | None:
+    from core.project_admin import merge_admin, row_to_admin
+
+    existing = await get_project_admin(user_id, workspace_id)
+    if existing is None:
+        return None
+    merged = merge_admin(existing, patch)
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO project_admin (
+                   workspace_id, user_id, student_registration, start_date, end_date,
+                   mou_paper_id, grants, outputs,
+                   student_registration_paper_ids, data_transfer_paper_ids,
+                   co_investigator_paper_ids, funding_paper_ids, updated_at
+               ) VALUES (
+                   $1::uuid, $2::uuid, $3, $4::date, $5::date, $6::bigint, $7::jsonb, $8::jsonb,
+                   $9::jsonb, $10::jsonb, $11::jsonb, $12::jsonb, NOW()
+               )
+               ON CONFLICT (workspace_id) DO UPDATE SET
+                   student_registration = EXCLUDED.student_registration,
+                   start_date = EXCLUDED.start_date,
+                   end_date = EXCLUDED.end_date,
+                   mou_paper_id = EXCLUDED.mou_paper_id,
+                   grants = EXCLUDED.grants,
+                   outputs = EXCLUDED.outputs,
+                   student_registration_paper_ids = EXCLUDED.student_registration_paper_ids,
+                   data_transfer_paper_ids = EXCLUDED.data_transfer_paper_ids,
+                   co_investigator_paper_ids = EXCLUDED.co_investigator_paper_ids,
+                   funding_paper_ids = EXCLUDED.funding_paper_ids,
+                   updated_at = NOW()
+               WHERE project_admin.user_id = EXCLUDED.user_id
+               RETURNING *""",
+            workspace_id,
+            user_id,
+            merged["studentRegistration"],
+            merged["startDate"] or None,
+            merged["endDate"] or None,
+            merged["mouPaperId"],
+            json.dumps(merged["grants"]),
+            json.dumps(merged["outputs"]),
+            json.dumps(merged["studentRegistrationPaperIds"]),
+            json.dumps(merged["dataTransferPaperIds"]),
+            json.dumps(merged["coInvestigatorPaperIds"]),
+            json.dumps(merged["fundingPaperIds"]),
+        )
+    return row_to_admin(_row_to_dict(row) if row else merged)
+
+
 async def save_workflow_run(
     user_id: str,
     workspace_id: str,
@@ -1432,13 +1497,16 @@ async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
             """INSERT INTO lab_book_entries
-               (workspace_id, user_id, category, body, updated_at)
-               VALUES ($1::uuid, $2::uuid, $3, $4, NOW())
+               (workspace_id, user_id, category, body, image_storage_key, image_filename, image_content_type, updated_at)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, NOW())
                RETURNING *""",
             workspace_id,
             user_id,
             fields.get("category") or "progress",
-            fields["body"],
+            fields.get("body") or "",
+            fields.get("image_storage_key"),
+            fields.get("image_filename"),
+            fields.get("image_content_type"),
         )
     return _row_to_dict(row)
 
@@ -1446,7 +1514,7 @@ async def create_lab_book_entry(user_id: str, workspace_id: str, fields: dict) -
 async def update_lab_book_entry(
     user_id: str, workspace_id: str, entry_id: str, fields: dict
 ) -> dict | None:
-    allowed = {"category", "body"}
+    allowed = {"category", "body", "image_storage_key", "image_filename", "image_content_type"}
     updates = {k: v for k, v in fields.items() if k in allowed}
     if not updates:
         pool = await _pool_conn()

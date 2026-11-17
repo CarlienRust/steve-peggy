@@ -91,12 +91,13 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 | Validate aim and objectives (Figma) | Done | `/validate/aim` — criteria checklist, suggestion apply, history |
 | Study design proposal | Done | `/study-design/proposal` — draft + Export Markdown / Word (saved result) |
 | Ethics approval letter upload | Done | `/study-design/ethics` — PDF stored as `ethics_documents` |
-| Ethics renewal reminders | Partial | Calendar “Add from this project” can create an `ethics_renewal` event from `expiryDate` |
-| Calendar | Done | `/calendar` — user events, project filter, add from aims/objectives/steps |
+| Ethics renewal reminders | Done | Saving ethics expiry upserts `ethics_renewal` on Calendar |
+| Calendar | Done | `/calendar` — user events, project filter, Add event |
+| Project admin | Done | `/project-admin` — `project_admin` table; dates, grants, outputs; PDFs for MOU, registration, co-investigator, data transfer, funding |
 | Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at`; stored-PDF iframe preview when the file exists, else extracted text plus DOI/PubMed |
-| Lab book | Done | `/lab-book` — per-project notes |
+| Lab book | Done | `/lab-book` — per-project notes and images |
 | Analysis tool | Done | `/analysis-tool` — CSV/SAV upload on that page; Samples Preview uses the same table parse |
-| Dashboard demo placeholders | Partial |
+| Dashboard evidence coverage | Done | Exposure × design from `GET /workspaces/{id}/coverage` |
 | Inner pages polish | Basic |
 
 ## Platform ([SCALE.md](SCALE.md))

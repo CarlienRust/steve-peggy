@@ -23,14 +23,21 @@ function cellSx(level: ReturnType<typeof cellLevel>) {
   return { bgcolor: peggyColors.muted, color: peggyColors.mutedForeground };
 }
 
-export function EvidenceCoverageMatrix() {
+export function EvidenceCoverageMatrix({
+  dimension = "core.design",
+  dimension2 = "core.setting",
+  compact = false,
+}: {
+  dimension?: string;
+  dimension2?: string;
+  compact?: boolean;
+}) {
   const { activeWorkspace } = useWorkspace();
   const workspaceId = activeWorkspace?.id;
 
   const coverage = useQuery({
-    queryKey: ["coverage", workspaceId, "core.design", "core.setting"],
-    queryFn: () =>
-      peggyApi.getWorkspaceCoverage(workspaceId!, { dimension: "core.design", dimension2: "core.setting" }),
+    queryKey: ["coverage", workspaceId, dimension, dimension2],
+    queryFn: () => peggyApi.getWorkspaceCoverage(workspaceId!, { dimension, dimension2 }),
     enabled: !!workspaceId,
   });
 
@@ -63,8 +70,11 @@ export function EvidenceCoverageMatrix() {
   }, [matrix]);
 
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+    <Paper variant="outlined" sx={{ p: compact ? 0 : 2.5, border: compact ? "none" : undefined, borderRadius: 2 }}>
       <Stack spacing={2}>
+        {compact ? (
+          underRep ? <StatusChip tone="warning" label={`${underRep} is under-represented`} /> : null
+        ) : (
         <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "flex-start" }}>
           <Box>
             <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 0.5 }}>
@@ -79,6 +89,7 @@ export function EvidenceCoverageMatrix() {
             <StatusChip tone="warning" label={`${underRep} is under-represented`} />
           ) : null}
         </Stack>
+        )}
 
         {coverage.isLoading ? (
           <Box sx={{ display: "grid", placeItems: "center", minHeight: 160 }}>

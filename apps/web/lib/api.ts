@@ -349,6 +349,7 @@ export type PaperRecord = {
   abstract?: string;
   url?: string;
   full_text?: boolean;
+  study_design?: string;
 };
 
 export type CalendarEventKind =
@@ -389,6 +390,9 @@ export type LabBookEntry = {
   user_id?: string;
   category: LabBookCategory;
   body: string;
+  image_storage_key?: string | null;
+  image_filename?: string | null;
+  image_content_type?: string | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -552,6 +556,40 @@ export const peggyApi = {
     apiFetch<{ status: string; id: string }>(`/workspaces/${workspaceId}/lab-book/${entryId}`, {
       method: "DELETE",
     }),
+
+  createLabBookImage: async (
+    workspaceId: string,
+    file: File,
+    options?: { category?: LabBookCategory; body?: string }
+  ) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("category", options?.category ?? "progress");
+    form.append("body", options?.body ?? "");
+    const headers = await authHeaders("");
+    delete (headers as Record<string, string>)["Content-Type"];
+    const res = await fetch(`${API_URL}/workspaces/${workspaceId}/lab-book/image`, {
+      method: "POST",
+      headers,
+      body: form,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    return res.json() as Promise<LabBookEntry>;
+  },
+
+  getLabBookFile: async (workspaceId: string, entryId: string) => {
+    const headers = await authHeaders("");
+    const res = await fetch(`${API_URL}/workspaces/${workspaceId}/lab-book/${entryId}/file`, { headers });
+    if (!res.ok) {
+      const text = await res.text();
+      await throwApiError(res, text);
+    }
+    const blob = await res.blob();
+    return new File([blob], "lab-book-image", { type: blob.type || "application/octet-stream" });
+  },
 
   deletePaper: (id: number) =>
     apiFetch<{ status: string; paper_id: number; vectors_purged: boolean }>(`/corpus/${id}`, {
@@ -818,7 +856,7 @@ export const peggyApi = {
     file: File,
     options?: {
       title?: string;
-      sourceType?: "literature" | "own_findings" | "sample_datasets" | "ethics_documents";
+      sourceType?: "literature" | "own_findings" | "sample_datasets" | "ethics_documents" | "project_documents";
       workspaceId?: string;
     }
   ) => {
@@ -986,6 +1024,17 @@ export const peggyApi = {
   getStudyDesign: (workspaceId: string) =>
     apiFetch<{ study_design: import("@/lib/studyDesign").StudyDesignData }>(
       `/workspaces/${workspaceId}/study-design`
+    ),
+
+  getProjectAdmin: (workspaceId: string) =>
+    apiFetch<{ project_admin: import("@/lib/studyDesign").ProjectAdminData }>(
+      `/workspaces/${workspaceId}/project-admin`
+    ),
+
+  putProjectAdmin: (workspaceId: string, body: import("@/lib/studyDesign").ProjectAdminData) =>
+    apiFetch<{ project_admin: import("@/lib/studyDesign").ProjectAdminData }>(
+      `/workspaces/${workspaceId}/project-admin`,
+      { method: "PUT", body: JSON.stringify(body) }
     ),
 
   patchStudyDesign: (workspaceId: string, patch: Partial<import("@/lib/studyDesign").StudyDesignData>) =>
@@ -1160,4 +1209,5 @@ export const queryKeys = {
   workspaces: (userId?: string) => (userId ? (["workspaces", userId] as const) : (["workspaces"] as const)),
   calendar: (workspaceId?: string) => ["calendar", workspaceId ?? "all"] as const,
   labBook: (workspaceId?: string) => ["lab-book", workspaceId] as const,
+  projectAdmin: (workspaceId?: string) => ["project-admin", workspaceId] as const,
 };

@@ -29,9 +29,10 @@ export type NavItem = NavLinkItem | NavGroupItem;
 
 export const MAIN_NAV: NavItem[] = [
   { kind: "link", num: "01", label: "Dashboard", href: "/dashboard" },
+  { kind: "link", num: "02", label: "Project admin", href: "/project-admin" },
   {
     kind: "group",
-    num: "02",
+    num: "03",
     label: "Validate",
     href: "/validate/gap-analysis",
     sectionHref: "/validate",
@@ -58,7 +59,7 @@ export const MAIN_NAV: NavItem[] = [
   },
   {
     kind: "group",
-    num: "03",
+    num: "04",
     label: "Study design",
     href: "/study-design/samples",
     sectionHref: "/study-design",
@@ -95,10 +96,10 @@ export const MAIN_NAV: NavItem[] = [
       },
     ],
   },
-  { kind: "link", num: "04", label: "Analysis tool", href: "/analysis-tool" },
+  { kind: "link", num: "05", label: "Analysis tool", href: "/analysis-tool" },
   {
     kind: "group",
-    num: "05",
+    num: "06",
     label: "Results",
     href: "/results/findings",
     sectionHref: "/results",
@@ -119,12 +120,12 @@ export const MAIN_NAV: NavItem[] = [
   },
   {
     kind: "link",
-    num: "06",
+    num: "07",
     label: "Outputs",
     href: "/outputs",
   },
-  { kind: "link", num: "07", label: "Lab book", href: "/lab-book" },
-  { kind: "link", num: "08", label: "Ask Peggy", href: "/chat" },
+  { kind: "link", num: "08", label: "Lab book", href: "/lab-book" },
+  { kind: "link", num: "09", label: "Ask Peggy", href: "/chat" },
 ];
 
 export type HomeNavItem = {
@@ -147,6 +148,7 @@ export const HOME_NAV: HomeNavItem[] = [
 /** Hover hints for project sidebar top-level links (keyed by href). */
 export const PROJECT_NAV_TOOLTIPS: Record<string, string> = {
   "/dashboard": "Objectives, setup flow, and project overview",
+  "/project-admin": "Registration, grants, outputs, MOU file, and project dates",
   "/validate/gap-analysis": "Gap scan, literature, and aim checks",
   "/study-design/samples": "Samples, ethics, methods, analysis, and proposal",
   "/analysis-tool": "CSV table, descriptives, and a test selector",

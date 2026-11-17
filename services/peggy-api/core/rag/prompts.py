@@ -297,7 +297,9 @@ Return JSON only:
   "gaps": ["string with chunk_id where relevant — omit items already answered in either plan"],
   "ethics_flags": ["string"],
   "recommendations": ["string"],
-  "limitations": ["string"]
+  "limitations": ["string — limits of the current methods and analysis plans"],
+  "improvements": ["string — what to change, with literature citation or PMID when the sources support it"],
+  "supporting_literature": ["string — title, year, PMID or chunk_id that backs a limitation or improvement"]
 }}"""
 
 

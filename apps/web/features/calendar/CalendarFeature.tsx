@@ -6,7 +6,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
@@ -107,11 +106,7 @@ export function CalendarFeature() {
     return { year: n.getFullYear(), month: n.getMonth() };
   });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [fromProjectOpen, setFromProjectOpen] = useState(false);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
-  const [projectId, setProjectId] = useState("");
-  const [pickedDate, setPickedDate] = useState(toLocalInput(new Date().toISOString()).slice(0, 16));
-  const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
   const workspacesQuery = useQuery({
     queryKey: queryKeys.workspaces(userId ?? undefined),
@@ -122,11 +117,6 @@ export function CalendarFeature() {
     queryKey: queryKeys.calendar(filterWs || undefined),
     queryFn: () => peggyApi.listCalendarEvents(filterWs || undefined),
     enabled: ready && !!userId,
-  });
-  const designQuery = useQuery({
-    queryKey: ["study-design", projectId],
-    queryFn: () => peggyApi.getStudyDesign(projectId),
-    enabled: fromProjectOpen && !!projectId,
   });
 
   const saveEvent = useMutation({
@@ -153,81 +143,6 @@ export function CalendarFeature() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["calendar"] }),
   });
 
-  const addFromProject = useMutation({
-    mutationFn: async () => {
-      const ws = workspacesQuery.data?.workspaces.find((w) => w.id === projectId);
-      const sd = designQuery.data?.study_design;
-      const starts = fromLocalInput(pickedDate);
-      const jobs: Array<Promise<unknown>> = [];
-      for (const key of selectedKeys) {
-        if (key.startsWith("aim:")) {
-          const aim = ws?.aims?.find((a) => a.id === key.slice(4));
-          if (aim?.text) {
-            jobs.push(
-              peggyApi.createCalendarEvent({
-                title: aim.text,
-                kind: "aim",
-                starts_at: starts,
-                workspace_id: projectId,
-                source_type: "aim",
-                source_id: aim.id,
-              })
-            );
-          }
-        } else if (key.startsWith("obj:")) {
-          const obj = ws?.objectives?.find((o) => o.id === key.slice(4));
-          if (obj?.text) {
-            jobs.push(
-              peggyApi.createCalendarEvent({
-                title: obj.text,
-                kind: "objective",
-                starts_at: starts,
-                workspace_id: projectId,
-                source_type: "objective",
-                source_id: obj.id,
-              })
-            );
-          }
-        } else if (key.startsWith("step:")) {
-          const steps = [...(sd?.methodsPlan?.steps ?? []), ...(sd?.analysisPlan?.steps ?? [])];
-          const step = steps.find((s) => s.id === key.slice(5));
-          if (step?.title) {
-            jobs.push(
-              peggyApi.createCalendarEvent({
-                title: step.title,
-                kind: "step",
-                starts_at: starts,
-                workspace_id: projectId,
-                source_type: "plan_step",
-                source_id: step.id,
-              })
-            );
-          }
-        } else if (key === "ethics") {
-          const expiry = sd?.ethics?.expiryDate;
-          if (expiry) {
-            jobs.push(
-              peggyApi.createCalendarEvent({
-                title: "Ethics expiry",
-                kind: "ethics_renewal",
-                starts_at: new Date(`${expiry}T09:00:00`).toISOString(),
-                workspace_id: projectId,
-                source_type: "ethics",
-                source_id: "expiryDate",
-              })
-            );
-          }
-        }
-      }
-      await Promise.all(jobs);
-    },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["calendar"] });
-      setFromProjectOpen(false);
-      setSelectedKeys([]);
-    },
-  });
-
   const events = eventsQuery.data?.events ?? [];
   const cells = useMemo(() => monthCells(cursor.year, cursor.month), [cursor]);
   const monthLabel = new Date(cursor.year, cursor.month, 1).toLocaleString(undefined, {
@@ -235,12 +150,6 @@ export function CalendarFeature() {
     year: "numeric",
   });
   const workspaces = workspacesQuery.data?.workspaces ?? [];
-  const selectedWs = workspaces.find((w) => w.id === projectId);
-  const steps = [
-    ...(designQuery.data?.study_design.methodsPlan?.steps ?? []),
-    ...(designQuery.data?.study_design.analysisPlan?.steps ?? []),
-  ];
-  const expiry = designQuery.data?.study_design.ethics?.expiryDate;
 
   return (
     <Box>
@@ -293,9 +202,6 @@ export function CalendarFeature() {
           }}
         >
           Add event
-        </Button>
-        <Button variant="outlined" onClick={() => setFromProjectOpen(true)}>
-          Add from this project
         </Button>
       </Stack>
       {eventsQuery.isError ? <Alert severity="error">{formatApiError(eventsQuery.error)}</Alert> : null}
@@ -464,97 +370,6 @@ export function CalendarFeature() {
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button variant="contained" disabled={!draft.title.trim() || saveEvent.isPending} onClick={() => saveEvent.mutate()}>
             Save
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog open={fromProjectOpen} onClose={() => setFromProjectOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add from this project</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <FormControl fullWidth>
-              <InputLabel>Project</InputLabel>
-              <Select label="Project" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
-                {workspaces.map((w) => (
-                  <MenuItem key={w.id} value={w.id}>
-                    {w.title}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Date for selected items"
-              type="datetime-local"
-              value={pickedDate}
-              onChange={(e) => setPickedDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              helperText="Aims, objectives, and steps use this date. Ethics uses the expiry date already on the project."
-            />
-            {selectedWs?.aims?.map((aim) => (
-              <Stack key={aim.id} direction="row" alignItems="center">
-                <Checkbox
-                  checked={selectedKeys.includes(`aim:${aim.id}`)}
-                  onChange={(e) =>
-                    setSelectedKeys((keys) =>
-                      e.target.checked ? [...keys, `aim:${aim.id}`] : keys.filter((k) => k !== `aim:${aim.id}`)
-                    )
-                  }
-                />
-                <Typography variant="body2">Aim: {aim.text || "(empty)"}</Typography>
-              </Stack>
-            ))}
-            {selectedWs?.objectives?.map((obj) => (
-              <Stack key={obj.id} direction="row" alignItems="center">
-                <Checkbox
-                  checked={selectedKeys.includes(`obj:${obj.id}`)}
-                  onChange={(e) =>
-                    setSelectedKeys((keys) =>
-                      e.target.checked ? [...keys, `obj:${obj.id}`] : keys.filter((k) => k !== `obj:${obj.id}`)
-                    )
-                  }
-                />
-                <Typography variant="body2">Objective: {obj.text}</Typography>
-              </Stack>
-            ))}
-            {steps.map((step) => (
-              <Stack key={step.id} direction="row" alignItems="center">
-                <Checkbox
-                  checked={selectedKeys.includes(`step:${step.id}`)}
-                  onChange={(e) =>
-                    setSelectedKeys((keys) =>
-                      e.target.checked ? [...keys, `step:${step.id}`] : keys.filter((k) => k !== `step:${step.id}`)
-                    )
-                  }
-                />
-                <Typography variant="body2">Step: {step.title}</Typography>
-              </Stack>
-            ))}
-            {expiry ? (
-              <Stack direction="row" alignItems="center">
-                <Checkbox
-                  checked={selectedKeys.includes("ethics")}
-                  onChange={(e) =>
-                    setSelectedKeys((keys) => (e.target.checked ? [...keys, "ethics"] : keys.filter((k) => k !== "ethics")))
-                  }
-                />
-                <Typography variant="body2">Ethics expiry ({expiry})</Typography>
-              </Stack>
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                No ethics expiry date on this project.
-              </Typography>
-            )}
-            {addFromProject.isError ? <Alert severity="error">{formatApiError(addFromProject.error)}</Alert> : null}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setFromProjectOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            disabled={!projectId || selectedKeys.length === 0 || addFromProject.isPending}
-            onClick={() => addFromProject.mutate()}
-          >
-            Create events
           </Button>
         </DialogActions>
       </Dialog>

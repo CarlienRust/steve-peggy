@@ -155,7 +155,7 @@ async def ingest_upload_bytes(
 ) -> dict:
     """Ingest uploaded file bytes (PDF, HTML, or UTF-8 text/markdown)."""
     doc_id = filename or title
-    if source_type == "sample_datasets":
+    if source_type in ("sample_datasets", "project_documents"):
         record = await catalog.record_paper(
             user_id, "", "", title, "", "", source_type, workspace_id=workspace_id
         )

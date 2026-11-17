@@ -27,6 +27,7 @@ export function LabBookFeature() {
   const queryClient = useQueryClient();
   const [category, setCategory] = useState<LabBookCategory>("progress");
   const [body, setBody] = useState("");
+  const [image, setImage] = useState<File | null>(null);
   const [editing, setEditing] = useState<LabBookEntry | null>(null);
 
   const listQuery = useQuery({
@@ -36,9 +37,15 @@ export function LabBookFeature() {
   });
 
   const createEntry = useMutation({
-    mutationFn: () => peggyApi.createLabBookEntry(workspaceId!, { category, body }),
+    mutationFn: () => {
+      if (image) {
+        return peggyApi.createLabBookImage(workspaceId!, image, { category, body });
+      }
+      return peggyApi.createLabBookEntry(workspaceId!, { category, body });
+    },
     onSuccess: () => {
       setBody("");
+      setImage(null);
       void queryClient.invalidateQueries({ queryKey: queryKeys.labBook(workspaceId) });
     },
   });
@@ -60,7 +67,7 @@ export function LabBookFeature() {
   return (
     <>
       <PageHeader
-        eyebrow="07 · Lab book"
+        eyebrow="08 · Lab book"
         title="Lab book"
         description="Progress, meeting, idea, and methods notes for this project."
       />
@@ -90,10 +97,19 @@ export function LabBookFeature() {
             minRows={3}
             fullWidth
           />
+          <Button variant="outlined" component="label" sx={{ alignSelf: "flex-start", textTransform: "none" }}>
+            {image ? image.name : "Add image"}
+            <input
+              type="file"
+              hidden
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              onChange={(e) => setImage(e.target.files?.[0] ?? null)}
+            />
+          </Button>
           <Button
             variant="contained"
             sx={{ alignSelf: "flex-start", textTransform: "none" }}
-            disabled={!body.trim() || createEntry.isPending}
+            disabled={(!body.trim() && !image) || createEntry.isPending}
             onClick={() => createEntry.mutate()}
           >
             Add note
@@ -142,6 +158,20 @@ export function LabBookFeature() {
                     <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", mt: 0.5 }}>
                       {entry.body}
                     </Typography>
+                    {entry.image_storage_key ? (
+                      <Button
+                        size="small"
+                        sx={{ textTransform: "none", mt: 1 }}
+                        onClick={async () => {
+                          const file = await peggyApi.getLabBookFile(workspaceId!, entry.id);
+                          const url = URL.createObjectURL(file);
+                          window.open(url, "_blank", "noopener");
+                          setTimeout(() => URL.revokeObjectURL(url), 60_000);
+                        }}
+                      >
+                        View image
+                      </Button>
+                    ) : null}
                     <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
                       <Button size="small" onClick={() => setEditing(entry)}>
                         Edit

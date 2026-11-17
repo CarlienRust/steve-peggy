@@ -24,7 +24,7 @@ def uses_supabase_storage() -> bool:
     return bool(config.DATABASE_URL) and supabase_storage_ready()
 
 
-_STUDY_DOC_TYPES = frozenset({"sample_datasets", "ethics_documents"})
+_STUDY_DOC_TYPES = frozenset({"sample_datasets", "ethics_documents", "project_documents"})
 
 
 def storage_object_path(

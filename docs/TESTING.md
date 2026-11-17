@@ -35,6 +35,8 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; hosted put requires Storage credentials; legacy file migrate + delete |
 | Unit | `test_pg_datetime.py` | Workspace `last_opened_at` ISO-Z strings for asyncpg |
 | Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
+| Unit | `test_project_admin.py` | `project_admin` row ↔ API camelCase |
+| Unit | `test_calendar_sync.py` | Ethics/project-admin date → ISO start |
 | Unit | `test_secrets.py` / `test_llm_settings.py` | Fernet roundtrip; GET omits `api_key`; BYOK `get_llm`; tighter token cap; RLS table list in SQL |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue (`workspace_id` required on chat/gap/agent) |
 | Integration | `test_study_design.py` | GET/PATCH study-design; ethics/methods workflows |

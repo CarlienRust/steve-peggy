@@ -75,7 +75,15 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
   }
 
   if (mode === "methods_plan" || mode === "analysis_plan") {
-    const reviewKeys = ["strengths", "gaps", "recommendations", "ethics_flags"] as const;
+    const reviewKeys = [
+      "strengths",
+      "gaps",
+      "recommendations",
+      "ethics_flags",
+      "limitations",
+      "improvements",
+      "supporting_literature",
+    ] as const;
     const isReview = reviewKeys.some((k) => asStringList(body[k]).length > 0);
     if (isReview) {
       const reviewFull = typeof body.full_text === "string" ? body.full_text.trim() : "";

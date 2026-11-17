@@ -34,6 +34,7 @@ EXPECTED_RLS_TABLES = {
     "ai_consent",
     "agent_proposals",
     "user_llm_settings",
+    "project_admin",
 }
 
 

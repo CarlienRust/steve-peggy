@@ -125,19 +125,25 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 
 ## Batch 20
 
-When user uploads a file/document, view works correctly, but if they return in future they get original file not stored error. I have already asked previouly (multiple time) to fix this and implemented SUPABASE use of a bucket where files can be stored. But this is still not working. Places where error occurs: Reading journal, Samples & datasets, Literature search, Results/Findings. 
+1. When user uploads a file/document, view works correctly, but if they return in future they get original file not stored error. I have already asked previouly (multiple time) to fix this and implemented SUPABASE use of a bucket where files can be stored. But this is still not working. Places where error occurs: Reading journal, Samples & datasets, Literature search, Results/Findings. 
+2. Some output in study desgin are raw md or include * - so format, style of text in UI isn't correct. Needs to be a proper output, style, format. Areas with problem: Metods Plan review output and proposal
+3. Gemini model keeps giving capacity reached error. We need this to extract for PDF in literature search and generate abstract for the project. 
+4. Add supabase service key to render
 
-Some output in study desgin are raw md or include * - so format, style of text in UI isn't correct. Needs to be a proper output, style, format. Areas with problem: Metods Plan review output and proposal
+## Bath 21
 
-Gemini model keeps giving capacity reached error. We need this to extract for PDF in literature search and generate abstract for the project. 
-
-Add supabase service key to render
+1) Methods Plan/Review my plan: Part of the output should also be if methods/analysis plan has limitation and suggest if improvements are needed - including literature thst support
+2) Inside project/sidebar: "Project Admin" between Dashboard and Validate. Find here: .cursor/plans/seed_docs_and_admin_7d765b86.plan.md - 3. Single-user project admin + reminders; although should not be under Study Design, MOU - file upload only instead, can view. 
+3) Lab book - allow addition of images
+4) Update profile -> need to look the same as the Peggy AI settings
+5) Calendar -> Remove "Add from this project" CTA
+6) EVIDENCE COVERAGE - Exposure by study design: This doesn't seem to currently be wired or functioning. 
+7) Ethics: Ethics approval -> add reminder for next renewal and shown in Calendar
+8) Peggy should always be able to pull info from the web - peer-reviewed journals/publications to support AI output/suggestions/review as default. 
 
 ## NEXT:
 
-1) Methods Plan/Review my plan: Part of the output should also be if methods/analysis plan has limitation and suggest if improvements are needed - including literature thst support
-
-2) /Users/carlienrust/Library/Mobile Documents/com~apple~CloudDocs/steve+peggy/.cursor/plans/seed_docs_and_admin_[7d765b86.plan.md](http://7d765b86.plan.md)
+1) /Users/carlienrust/Library/Mobile Documents/com~apple~CloudDocs/steve+peggy/.cursor/plans/seed_docs_and_admin_[7d765b86.plan.md](http://7d765b86.plan.md)
 
 - Project admin (single user only) - student registration, grants awarded, outputs (manuscripts/conferences), MOU, start and end dates
 - Reminders
@@ -156,3 +162,16 @@ Meeting scheduler/Doodle
 Invite collaborators/share project with other user
 
 Link invited supervisor/collaborator to specific objective/task/aim 
+
+## ANALYSIS TOOLS:
+
+- Gut microbiome analysis
+NGS & Python-Based Gut Microbiome Profiling
+Sequence quality control, taxonomic profiling, alpha/beta diversity and disease-associated microbial signatures.
+Hands-on: NCBI Genome | MicrobiomeAnalyst | GMrepo | NCBI BLAST | BAGEL4 | Google Colab | FastQC | QIIME 2 | DADA2 | SILVA | Biopython | Pandas | Scikit-bio | Seaborn
+AI-Driven Shotgun Metagenomics, Probiotic Discovery & Metabolic Profiling
+Functional pathways, SCFA-associated genes, Random Forest classification and SHAP-based feature interpretation.
+Hands-on: PubMed | KEGG | NCBI Taxonomy | gutMGene | MicrobiomeAnalyst | Google Colab | MetaPhlAn | HUMAnN | KEGG | CAZy | gutSMASH 2.0 | Scikit-learn | SHAP
+AI-Based Microbiome Therapeutics, Postbiotic Analysis & FMT Response Prediction
+Metabolite evidence, probiotic/postbiotic prioritization, exploratory FMT response analysis and safety assessment.
+Hands-on: PubMed | KEGG | HMDB | gutMGene | NCBI SRA | Google Colab | MetaPhlAn | HUMAnN | CAZy | Scikit-learn | SHAP | Cytoscape | AMRFinderPlus
