@@ -14,6 +14,15 @@ logger = logging.getLogger(__name__)
 
 import config
 
+
+def _as_datetime(value: Any) -> datetime | None:
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
 _pool: asyncpg.Pool | None = None
 
 
@@ -737,7 +746,7 @@ async def create_workspace(
             json.dumps(settings or {}),
             json.dumps(enabled_modules or []),
             normalize_privacy_mode(privacy_mode),
-            last_opened_at,
+            _as_datetime(last_opened_at),
         )
     return _workspace_row(row)
 
@@ -760,9 +769,7 @@ async def update_workspace(user_id: str, workspace_id: str, fields: dict) -> dic
     from core.safety.policy import normalize_privacy_mode
 
     privacy_mode = normalize_privacy_mode(fields.get("privacy_mode", existing.get("privacy_mode")))
-    last_opened_at = fields.get("last_opened_at", existing.get("last_opened_at"))
-    if last_opened_at == "":
-        last_opened_at = None
+    last_opened_at = _as_datetime(fields.get("last_opened_at", existing.get("last_opened_at")))
     pool = await _pool_conn()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
@@ -1293,15 +1300,6 @@ async def list_calendar_events(user_id: str, workspace_id: str | None = None) ->
                 user_id,
             )
     return [_row_to_dict(r) for r in rows]
-
-
-def _as_datetime(value: Any) -> datetime | None:
-    if value is None or value == "":
-        return None
-    if isinstance(value, datetime):
-        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
-    dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
 async def create_calendar_event(user_id: str, fields: dict) -> dict:

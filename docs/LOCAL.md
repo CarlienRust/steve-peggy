@@ -53,9 +53,12 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 AUTH_REQUIRED=true
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_JWT_SECRET=...
+SUPABASE_SERVICE_ROLE_KEY=...   # Storage; required whenever DATABASE_URL is set
 DATABASE_URL=postgresql://...   # same Supabase Postgres as production
 QDRANT_URL=http://localhost:6333
 ```
+
+After changing `.env`, restart the API (`./scripts/start-local.sh stop` then start again). Uvicorn reload does not reload env vars. `/health` should show `"storage": true` and `"storage_configured": true`.
 
 Web and API must agree: solo + `AUTH_REQUIRED=false`, or sign-in + `AUTH_REQUIRED=true`. Mismatch causes empty profile/workspaces while sign-in still works.
 

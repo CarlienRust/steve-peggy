@@ -1,6 +1,6 @@
 Next jobs:
 
-See [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md) for working / not-working status.
+See [docs/ROADMAP.md](docs/ROADMAP.md) for done vs backlog.
 
 Done from launch plan (2026-03-23):
 
@@ -77,7 +77,7 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 
 - `/projects/new` (privacy mode + which services see text). Project hub cards. Corpus table: journal, status, notes, expand abstract, CSV with formula guard.
 - Playwright smoke: create project, paper, gap, What Peggy used, delete paper, delete project.
-- Objective history / 3.1 and 3.6 dashboard cards not fully as planned; next SQL after 025 is **026** (`agent_proposals`), not 027. `docs/FIGMA_HANDOFF.md` still missing for 3.8.
+- Objective history / 3.1 and 3.6 dashboard cards not fully as planned; next SQL after 025 is **026** (`agent_proposals`), not 027.
 
 **Phase 4 — analysis tool**
 
@@ -135,7 +135,13 @@ Add supabase service key to render
 
 ## NEXT:
 
+1) Methods Plan/Review my plan: Part of the output should also be if methods/analysis plan has limitation and suggest if improvements are needed - including literature thst support
 
+2) /Users/carlienrust/Library/Mobile Documents/com~apple~CloudDocs/steve+peggy/.cursor/plans/seed_docs_and_admin_[7d765b86.plan.md](http://7d765b86.plan.md)
+
+- Project admin (single user only) - student registration, grants awarded, outputs (manuscripts/conferences), MOU, start and end dates
+- Reminders
+- Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
 
 ## FUTURE:
 
@@ -143,18 +149,10 @@ Add supabase service key to render
 
 - GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
 
-Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
-
-In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans.
-
-Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
+In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
 
 Meeting scheduler/Doodle
 
 Invite collaborators/share project with other user
 
 Link invited supervisor/collaborator to specific objective/task/aim 
-
-Project admin - student registration, grants awarded, outputs (manuscripts/conferences), MOU, start and end dates
-
-Reminders

@@ -194,8 +194,9 @@ Diagram: [docs/peggy_architecture.svg](docs/peggy_architecture.svg)
 | [docs/TESTING.md](docs/TESTING.md)           | pytest + future Playwright                           |
 | [docs/DOCKER.md](docs/DOCKER.md)             | Optional Compose                                     |
 | [docs/SCALE.md](docs/SCALE.md)               | Vercel + Render deploy                               |
-| [docs/AUTH.md](docs/AUTH.md)                 | Supabase Auth (implemented)                          |
+| [docs/AUTH.md](docs/AUTH.md)                 | Supabase Auth                                        |
 | [docs/DATABASE.md](docs/DATABASE.md)         | SQLite vs Supabase Postgres, migrations              |
+| [docs/README.md](docs/README.md)             | Full index                                           |
 
 
 

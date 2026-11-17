@@ -33,6 +33,7 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_no_debug_agent_log.py` | `debug_agent_log` removed |
 | Unit | `test_isolation_canary.py` | Qdrant filter includes user + workspace |
 | Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; hosted put requires Storage credentials; legacy file migrate + delete |
+| Unit | `test_pg_datetime.py` | Workspace `last_opened_at` ISO-Z strings for asyncpg |
 | Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
 | Unit | `test_secrets.py` / `test_llm_settings.py` | Fernet roundtrip; GET omits `api_key`; BYOK `get_llm`; tighter token cap; RLS table list in SQL |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue (`workspace_id` required on chat/gap/agent) |

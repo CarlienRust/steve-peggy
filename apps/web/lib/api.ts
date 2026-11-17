@@ -309,7 +309,8 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { ...headers, ...init?.headers },
     });
   let res = await send();
-  if (res.status === 503) {
+  const method = (init?.method || "GET").toUpperCase();
+  if (res.status === 503 && method === "GET") {
     await new Promise((r) => setTimeout(r, 1500));
     res = await send();
   }

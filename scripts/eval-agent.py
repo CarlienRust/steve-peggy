@@ -34,7 +34,7 @@ def main() -> None:
                 "n": len(tasks),
                 "targets": TARGETS,
                 "ran": False,
-                "note": "Set GEMINI_API_KEY and run against a fixture workspace. Report in docs/AGENT_EVAL.md.",
+                "note": "Set GEMINI_API_KEY and run against a fixture workspace. Record results in docs/TESTING.md if you keep a run.",
             }
         )
     )

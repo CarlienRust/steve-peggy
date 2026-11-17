@@ -59,6 +59,14 @@ elif grep -vE '^\s*#' "$ROOT/services/peggy-api/.env" 2>/dev/null | grep -qE '^A
 fi
 if grep -qE '^DATABASE_URL=' "$ROOT/services/peggy-api/.env" 2>/dev/null; then
   warn "API .env has DATABASE_URL (Postgres) — comment it out for local SQLite unless asyncpg is installed"
+  if ! grep -vE '^\s*#' "$ROOT/services/peggy-api/.env" 2>/dev/null | grep -qE '^SUPABASE_SERVICE_ROLE_KEY=.+'; then
+    fail "DATABASE_URL is set but SUPABASE_SERVICE_ROLE_KEY is empty — uploads will 503"
+  fi
+  if [[ -n "$HEALTH" ]] && echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('storage_configured') else 1)" 2>/dev/null; then
+    :
+  else
+    [[ -n "$HEALTH" ]] && warn "API health storage_configured:false — restart the API after adding SUPABASE_SERVICE_ROLE_KEY"
+  fi
 fi
 if [[ -n "$HEALTH" ]] && echo "$HEALTH" | python3 -c "import json,sys; d=json.load(sys.stdin); sys.exit(0 if d.get('qdrant') else 1)" 2>/dev/null; then
   :

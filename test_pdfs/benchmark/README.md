@@ -41,7 +41,7 @@ python scripts/benchmark-extraction.py --paper-id 1 --workspace-id YOUR_PROJECT_
 
 Requires API running, papers ingested with PDFs, and gold files under `gold/`. Accuracy is not computed in CI until gold set is populated.
 
-Set accuracy target before comparing models (see [docs/LAUNCH.md](../../docs/LAUNCH.md)).
+Set an accuracy target before comparing models. Record runs in [docs/TESTING.md](../../docs/TESTING.md).
 
 ## Recording results
 
