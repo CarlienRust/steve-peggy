@@ -77,6 +77,26 @@ def test_get_bytes_falls_back_to_supabase_when_local_missing(tmp_path, monkeypat
     assert data == b"from-sb"
 
 
+def test_hosted_put_requires_storage_credentials(tmp_path, monkeypatch):
+    monkeypatch.setattr(config, "DATABASE_URL", "postgres://x")
+    monkeypatch.setattr(config, "SUPABASE_URL", "")
+    monkeypatch.setattr(config, "SUPABASE_SERVICE_ROLE_KEY", "")
+    monkeypatch.setattr(config, "UPLOAD_DIR", str(tmp_path))
+    try:
+        asyncio.run(
+            file_store.put_bytes(
+                user_id="u1",
+                workspace_id="w1",
+                paper_id=1,
+                filename="a.csv",
+                data=b"x",
+            )
+        )
+        assert False, "expected raise"
+    except RuntimeError as e:
+        assert "SUPABASE" in str(e)
+
+
 def test_hosted_put_raises_when_storage_fails(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATABASE_URL", "postgres://x")
     monkeypatch.setattr(config, "SUPABASE_URL", "https://example.supabase.co")

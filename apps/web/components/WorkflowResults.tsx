@@ -1,6 +1,7 @@
 "use client";
 
 import { Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { FormattedText, InlineFormatted, formatPlainItem } from "@/components/FormattedText";
 import {
   hasProposalSections,
   normalizeWorkflowBody,
@@ -15,12 +16,22 @@ type Gap = {
 };
 
 function asStringList(raw: unknown): string[] {
-  if (Array.isArray(raw)) {
-    return raw
-      .map((item) => (typeof item === "string" ? item.trim() : String(item ?? "").trim()))
+  const fromArray = (items: unknown[]) =>
+    items
+      .flatMap((item) => {
+        const s = typeof item === "string" ? item.trim() : String(item ?? "").trim();
+        if (!s) return [];
+        if (/\n\s*[-*•]/.test(s) || (s.includes("\n") && /^[-*•]/.test(s))) {
+          return s
+            .split("\n")
+            .map((line) => formatPlainItem(line))
+            .filter(Boolean);
+        }
+        return [formatPlainItem(s)];
+      })
       .filter(Boolean);
-  }
-  if (typeof raw === "string" && raw.trim()) return [raw.trim()];
+  if (Array.isArray(raw)) return fromArray(raw);
+  if (typeof raw === "string" && raw.trim()) return fromArray([raw.trim()]);
   return [];
 }
 
@@ -80,7 +91,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
                 </Typography>
                 {items.map((item, i) => (
                   <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                    • {item}
+                    • <InlineFormatted text={item} />
                   </Typography>
                 ))}
               </Paper>
@@ -91,9 +102,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 Full text
               </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                {reviewFull}
-              </Typography>
+              <FormattedText text={reviewFull} />
             </Paper>
           ) : null}
         </Stack>
@@ -155,7 +164,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
                 </Typography>
                 {items.map((item, i) => (
                   <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                    • {item}
+                    • <InlineFormatted text={item} />
                   </Typography>
                 ))}
               </Paper>
@@ -167,7 +176,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               <Typography variant="subtitle2" sx={{ mb: 1, textTransform: "capitalize" }}>
                 {key.replace(/_/g, " ")}
               </Typography>
-              <Typography variant="body2">{raw}</Typography>
+              <FormattedText text={raw} />
             </Paper>
           );
         })}
@@ -188,9 +197,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Summary
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-              {body.summary}
-            </Typography>
+            <FormattedText text={body.summary} />
           </Paper>
         ) : null}
         {extraBlocks.map((block) => (
@@ -201,13 +208,11 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             {block.kind === "list" ? (
               block.items.map((item, i) => (
                 <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                  • {item}
+                  • <InlineFormatted text={item} />
                 </Typography>
               ))
             ) : (
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap" }}>
-                {block.text}
-              </Typography>
+              <FormattedText text={block.text} />
             )}
           </Paper>
         ))}
@@ -216,9 +221,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Result
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-              {fullText}
-            </Typography>
+              <FormattedText text={fullText} />
           </Paper>
         ) : null}
         {fullText && (hasSuggest || extraBlocks.length > 0) ? (
@@ -226,9 +229,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
               Full text
             </Typography>
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-              {fullText}
-            </Typography>
+              <FormattedText text={fullText} />
           </Paper>
         ) : null}
       </Stack>
@@ -256,9 +257,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               {title}
             </Typography>
           ) : null}
-          <Typography variant="body2" component="div" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-            {full}
-          </Typography>
+          <FormattedText text={full} />
         </Paper>
       );
     }
@@ -277,9 +276,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
               <Typography variant="subtitle2" sx={{ mb: 1 }}>
                 {label}
               </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                {text}
-              </Typography>
+              <FormattedText text={text} />
             </Paper>
           );
         })}
@@ -290,7 +287,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
             </Typography>
             {aims.map((a, i) => (
               <Typography key={i} variant="body2" sx={{ mb: 0.5 }}>
-                • {a}
+                • <InlineFormatted text={a} />
               </Typography>
             ))}
           </Paper>
@@ -317,9 +314,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
         ) : null}
         {full ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-              {full}
-            </Typography>
+            <FormattedText text={full} />
           </Paper>
         ) : null}
         {!full
@@ -331,9 +326,7 @@ export function WorkflowResults({ mode, body: rawBody }: { mode: string; body: R
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>
                     {label}
                   </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>
-                    {text}
-                  </Typography>
+                  <FormattedText text={text} />
                 </Paper>
               );
             })

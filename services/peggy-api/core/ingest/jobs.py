@@ -176,6 +176,16 @@ async def ingest_upload_bytes(
         except Exception as e:
             raise ValueError(f"PDF extraction failed: {e}") from e
         if not text.strip():
+            try:
+                from core.llm.provider import get_llm
+
+                llm = await get_llm()
+                gemini_text = await llm.complete_pdf(raw)
+                if gemini_text.strip():
+                    text, pages = gemini_text, max(pages, 1)
+            except Exception:
+                logger.exception("Gemini PDF extract failed")
+        if not text.strip():
             raise ValueError("No extractable text in PDF (scanned pages may need OCR later)")
         from core.ingest.doi_pdf import doi_from_first_page, lookup_openalex_doi
 

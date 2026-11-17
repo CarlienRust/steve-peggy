@@ -7,7 +7,7 @@ import logging
 import re
 from datetime import datetime, timezone
 
-from core.llm.provider import get_llm
+from core.llm.provider import LLMProviderError, get_llm
 from core.rag import prompts
 from core.rag.limitation_utils import normalize_limitations
 from core.store import catalog, qdrant_store
@@ -812,6 +812,8 @@ async def run_conference_abstract(
         if not str(body.get("full_text") or "").strip():
             body["full_text"] = raw.strip() if isinstance(raw, str) else json.dumps(parsed, default=str)
             body["word_count"] = len(str(body["full_text"]).split())
+    except LLMProviderError:
+        raise
     except Exception:
         logger.exception("conference-abstract LLM failed")
         body = {

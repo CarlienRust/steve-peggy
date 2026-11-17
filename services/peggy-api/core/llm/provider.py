@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import base64
 import json
 import re
 import uuid
@@ -42,6 +44,9 @@ GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta"
 class LLMProvider:
     async def complete(self, system: str, user: str, json_mode: bool = False) -> str:
         raise NotImplementedError
+
+    async def complete_pdf(self, data: bytes) -> str:
+        return ""
 
     async def complete_with_tools(
         self,
@@ -148,30 +153,69 @@ def _messages_to_gemini_contents(messages: list[dict[str, Any]]) -> tuple[str, l
     return system, contents
 
 
-def _raise_gemini_error(response: httpx.Response) -> None:
-    if response.is_success:
-        return
+def _gemini_error_payload(response: httpx.Response) -> tuple[str, str]:
     message = "Gemini API request failed."
-    status_code = 502
+    status = ""
     try:
         err = response.json().get("error", {})
         message = err.get("message") or message
-        if response.status_code == 429 or err.get("status") == "RESOURCE_EXHAUSTED":
-            status_code = 429
-            if "limit: 0" in message:
-                message = (
-                    "Gemini API quota is unavailable for this project (limit: 0). "
-                    "Enable the Generative Language API in Google Cloud, confirm billing/free tier "
-                    "for your API key, or wait and retry."
-                )
-            else:
-                message = (
-                    "Gemini free-tier limit reached. Wait a minute and try again, "
-                    "or check your remaining Peggy hourly quota."
-                )
+        status = str(err.get("status") or "")
     except Exception:
         pass
+    return message, status
+
+
+def _gemini_retryable(response: httpx.Response) -> bool:
+    if response.status_code in (429, 500, 503):
+        return True
+    message, status = _gemini_error_payload(response)
+    blob = f"{message} {status}".lower()
+    hints = ("high demand", "overloaded", "unavailable", "try again later", "capacity", "resource_exhausted")
+    return any(h in blob for h in hints)
+
+
+def _raise_gemini_error(response: httpx.Response) -> None:
+    if response.is_success:
+        return
+    message, status = _gemini_error_payload(response)
+    status_code = 502
+    if response.status_code == 429 or status == "RESOURCE_EXHAUSTED":
+        status_code = 429
+        if "limit: 0" in message:
+            message = (
+                "Gemini API quota is unavailable for this project (limit: 0). "
+                "Enable the Generative Language API in Google Cloud, confirm billing/free tier "
+                "for your API key, or wait and retry."
+            )
+        else:
+            message = (
+                "Gemini free-tier limit reached. Wait a minute and try again, "
+                "or check your remaining Peggy hourly quota."
+            )
+    elif _gemini_retryable(response):
+        message = (
+            "Gemini is at capacity. Peggy retried other Flash models. "
+            "Wait a minute and try again, or set your own key in Peggy AI settings."
+        )
     raise LLMProviderError(message, status_code=status_code)
+
+
+async def _gemini_post(api_key: str, body: dict[str, Any]) -> httpx.Response:
+    last: httpx.Response | None = None
+    async with httpx.AsyncClient(timeout=120) as client:
+        for model in config.gemini_model_candidates():
+            url = f"{GEMINI_API_BASE}/models/{model}:generateContent?key={api_key}"
+            for attempt in range(3):
+                response = await client.post(url, json=body)
+                if response.is_success:
+                    return response
+                last = response
+                if not _gemini_retryable(response):
+                    _raise_gemini_error(response)
+                await asyncio.sleep(1.2 * (attempt + 1))
+    if last is not None:
+        _raise_gemini_error(last)
+    raise LLMProviderError("Gemini API request failed.", status_code=502)
 
 
 def _parse_gemini_response(data: dict) -> ToolResponse:
@@ -210,10 +254,36 @@ class GeminiProvider(LLMProvider):
         }
         if json_mode:
             body["generationConfig"]["responseMimeType"] = "application/json"
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(self._url(), json=body)
-            _raise_gemini_error(response)
-            return _parse_gemini_response(response.json()).text
+        response = await _gemini_post(self._api_key, body)
+        return _parse_gemini_response(response.json()).text
+
+    async def complete_pdf(self, data: bytes) -> str:
+        if not self._api_key or not data or len(data) > 15_000_000:
+            return ""
+        body: dict[str, Any] = {
+            "contents": [
+                {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "inline_data": {
+                                "mime_type": "application/pdf",
+                                "data": base64.b64encode(data).decode("ascii"),
+                            }
+                        },
+                        {
+                            "text": (
+                                "Extract all readable text from this PDF. "
+                                "Return plain text only, preserving headings and paragraphs."
+                            )
+                        },
+                    ],
+                }
+            ],
+            "generationConfig": {"temperature": 0},
+        }
+        response = await _gemini_post(self._api_key, body)
+        return (_parse_gemini_response(response.json()).text or "").strip()
 
     async def complete_with_tools(self, messages: list[dict], tools: list[dict]) -> ToolResponse:
         if not self._api_key:
@@ -229,10 +299,8 @@ class GeminiProvider(LLMProvider):
             body["toolConfig"] = {"functionCallingConfig": {"mode": "AUTO"}}
         if system:
             body["systemInstruction"] = {"parts": [{"text": system}]}
-        async with httpx.AsyncClient(timeout=120) as client:
-            response = await client.post(self._url(), json=body)
-            _raise_gemini_error(response)
-            return _parse_gemini_response(response.json())
+        response = await _gemini_post(self._api_key, body)
+        return _parse_gemini_response(response.json())
 
 
 class OllamaProvider(LLMProvider):

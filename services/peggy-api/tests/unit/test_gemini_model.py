@@ -1,5 +1,5 @@
 from core.llm.provider import GeminiProvider
-from config import normalize_gemini_model
+from config import gemini_model_candidates, normalize_gemini_model
 
 
 def test_retired_flash_maps_to_3_8():
@@ -15,3 +15,13 @@ def test_gemini_request_url_uses_3_8(monkeypatch):
     url = GeminiProvider()._url()
     assert "gemini-3.8-flash" in url
     assert "gemini-2.0-flash" not in url
+
+
+def test_gemini_model_candidates_include_fallback(monkeypatch):
+    import config
+
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash")
+    monkeypatch.setattr(config, "GEMINI_MODEL", "gemini-3.8-flash")
+    names = gemini_model_candidates()
+    assert names[0] == "gemini-3.8-flash"
+    assert "gemini-2.5-flash" in names

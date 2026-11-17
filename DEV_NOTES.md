@@ -117,11 +117,25 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 - Methods and Analysis plan - combination doesn't work. You can't have a "Review methods and analysis" CTA on Methods plan but user might not even have done anything for analysis plan. That doesn't make sense. One tab - Methods plan; then under that tab we need to address both method and analysis. Rather do steps tabs with Methods plan -> From your project -> methods + constraints + adv options  -> analysis + constraints + adv options -> Review output + Steps links + Checklist. Once a step is completed user can always go back and view/edit the info in that step.
 - "Strict means Peggy will not send this project's aim, plans, findings, chat, or dataset summaries to a hosted model. Literature search and saved records still work. Switch to Standard in project settings if you want Ask Peggy and plan review on this project." - this is untrue as there is no project settings or this action avaiable on the current UI. User can handle AI settings in their profile pop-up under Peggy AI settings (Add under Update Profile, Settings, Peggy Settings)
 
+## Batch 19
+
+1. Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
+2. Correct RLS for all Supabase tables.
+3. MFA for sign-in
+
+## Batch 20
+
+When user uploads a file/document, view works correctly, but if they return in future they get original file not stored error. I have already asked previouly (multiple time) to fix this and implemented SUPABASE use of a bucket where files can be stored. But this is still not working. Places where error occurs: Reading journal, Samples & datasets, Literature search, Results/Findings. 
+
+Some output in study desgin are raw md or include * - so format, style of text in UI isn't correct. Needs to be a proper output, style, format. Areas with problem: Metods Plan review output and proposal
+
+Gemini model keeps giving capacity reached error. We need this to extract for PDF in literature search and generate abstract for the project. 
+
+Add supabase service key to render
+
 ## NEXT:
 
-1) Agent/AI models: Once platform is live, user should be able to choose or link chosen AI model (at their own cost) - so they choose option (Gemini, Claude, Chat, add two more) and API/secret key to link (must be stored in encryption for safety) so that their version of Peggy can connect to the correct model. They should also have option to set limit on model spending. Settings with AI must always be - do not use to train, to protect user data and info. Default: current model with limits
-2) Correct RLS for all Supabase tables.
-3) MFA for sign-in
+
 
 ## FUTURE:
 
@@ -133,8 +147,14 @@ Data/Files already present: Need to plan and execute a way to use files and docu
 
 In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans.
 
+Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
+
 Meeting scheduler/Doodle
 
 Invite collaborators/share project with other user
 
-Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
+Link invited supervisor/collaborator to specific objective/task/aim 
+
+Project admin - student registration, grants awarded, outputs (manuscripts/conferences), MOU, start and end dates
+
+Reminders

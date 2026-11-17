@@ -50,7 +50,7 @@ Agent session memory uses catalog tables (`agent_sessions`, `agent_messages`) sc
 
 Embeddings: `sentence-transformers` or hash locally; hosted Gemini (`EMBEDDING_BACKEND=gemini`, `text-embedding-004`, 768-d) uses **versioned** Qdrant collection names (`peggy_literature__text_embedding_004_768`). Hash on Render is the env default and is **not** semantic. Search uses `query_points` (Qdrant client ≥1.16). All vector ops filter by `user_id` and `workspace_id`. Chat, agent, compare, and gap search also filter `source_type` to `literature` and `own_findings`, omit retracted points, and honor workspace `settings.peer_reviewed_only` (default true). **Sample dataset files are never upserted** into these collections. Project-text embed/LLM calls go through `core/safety/policy.py`.
 
-Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase Storage bucket `peggy-uploads` when `DATABASE_URL` is set. Object paths: `{project_id}/{filename}` for literature PDFs; `{project_id}/study_docs/{filename}` for ethics PDFs and sample datasets. Catalog `papers.storage_key` points at the object. Downloads go through owner-only `GET /corpus/{id}/file`.
+Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally. On hosted (`DATABASE_URL` set), upload **requires** `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` and writes private bucket `peggy-uploads` (`sb:` keys). Preview on disk is cache only; `GET /corpus/{id}/file` reads Storage if the Render disk is empty, including older `local:` keys. Object paths: `{project_id}/{filename}` for literature PDFs; `{project_id}/study_docs/{filename}` for ethics PDFs and sample datasets. `GET /health` `storage` is false when hosted credentials are missing.
 
 ## LLM providers
 
@@ -59,7 +59,7 @@ Original PDF/CSV/SAV/HTML bytes live in `UPLOAD_DIR` locally or private Supabase
 | `ollama` | Local dev (free) |
 | `gemini` | Render deploy — Google AI Studio free tier |
 
-Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embeddings`).
+Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embeddings`). Gemini retries high-demand responses on fallback Flash models. Empty PDF text on upload can call Gemini multimodal extract. Methods Plan and Proposal UI render markdown via `FormattedText` (no raw `*` dump).
 
 ## API overview
 

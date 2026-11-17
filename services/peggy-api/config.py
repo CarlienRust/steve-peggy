@@ -41,6 +41,18 @@ def normalize_gemini_model(raw: str | None) -> str:
 
 
 GEMINI_MODEL = normalize_gemini_model(os.getenv("GEMINI_MODEL", "gemini-3.8-flash"))
+_GEMINI_FALLBACK_DEFAULT = "gemini-2.5-flash,gemini-flash-latest"
+
+
+def gemini_model_candidates() -> list[str]:
+    primary = normalize_gemini_model(GEMINI_MODEL)
+    extra_raw = os.getenv("GEMINI_FALLBACK_MODELS", _GEMINI_FALLBACK_DEFAULT)
+    out: list[str] = [primary]
+    for part in extra_raw.split(","):
+        name = normalize_gemini_model(part.strip())
+        if name and name not in out:
+            out.append(name)
+    return out
 PEGGY_SECRETS_KEY = os.getenv("PEGGY_SECRETS_KEY", "")
 CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-3-5-sonnet-latest")
 CHATGPT_MODEL = os.getenv("CHATGPT_MODEL", "gpt-4o-mini")

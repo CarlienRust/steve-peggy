@@ -21,6 +21,7 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_dedup.py` | `catalog.record_paper` duplicate logic |
 | Unit | `test_intent.py` | Chat mode detection |
 | Unit | `test_llm_health.py` | Ollama/Groq health helpers |
+| Unit | `test_gemini_model.py` | Retired Gemini ids; fallback model list |
 | Unit | `test_agent_tools.py` | Agent tool registry + mode filters |
 | Unit | `test_complete_with_tools.py` | Groq/OpenAI/Ollama tool parsing |
 | Unit | `test_agent_loop.py` | ReAct loop, max_steps truncation |
@@ -31,7 +32,7 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_analysis_tool_rows.py` | Reject/strip `analysisTool.rows` |
 | Unit | `test_no_debug_agent_log.py` | `debug_agent_log` removed |
 | Unit | `test_isolation_canary.py` | Qdrant filter includes user + workspace |
-| Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; legacy file migrate + delete |
+| Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; hosted put requires Storage credentials; legacy file migrate + delete |
 | Unit | `test_study_design_merge.py` | Workspace study_design deep merge |
 | Unit | `test_secrets.py` / `test_llm_settings.py` | Fernet roundtrip; GET omits `api_key`; BYOK `get_llm`; tighter token cap; RLS table list in SQL |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue (`workspace_id` required on chat/gap/agent) |

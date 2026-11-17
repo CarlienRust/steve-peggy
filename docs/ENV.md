@@ -65,7 +65,7 @@ Embeddings run on the **API host**. Render defaults to hash (not semantic). Host
 | `SQLITE_DB` | Local only | `./data/peggy.db` | Ignored when `DATABASE_URL` set |
 | `DATABASE_URL` | Auth + Render | — | Supabase pooler URI |
 | `SUPABASE_URL` | Hosted files + JWT JWKS | — | Project URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Hosted file store | — | API only; private Storage `peggy-uploads` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Hosted file store | — | Required whenever `DATABASE_URL` is set. Without it, uploads fail instead of writing ephemeral disk. API only; private Storage `peggy-uploads`. |
 | `UPLOAD_DIR` | Solo files | `data/uploads` | Local originals: `{project_id}/{filename}` and `{project_id}/study_docs/{filename}` |
 | `STORAGE_BUCKET` | Hosted files | `peggy-uploads` | Private bucket; same object paths as solo |
 | `SUPABASE_JWT_SECRET` | If `AUTH_REQUIRED=true` | — | JWT Secret from API settings |
@@ -74,7 +74,8 @@ Embeddings run on the **API host**. Render defaults to hash (not semantic). Host
 | `LLM_PROVIDER` | No | `ollama` locally; `gemini` when `RENDER=true` | |
 | `GEMINI_API_KEY` | If gemini LLM or embed | — | Free tier at [aistudio.google.com/apikey](https://aistudio.google.com/apikey). Platform default when the user has no BYOK key. |
 | `PEGGY_SECRETS_KEY` | Hosted BYOK | — | Fernet urlsafe 32-byte key. Encrypts `user_llm_settings.api_key_ciphertext`. Never send to the browser. Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Chat model id (`models/` prefix stripped). Retired ids (`gemini-2.0-flash`, `gemini-1.5-*`) are remapped to `gemini-3.8-flash` even if Render still has the old env value. |
+| `GEMINI_MODEL` | No | `gemini-3.8-flash` | Chat model id (`models/` prefix stripped). Retired ids (`gemini-2.0-flash`, `gemini-1.5-*`) are remapped to `gemini-3.8-flash` even if Render still has the old env value. Capacity errors retry this model, then `GEMINI_FALLBACK_MODELS`. |
+| `GEMINI_FALLBACK_MODELS` | No | `gemini-2.5-flash,gemini-flash-latest` | Tried after the primary model returns high-demand / 429 / 503. Used for chat, literature PDF extract, and conference abstract. |
 | `GEMINI_EMBED_MODEL` | No | `text-embedding-004` | Used when `EMBEDDING_BACKEND=gemini` |
 | `EMBEDDING_BACKEND` | No | `hash` on Render; `auto` local | `gemini` creates new collections; do not overwrite old vectors |
 | `JOB_TOKEN` | Hosted jobs | empty | Header `X-Job-Token` for retraction recheck and re-embed |

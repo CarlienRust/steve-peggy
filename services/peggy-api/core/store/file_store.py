@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 import httpx
 
@@ -15,8 +16,12 @@ logger = logging.getLogger(__name__)
 _SAFE_NAME = re.compile(r"[^A-Za-z0-9._-]+")
 
 
+def supabase_storage_ready() -> bool:
+    return bool(config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY)
+
+
 def uses_supabase_storage() -> bool:
-    return bool(config.DATABASE_URL and config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY)
+    return bool(config.DATABASE_URL) and supabase_storage_ready()
 
 
 _STUDY_DOC_TYPES = frozenset({"sample_datasets", "ethics_documents"})
@@ -66,7 +71,12 @@ async def put_bytes(
 ) -> str:
     key = storage_object_path(workspace_id, paper_id, filename, source_type)
     _write_local(key, data)
-    if uses_supabase_storage():
+    if config.DATABASE_URL:
+        if not supabase_storage_ready():
+            raise RuntimeError(
+                "Hosted uploads need SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY "
+                "so files survive API restarts. Set both on the API host."
+            )
         await _sb_upload(key, data, content_type or "application/octet-stream")
         return f"sb:{key}"
     return f"local:{key}"
@@ -77,7 +87,7 @@ async def get_bytes(storage_key: str) -> bytes:
     local_path = _local_root() / key
     if local_path.is_file():
         return local_path.read_bytes()
-    if uses_supabase_storage():
+    if supabase_storage_ready():
         data = await _sb_download(key)
         try:
             _write_local(key, data)
@@ -130,7 +140,7 @@ async def get_paper_bytes(user_id: str, paper: dict) -> bytes:
         local_path = _local_root() / key
         if local_path.is_file():
             return local_path.read_bytes()
-        if uses_supabase_storage():
+        if supabase_storage_ready():
             try:
                 return await _sb_download(key)
             except FileNotFoundError:
@@ -263,6 +273,11 @@ def _sb_base() -> str:
     return f"{config.SUPABASE_URL.rstrip('/')}/storage/v1"
 
 
+def _object_url(object_path: str) -> str:
+    encoded = quote(object_path, safe="/")
+    return f"{_sb_base()}/object/{config.STORAGE_BUCKET}/{encoded}"
+
+
 async def _ensure_bucket(client: httpx.AsyncClient) -> None:
     bucket = config.STORAGE_BUCKET
     r = await client.get(f"{_sb_base()}/bucket/{bucket}", headers=_sb_headers())
@@ -280,19 +295,20 @@ async def _ensure_bucket(client: httpx.AsyncClient) -> None:
 async def _sb_upload(object_path: str, data: bytes, content_type: str) -> None:
     async with httpx.AsyncClient(timeout=60.0) as client:
         await _ensure_bucket(client)
-        url = f"{_sb_base()}/object/{config.STORAGE_BUCKET}/{object_path}"
-        r = await client.post(
-            url,
-            headers=_sb_headers({"Content-Type": content_type, "x-upsert": "true"}),
-            content=data,
-        )
+        url = _object_url(object_path)
+        headers = _sb_headers({"Content-Type": content_type, "x-upsert": "true"})
+        r = await client.put(url, headers=headers, content=data)
         if r.status_code >= 400:
-            raise RuntimeError(f"Supabase Storage upload failed ({r.status_code})")
+            r = await client.post(url, headers=headers, content=data)
+        if r.status_code >= 400:
+            detail = (r.text or "")[:240]
+            logger.error("Supabase Storage upload failed %s %s", r.status_code, detail)
+            raise RuntimeError(f"Supabase Storage upload failed ({r.status_code}): {detail}")
 
 
 async def _sb_download(object_path: str) -> bytes:
     async with httpx.AsyncClient(timeout=60.0) as client:
-        url = f"{_sb_base()}/object/{config.STORAGE_BUCKET}/{object_path}"
+        url = _object_url(object_path)
         r = await client.get(url, headers=_sb_headers())
         if r.status_code >= 400:
             raise FileNotFoundError(object_path)
@@ -301,5 +317,5 @@ async def _sb_download(object_path: str) -> bytes:
 
 async def _sb_delete(object_path: str) -> None:
     async with httpx.AsyncClient(timeout=30.0) as client:
-        url = f"{_sb_base()}/object/{config.STORAGE_BUCKET}/{object_path}"
+        url = _object_url(object_path)
         await client.delete(url, headers=_sb_headers())

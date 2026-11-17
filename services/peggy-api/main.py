@@ -172,12 +172,16 @@ async def health():
     ollama_ok = await ollama_reachable() if config.LLM_PROVIDER == "ollama" else None
 
     db_ok = bool(config.DATABASE_URL) or bool(config.SQLITE_DB)
-    storage_ok = bool(config.SUPABASE_URL and config.SUPABASE_SERVICE_ROLE_KEY) or True
+    from core.store.file_store import supabase_storage_ready, uses_supabase_storage
+
+    storage_ok = (not bool(config.DATABASE_URL)) or uses_supabase_storage()
+    storage_configured = supabase_storage_ready()
     return {
         "status": "ok",
         "qdrant": qdrant_ok,
         "database": db_ok,
         "storage": storage_ok,
+        "storage_configured": storage_configured,
         "llm_provider": config.LLM_PROVIDER,
         "gemini_tier": config.GEMINI_TIER,
         "llm_configured": llm_configured,
