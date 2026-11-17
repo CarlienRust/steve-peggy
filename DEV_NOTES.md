@@ -143,6 +143,14 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 - Reminders
 - Data/Files already present: Need to plan and execute a way to use files and document user might already have to auto-fill the project info across the platform. For example, a proposal or brief on a project.
 
+## Batch 22
+
+1) Literature search/CTA in row of article: Not properly aligned. 
+2) Fill from proposal or brief: This action should be on final page/steps of "+ New project", not on the Project dashboard
+3) Reading journal/View: Still getting orignal file not stored on live app; Sample and datasets view of file works. 
+4) This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://aistudio.google.com/docs/get-started). [Error] Failed to load resource: the server responded with a status of 502 () (validate-aim, line 0)
+5) No fix should break local or live app if changes is made to one or the other. 
+
 ## FUTURE:
 
 **Still open:**
@@ -150,11 +158,8 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 - GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
 
 In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
-
 Meeting scheduler/Doodle
-
 Invite collaborators/share project with other user
-
 Link invited supervisor/collaborator to specific objective/task/aim 
 
 ## ANALYSIS TOOLS:

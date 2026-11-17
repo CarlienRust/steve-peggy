@@ -107,12 +107,14 @@ def _legacy_object_keys(user_id: str, paper: dict) -> list[str]:
     keys = [
         f"{user_id}/{ws}/{pid}/{safe}",
         f"{ws}/{prefixed}",
+        f"{ws}/{safe}",
+        f"{ws}/{pid}/{safe}",
         f"{ws}/study_docs/{prefixed}",
+        f"{ws}/study_docs/{safe}",
+        f"{ws}/study_docs/{pid}/{safe}",
     ]
     if st in _STUDY_DOC_TYPES:
         keys.append(f"{ws}/{safe}")
-    else:
-        keys.append(f"{ws}/study_docs/{safe}")
     return keys
 
 
@@ -136,7 +138,26 @@ async def get_paper_bytes(user_id: str, paper: dict) -> bytes:
         except FileNotFoundError:
             pass
     keys = [canonical_object_path(paper), *_legacy_object_keys(user_id, paper)]
+    seen: set[str] = set()
+    unique_keys: list[str] = []
     for key in keys:
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_keys.append(key)
+    for key in unique_keys:
+        local_path = _local_root() / key
+        if local_path.is_file():
+            return local_path.read_bytes()
+        if supabase_storage_ready():
+            try:
+                return await _sb_download(key)
+            except FileNotFoundError:
+                pass
+    listed = await _list_candidate_keys(user_id, paper)
+    for key in listed:
+        if key in seen:
+            continue
         local_path = _local_root() / key
         if local_path.is_file():
             return local_path.read_bytes()
@@ -304,6 +325,64 @@ async def _sb_upload(object_path: str, data: bytes, content_type: str) -> None:
             detail = (r.text or "")[:240]
             logger.error("Supabase Storage upload failed %s %s", r.status_code, detail)
             raise RuntimeError(f"Supabase Storage upload failed ({r.status_code}): {detail}")
+
+
+def _name_matches_paper(object_name: str, paper: dict) -> bool:
+    safe = _SAFE_NAME.sub("_", str(paper.get("original_filename") or "upload").strip())[:180] or "upload"
+    pid = str(int(paper["id"]))
+    name = object_name.replace("\\", "/").split("/")[-1]
+    if name == safe or object_name.endswith("/" + safe):
+        return True
+    if name.startswith(pid + "_") or f"/{pid}_" in object_name or f"/{pid}/" in f"/{object_name}":
+        return True
+    return False
+
+
+async def _list_candidate_keys(user_id: str, paper: dict) -> list[str]:
+    ws = str(paper.get("workspace_id") or "none")
+    prefixes = [f"{ws}/", f"{user_id}/{ws}/"]
+    found: list[str] = []
+    root = _local_root()
+    for prefix in prefixes:
+        folder = root / prefix.rstrip("/")
+        if folder.is_dir():
+            for path in folder.rglob("*"):
+                if not path.is_file():
+                    continue
+                rel = str(path.relative_to(root)).replace("\\", "/")
+                if _name_matches_paper(rel, paper):
+                    found.append(rel)
+    if supabase_storage_ready():
+        for prefix in prefixes:
+            for name in await _sb_list(prefix):
+                full = f"{prefix}{name}" if not str(name).startswith(prefix) else str(name)
+                if _name_matches_paper(full, paper) and full not in found:
+                    found.append(full)
+    return found
+
+
+async def _sb_list(prefix: str) -> list[str]:
+    names: list[str] = []
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                f"{_sb_base()}/object/list/{config.STORAGE_BUCKET}",
+                headers=_sb_headers({"Content-Type": "application/json"}),
+                json={"prefix": prefix, "limit": 100},
+            )
+            if r.status_code >= 400:
+                return []
+            rows = r.json()
+            if not isinstance(rows, list):
+                return []
+            for row in rows:
+                if isinstance(row, dict) and row.get("name"):
+                    names.append(str(row["name"]))
+                elif isinstance(row, str):
+                    names.append(row)
+    except Exception:
+        return []
+    return names
 
 
 async def _sb_download(object_path: str) -> bytes:

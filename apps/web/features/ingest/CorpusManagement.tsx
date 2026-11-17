@@ -295,11 +295,13 @@ export function CorpusManagement() {
                       <TableCell>
                         <StatusChip label={extractionChipLabel(p)} tone={extractionChipTone(p)} />
                       </TableCell>
-                      <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <TableCell align="right" onClick={(e) => e.stopPropagation()} sx={{ whiteSpace: "nowrap" }}>
+                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
                         {p.id ? (
                           <Button
                             size="small"
-                            sx={{ textTransform: "none", mr: 0.5 }}
+                            variant="text"
+                            sx={{ textTransform: "none", minWidth: 0, px: 1 }}
                             onClick={() =>
                               peggyApi
                                 .updatePaper(p.id!, {
@@ -327,6 +329,7 @@ export function CorpusManagement() {
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
+                        </Stack>
                       </TableCell>
                     </TableRow>
                   ))

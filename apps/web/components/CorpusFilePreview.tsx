@@ -26,10 +26,11 @@ export function CorpusFilePreview({
   paper: PaperRecord | null;
   onClose: () => void;
 }) {
+  const expectStoredFile = Boolean(paper?.storage_key || paper?.original_filename);
   const fileQuery = useQuery({
     queryKey: ["paper-file", paper?.id],
     queryFn: () => peggyApi.getPaperFile(paper!.id!),
-    enabled: !!paper?.id,
+    enabled: !!paper?.id && expectStoredFile,
     retry: false,
   });
   const textQuery = useQuery({
@@ -77,9 +78,9 @@ export function CorpusFilePreview({
         ) : (
           <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", fontFamily: "monospace" }}>
             {textQuery.data?.text?.trim() ||
-              (fileQuery.isError
+              (expectStoredFile && fileQuery.isError
                 ? formatApiError(fileQuery.error)
-                : "No stored file or extracted text for this paper. Re-upload the PDF to preview the document.")}
+                : "No uploaded PDF for this record. Use the publisher or PubMed link above, or re-upload the PDF.")}
           </Typography>
         )}
       </DialogContent>

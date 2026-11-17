@@ -165,6 +165,17 @@ def _gemini_error_payload(response: httpx.Response) -> tuple[str, str]:
     return message, status
 
 
+def _gemini_model_unavailable(response: httpx.Response) -> bool:
+    message, status = _gemini_error_payload(response)
+    blob = f"{message} {status}".lower()
+    if response.status_code in (404, 400, 403) and any(
+        h in blob
+        for h in ("no longer available", "not found", "not supported", "is not available")
+    ):
+        return True
+    return False
+
+
 def _gemini_retryable(response: httpx.Response) -> bool:
     if response.status_code in (429, 500, 503):
         return True
@@ -210,6 +221,8 @@ async def _gemini_post(api_key: str, body: dict[str, Any]) -> httpx.Response:
                 if response.is_success:
                     return response
                 last = response
+                if _gemini_model_unavailable(response):
+                    break
                 if not _gemini_retryable(response):
                     _raise_gemini_error(response)
                 await asyncio.sleep(1.2 * (attempt + 1))

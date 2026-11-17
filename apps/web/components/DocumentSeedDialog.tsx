@@ -37,9 +37,11 @@ type Preview = {
 export function DocumentSeedDialog({
   open,
   onClose,
+  closeLabel = "Cancel",
 }: {
   open: boolean;
   onClose: () => void;
+  closeLabel?: string;
 }) {
   const qc = useQueryClient();
   const { activeWorkspace, refetch } = useWorkspace();
@@ -171,7 +173,7 @@ export function DocumentSeedDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Cancel</Button>
+        <Button onClick={onClose}>{closeLabel}</Button>
         {!preview ? (
           <Button
             variant="contained"

@@ -33,23 +33,24 @@ function CandidateCard({
   candidate,
   selected,
   onToggle,
+  onAdd,
+  adding,
 }: {
   candidate: DiscoveryCandidate;
   selected: boolean;
   onToggle: () => void;
+  onAdd: () => void;
+  adding: boolean;
 }) {
   const score =
     candidate.relevance_score != null ? `${(candidate.relevance_score * 100).toFixed(0)}%` : "—";
   return (
     <Paper variant="outlined" sx={{ p: 2, opacity: candidate.already_in_corpus ? 0.85 : 1 }}>
-      <Stack direction="row" spacing={1} alignItems="flex-start">
-        <Checkbox checked={selected} onChange={onToggle} sx={{ mt: -0.5 }} disabled={candidate.already_in_corpus} />
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Checkbox checked={selected} onChange={onToggle} disabled={candidate.already_in_corpus} sx={{ p: 0.5 }} />
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mb: 0.5 }}>
             <Chip label={SOURCE_LABELS[candidate.source] ?? candidate.source} size="small" variant="outlined" />
-            {candidate.already_in_corpus && (
-              <Chip label="In corpus" size="small" color="default" variant="filled" />
-            )}
             {candidate.year != null && (
               <Chip label={String(candidate.year)} size="small" variant="outlined" />
             )}
@@ -70,6 +71,21 @@ function CandidateCard({
             </Typography>
           )}
         </Box>
+        <Box sx={{ flexShrink: 0, alignSelf: "center" }}>
+          {candidate.already_in_corpus ? (
+            <Chip label="In corpus" size="small" />
+          ) : (
+            <Button
+              size="small"
+              variant="contained"
+              disabled={adding}
+              onClick={onAdd}
+              sx={{ textTransform: "none", whiteSpace: "nowrap" }}
+            >
+              {adding ? <CircularProgress size={16} color="inherit" /> : "Add"}
+            </Button>
+          )}
+        </Box>
       </Stack>
     </Paper>
   );
@@ -88,6 +104,7 @@ export function DiscoveryPanel() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [ingestMsg, setIngestMsg] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
+  const [addingIndex, setAddingIndex] = useState<number | null>(null);
 
   const suggestionsQuery = useQuery({
     queryKey: ["discover-suggestions", activeWorkspace?.id],
@@ -137,7 +154,9 @@ export function DiscoveryPanel() {
     onSuccess: (job) => {
       if (job) setIngestMsg(`Ingest job queued: ${job.job_id}`);
       setSelected(new Set());
+      setAddingIndex(null);
     },
+    onSettled: () => setAddingIndex(null),
   });
 
   const toggle = (idx: number) => {
@@ -180,7 +199,7 @@ export function DiscoveryPanel() {
         </Stack>
       )}
 
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={1}>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems={{ xs: "stretch", sm: "center" }}>
         <TextField
           label="Topic"
           value={topic}
@@ -252,6 +271,11 @@ export function DiscoveryPanel() {
                   candidate={c}
                   selected={selected.has(i)}
                   onToggle={() => toggle(i)}
+                  adding={ingestMut.isPending && addingIndex === i}
+                  onAdd={() => {
+                    setAddingIndex(i);
+                    ingestMut.mutate([i]);
+                  }}
                 />
               ))}
             </>

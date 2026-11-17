@@ -9,6 +9,7 @@ import { TrainingOptOutTable } from "@/components/TrainingOptOutTable";
 import { ModuleToggleRow } from "@/components/ModuleToggleRow";
 import { SetupShell } from "@/components/setup/SetupShell";
 import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
+import { DocumentSeedDialog } from "@/components/DocumentSeedDialog";
 import { useAuthSession } from "@/lib/authContext";
 import { useWorkspace } from "@/lib/workspaceContext";
 
@@ -30,7 +31,6 @@ export default function NewProjectPage() {
   const [privacy, setPrivacy] = useState<"standard" | "strict">("standard");
   const [modules, setModules] = useState<string[]>(["core", "study-design"]);
   const [consent, setConsent] = useState(false);
-  const [fillFromDoc, setFillFromDoc] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const canNext = useMemo(() => {
@@ -50,21 +50,24 @@ export default function NewProjectPage() {
         last_opened_at: new Date().toISOString(),
         settings: { peer_reviewed_only: true },
       });
-      return { ws, fillFromDoc };
+      return { ws };
     },
-    onSuccess: ({ ws, fillFromDoc: openSeed }) => {
+    onSuccess: ({ ws }) => {
       if (userId) void qc.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
       setActiveWorkspaceId(ws.id);
-      if (openSeed && typeof window !== "undefined") {
-        sessionStorage.setItem("peggy-seed", "1");
-      }
-      router.push("/dashboard");
+      setStep(5);
     },
     onError: (e: unknown) => setError(formatApiError(e)),
   });
 
   return (
-    <SetupShell title="New project" subtitle="Four short steps. You can change this later." step={step} showBackButton={false}>
+    <SetupShell
+      title="New project"
+      subtitle={step === 5 ? "Optional: fill fields from a proposal or brief." : "Four short steps. You can change this later."}
+      step={step}
+      totalSteps={5}
+      showBackButton={false}
+    >
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Stack spacing={2}>
           {error ? <Alert severity="error">{error}</Alert> : null}
@@ -75,13 +78,7 @@ export default function NewProjectPage() {
             </>
           ) : null}
           {step === 2 ? (
-            <>
-              <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required />
-              <FormControlLabel
-                control={<Checkbox checked={fillFromDoc} onChange={(e) => setFillFromDoc(e.target.checked)} />}
-                label="Fill from a proposal or brief after create"
-              />
-            </>
+            <TextField label="Project title" value={title} onChange={(e) => setTitle(e.target.value)} required />
           ) : null}
           {step === 3 ? (
             <Box>
@@ -124,6 +121,7 @@ export default function NewProjectPage() {
               ) : null}
             </>
           ) : null}
+          {step < 5 ? (
           <Stack direction="row" justifyContent="space-between">
             <Button disabled={step === 1} onClick={() => setStep((s) => s - 1)}>
               Back
@@ -138,8 +136,18 @@ export default function NewProjectPage() {
               </Button>
             )}
           </Stack>
+          ) : (
+            <Button variant="outlined" onClick={() => router.push("/dashboard")} sx={{ textTransform: "none" }}>
+              Skip and go to dashboard
+            </Button>
+          )}
         </Stack>
       </Paper>
+      <DocumentSeedDialog
+        open={step === 5}
+        closeLabel="Skip"
+        onClose={() => router.push("/dashboard")}
+      />
     </SetupShell>
   );
 }

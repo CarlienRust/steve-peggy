@@ -23,6 +23,9 @@ LLM_PROVIDER = os.getenv("LLM_PROVIDER", _LLM_DEFAULT).lower()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 _RETIRED_GEMINI_MODELS = {
+    "gemini-2.5-flash": "gemini-3.8-flash",
+    "gemini-2.5-flash-lite": "gemini-3.8-flash",
+    "gemini-2.5-pro": "gemini-3.8-flash",
     "gemini-2.0-flash": "gemini-3.8-flash",
     "gemini-2.0-flash-001": "gemini-3.8-flash",
     "gemini-2.0-flash-lite": "gemini-3.8-flash",
@@ -41,7 +44,7 @@ def normalize_gemini_model(raw: str | None) -> str:
 
 
 GEMINI_MODEL = normalize_gemini_model(os.getenv("GEMINI_MODEL", "gemini-3.8-flash"))
-_GEMINI_FALLBACK_DEFAULT = "gemini-2.5-flash,gemini-flash-latest"
+_GEMINI_FALLBACK_DEFAULT = "gemini-flash-latest"
 
 
 def gemini_model_candidates() -> list[str]:

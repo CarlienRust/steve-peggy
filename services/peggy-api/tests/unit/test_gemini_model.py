@@ -5,6 +5,8 @@ from config import gemini_model_candidates, normalize_gemini_model
 def test_retired_flash_maps_to_3_8():
     assert normalize_gemini_model("gemini-2.0-flash") == "gemini-3.8-flash"
     assert normalize_gemini_model("models/gemini-2.0-flash") == "gemini-3.8-flash"
+    assert normalize_gemini_model("gemini-2.5-flash") == "gemini-3.8-flash"
+    assert normalize_gemini_model("models/gemini-2.5-flash") == "gemini-3.8-flash"
 
 
 def test_gemini_request_url_uses_3_8(monkeypatch):
@@ -20,8 +22,9 @@ def test_gemini_request_url_uses_3_8(monkeypatch):
 def test_gemini_model_candidates_include_fallback(monkeypatch):
     import config
 
-    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash")
+    monkeypatch.setenv("GEMINI_FALLBACK_MODELS", "gemini-2.5-flash,gemini-flash-latest")
     monkeypatch.setattr(config, "GEMINI_MODEL", "gemini-3.8-flash")
     names = gemini_model_candidates()
     assert names[0] == "gemini-3.8-flash"
-    assert "gemini-2.5-flash" in names
+    assert "gemini-2.5-flash" not in names
+    assert "gemini-flash-latest" in names

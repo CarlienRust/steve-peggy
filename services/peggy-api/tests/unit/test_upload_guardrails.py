@@ -78,6 +78,20 @@ def test_get_bytes_falls_back_to_supabase_when_local_missing(tmp_path, monkeypat
     assert data == b"from-sb"
 
 
+def test_literature_lookup_includes_filename_only_path():
+    paper = {
+        "id": 9,
+        "workspace_id": "w1",
+        "original_filename": "brief.pdf",
+        "source_type": "literature",
+    }
+    keys = file_store._legacy_object_keys("u1", paper)
+    assert "w1/brief.pdf" in keys
+    assert "w1/9_brief.pdf" in keys
+    assert file_store._name_matches_paper("w1/brief.pdf", paper)
+    assert file_store._name_matches_paper("w1/9_brief.pdf", paper)
+
+
 def test_hosted_put_requires_storage_credentials(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DATABASE_URL", "postgres://x")
     monkeypatch.setattr(config, "SUPABASE_URL", "")
