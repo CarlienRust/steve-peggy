@@ -135,7 +135,7 @@ export function HomePage() {
           <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
               <Typography sx={eyebrowSx}>Your projects</Typography>
-              <Button size="small" onClick={() => router.push("/setup/step-1")}>
+              <Button size="small" onClick={() => router.push("/projects/new")}>
                 + New project
               </Button>
             </Stack>

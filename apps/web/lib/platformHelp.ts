@@ -11,7 +11,7 @@ export const PLATFORM_HELP_SECTIONS: HelpSection[] = [
     items: [
       {
         heading: "Create a project",
-        body: "Use + New project on Home or Project hub, or open the four-step wizard from Project hub. Each project has its own papers, findings, and plans.",
+        body: "Use + New project on Home or Project hub. Both open the same wizard: project details, setting, then AI settings. Each project has its own papers, findings, and plans.",
       },
       {
         heading: "Open a project",

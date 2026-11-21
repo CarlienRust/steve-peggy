@@ -166,7 +166,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
-| `/projects/new` | — | Hub sidebar. Step 1: name, optional project type, research field, optional data types, outcome, starting point (idea / gap / proposal). Step 2 (last): AI privacy mode. Proposal then opens fill-from-document. Saves type and data types on `samples`, outcome on `analysisPlan.outcomeTypes`, field and starting point on workspace `settings`. |
+| `/projects/new` | — | Same wizard from Home and Project hub. Step 1: name, optional type, field, optional data types, outcome, starting point (idea / gap / proposal). Step 2: setting (country/region, setting type, population). Step 3 last: AI privacy. Proposal then fill-from-document. Saves setting fields on `workspaces.settings` and samples. `/setup/step-*` redirects here. |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; Add event; weekly/monthly/yearly repeat (one stored series, expanded on list). Ethics renewal and project-admin dates arrive from those screens. |
 | `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF; delete one paper or all literature; migrate stored files on load |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
@@ -174,7 +174,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/help` | Help (sidebar footer) | Platform tips: navigation, validate, design, Ask Peggy |
 | `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
-| `/setup/step-*` | — | New-project wizard (uses HomeAppShell) |
+| `/setup/step-*` | — | Redirects to `/projects/new` |
 | `/dashboard` | 01 Dashboard | Project flow chips match stored work: idea/aim text, samples+methods for Design, ethics JSON **or** `ethics_documents` papers, Results from `own_findings`. Next step is the first incomplete chip (not a stale objective-changed flag). **Export project JSON**, **Download transfer pack**, **Import transfer pack**. Evidence coverage counts literature by study-design and exposure keywords. |
 | `/project-admin` | 02 Project admin | Owner fields: student registration, start/end, grants, outputs; MOU PDF upload/view (`project_documents`). Dated fields write `user_calendar_events`. Not a Study Design tab. |
 | `/validate` | 03 Validate | Section hub (when to use each step); tab bar on sub-pages |

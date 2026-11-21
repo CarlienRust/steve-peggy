@@ -289,22 +289,33 @@ function FlowRow({ progress }: { progress: ProjectProgressSnapshot }) {
   }));
 
   return (
-    <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ pt: 1 }}>
+    <Box
+      sx={{
+        pt: 1,
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(10.5rem, 1fr))",
+        gap: 2,
+        alignItems: "start",
+      }}
+    >
       {steps.map((s, idx) => (
-        <Stack key={s.label} direction="row" alignItems="center" spacing={2} sx={{ flex: 1, minWidth: 0 }}>
+        <Stack key={s.label} direction="row" alignItems="flex-start" spacing={1.5} sx={{ minWidth: 0, overflow: "visible" }}>
           <FlowMarker state={s.state} number={s.number ?? String(idx + 1)} href={s.href} label={s.label} />
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="body2" fontWeight={600} noWrap>
+          <Box sx={{ minWidth: 0, flex: 1, overflow: "visible" }}>
+            <Typography variant="body2" fontWeight={600} sx={{ whiteSpace: "normal", overflowWrap: "break-word" }}>
               {s.label}
             </Typography>
-            <Typography variant="caption" color="text.secondary" noWrap>
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ display: "block", whiteSpace: "normal", overflowWrap: "break-word" }}
+            >
               {s.note}
             </Typography>
           </Box>
-          {idx < steps.length - 1 ? <Box sx={{ flex: 1, height: 2, bgcolor: "divider" }} /> : null}
         </Stack>
       ))}
-    </Stack>
+    </Box>
   );
 }
 

@@ -169,7 +169,7 @@ Supabase must store the same fields as SQLite (no extra tables for new-project s
 
 **Shipped**
 
-- **New project (`/projects/new`):** hub sidebar. Step 1: name, optional project type, research field, optional data types, outcome, starting point (idea / gap / proposal + optional upload). Step 2 last: AI privacy. Proposal opens fill-from-document after create. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field + starting point → `workspaces.settings` JSON. Module toggles removed. `enabled_modules` stays `["core"]` for extraction.
+- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, optional type, field, optional data types, outcome, starting point (idea / gap / proposal + optional upload). Step 2: setting (country/region, setting type, population). Step 3 last: AI privacy. Proposal fill-from-document after create. `/setup/step-*` redirects here. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field, starting point, and setting keys → `workspaces.settings` JSON. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
 - **Ethics:** dashboard and study-design hub do not require samples/methods first.
 - **Calendar:** edit existing events.
 - **Reading journal:** SOP / required-method checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
@@ -177,6 +177,8 @@ Supabase must store the same fields as SQLite (no extra tables for new-project s
 - **Literature:** extraction can use stored file text (`load_paper_text`) when the session upload is gone.
 - **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only.
 - **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
+
+Dashboard/Project Flow: Text doesn't fit in the content. No where in the app should text overflow outside of content blocks. Text is cut-off here and use ... - this should never happen. It is weak UI design. 
 
 ## FUTURE:
 
