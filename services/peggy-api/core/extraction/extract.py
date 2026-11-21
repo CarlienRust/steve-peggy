@@ -47,6 +47,7 @@ async def extract_paper_fields(
     paper_id = int(paper["id"])
     source_type = paper.get("source_type") or "literature"
     title = paper.get("title") or "Untitled"
+    text = ""
     try:
         text = qdrant_store.get_paper_text(
             paper_id=paper_id,
@@ -55,14 +56,15 @@ async def extract_paper_fields(
             title=title,
         )
     except Exception:
-        return {
-            "paper_id": paper_id,
-            "title": title,
-            "status": "skipped",
-            "reason": "qdrant_unavailable",
-            "fields_written": 0,
-        }
-    if not text.strip():
+        text = ""
+    if not (text or "").strip():
+        from core.rag.document_seed import load_paper_text
+
+        try:
+            text = await load_paper_text(user_id, paper)
+        except Exception:
+            text = ""
+    if not (text or "").strip():
         return {
             "paper_id": paper_id,
             "title": title,

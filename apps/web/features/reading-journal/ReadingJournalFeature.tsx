@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   Dialog,
   DialogActions,
@@ -186,8 +187,22 @@ export function ReadingJournalFeature() {
           const notes = notesDraft[id] ?? paper.notes ?? "";
           const subtitle = [paper.authors, paper.year, paper.journal].filter(Boolean).join(" · ");
           return (
-            <Paper key={id} variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-              <Typography fontWeight={600}>{paper.title || "Untitled"}</Typography>
+            <Paper key={id} variant="outlined" sx={{ p: 2.5, borderRadius: 2, position: "relative" }}>
+              <Checkbox
+                size="small"
+                checked={paper.guidance_role === "sop" || paper.guidance_role === "required_method"}
+                onChange={(e) =>
+                  savePaper.mutate({
+                    id,
+                    data: { guidance_role: e.target.checked ? "sop" : "" },
+                  })
+                }
+                inputProps={{ "aria-label": "Use as SOP" }}
+                sx={{ position: "absolute", top: 8, right: 8 }}
+              />
+              <Typography fontWeight={600} sx={{ pr: 5 }}>
+                {paper.title || "Untitled"}
+              </Typography>
               {subtitle ? (
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
                   {subtitle}
@@ -218,29 +233,6 @@ export function ReadingJournalFeature() {
                     onClick={() => savePaper.mutate({ id, data: { notes } })}
                   >
                     Save notes
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() =>
-                      savePaper.mutate({
-                        id,
-                        data: {
-                          guidance_role:
-                            paper.guidance_role === "sop"
-                              ? "required_method"
-                              : paper.guidance_role === "required_method"
-                                ? ""
-                                : "sop",
-                        },
-                      })
-                    }
-                  >
-                    {paper.guidance_role === "sop"
-                      ? "SOP"
-                      : paper.guidance_role === "required_method"
-                        ? "Required method"
-                        : "Use as SOP"}
                   </Button>
                   <Button size="small" color="error" variant="outlined" onClick={() => setDeletePaper(paper)}>
                     Delete

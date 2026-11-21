@@ -21,7 +21,7 @@ const HUB_PREREQUISITES: Record<string, string> = {
   "/validate/literature": "PubMed queries or PDF files for this project.",
   "/validate/aim": "Aim and objectives set, plus at least one literature paper ingested.",
   "/study-design/samples": "Project aim helps Peggy prefill cohort and recruitment fields.",
-  "/study-design/ethics": "Samples section filled in enough to describe participants and data.",
+  "/study-design/ethics": "You can open Ethics at any time. Approval notes and letters are optional.",
   "/study-design/methods-plan": "Literature ingested if you want grounded plan suggestions.",
   "/study-design/budget": "Study type and expected N from samples (optional but helpful).",
   "/study-design/proposal": "Any study design sections you want included in the draft.",

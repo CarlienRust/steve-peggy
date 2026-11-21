@@ -121,7 +121,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /extraction-modules` | Versioned field schemas (`core`, `outcomes`, …) from `core/extraction/schemas/` |
 | `GET/POST /workspaces/{id}/extractions` | List or bulk upsert structured extractions per paper |
 | `PATCH /workspaces/{id}/extractions/{id}` | Review screen: confirm or correct a field (`status`, `value`, quote) |
-| `POST /workflows/extract` | Queue background extraction job (2 papers at a time); writes `extractions` rows |
+| `POST /workflows/extract` | Queue background extraction job (2 papers at a time); writes `extractions` rows. Paper text comes from Qdrant, then the stored original file if vectors are empty. |
 | `GET /workflows/extract/jobs/{id}` | Poll extraction job status and per-paper results |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
@@ -166,6 +166,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
+| `/projects/new` | — | Hub sidebar. Step 1: name, optional project type, research field, optional data types, outcome, starting point (idea / gap / proposal). Step 2 (last): AI privacy mode. Proposal then opens fill-from-document. Saves type and data types on `samples`, outcome on `analysisPlan.outcomeTypes`, field and starting point on workspace `settings`. |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; Add event; weekly/monthly/yearly repeat (one stored series, expanded on list). Ethics renewal and project-admin dates arrive from those screens. |
 | `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF; delete one paper or all literature; migrate stored files on load |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |
@@ -174,7 +175,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/setup` | — | Redirects to `/setup/checks` |
 | `/setup/checks` | — | Setup check (`GET /setup/checks`): status card, check list, copyable fix commands |
 | `/setup/step-*` | — | New-project wizard (uses HomeAppShell) |
-| `/dashboard` | 01 Dashboard | Per-objective progress (manual done toggle, linked artifacts) + project setup roadmap; **Export project JSON**, **Download transfer pack**, **Import transfer pack**. Evidence coverage counts literature by study-design and exposure keywords. |
+| `/dashboard` | 01 Dashboard | Project flow chips match stored work: idea/aim text, samples+methods for Design, ethics JSON **or** `ethics_documents` papers, Results from `own_findings`. Next step is the first incomplete chip (not a stale objective-changed flag). **Export project JSON**, **Download transfer pack**, **Import transfer pack**. Evidence coverage counts literature by study-design and exposure keywords. |
 | `/project-admin` | 02 Project admin | Owner fields: student registration, start/end, grants, outputs; MOU PDF upload/view (`project_documents`). Dated fields write `user_calendar_events`. Not a Study Design tab. |
 | `/validate` | 03 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
@@ -182,7 +183,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 04 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 04 · Samples | Cohort profile (recruitment, inclusion/exclusion) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |
-| `/study-design/ethics` | 04 · Ethics | Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`). Saving an expiry date upserts an `ethics_renewal` calendar event. |
+| `/study-design/ethics` | 04 · Ethics | Open at any time (not gated on samples or methods). Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`). Saving an expiry date upserts an `ethics_renewal` calendar event. |
 | `/study-design/budget` | 04 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 04 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). Review also lists limitations, improvements, and supporting literature. `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
 | `/study-design/proposal` | 04 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |

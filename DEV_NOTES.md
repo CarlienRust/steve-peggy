@@ -151,6 +151,33 @@ Hosted stack: Render API, Supabase, Qdrant Cloud, Gemini. Local SQLite + Ollama 
 4) This model models/gemini-2.5-flash is no longer available to new users. Please update your code to use models/gemini-3.8-flash for the latest features and improvements. We recommend you to use the Interactions API (https://aistudio.google.com/docs/get-started). [Error] Failed to load resource: the server responded with a status of 502 () (validate-aim, line 0)
 5) No fix should break local or live app if changes is made to one or the other. 
 
+## Batch 23
+
+Original notes:
+
+2) Project Hub:
+2.1) +New project: Step 3 module toggles were unclear
+2.2) Sidebar should be the hub sidebar when creating a new project
+3) Calendar: edit calendar entries
+4) Reading journal: SOP checkbox; uploaded file must preview and persist (local + Render)
+5) Inside project:
+5.1) Dashboard next steps / project flow must match real progress (ethics files, results, design not grey when done; next step must not say “review objectives” when that is not the work)
+5.2) Project admin / Outputs: status needs an example
+5.3) Literature search: extraction + persistent original file (local + Render)
+Ethics must not be gated on samples or methods.
+Supabase must store the same fields as SQLite (no extra tables for new-project settings).
+
+**Shipped**
+
+- **New project (`/projects/new`):** hub sidebar. Step 1: name, optional project type, research field, optional data types, outcome, starting point (idea / gap / proposal + optional upload). Step 2 last: AI privacy. Proposal opens fill-from-document after create. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field + starting point → `workspaces.settings` JSON. Module toggles removed. `enabled_modules` stays `["core"]` for extraction.
+- **Ethics:** dashboard and study-design hub do not require samples/methods first.
+- **Calendar:** edit existing events.
+- **Reading journal:** SOP / required-method checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
+- **Outputs:** status field has example copy.
+- **Literature:** extraction can use stored file text (`load_paper_text`) when the session upload is gone.
+- **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only.
+- **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
+
 ## FUTURE:
 
 **Still open:**

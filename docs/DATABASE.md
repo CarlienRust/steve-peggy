@@ -67,7 +67,7 @@ Unique `(paper_id, module, field)`. CRUD via peggy-api only (`GET/PATCH /workspa
 **Transfer pack:** `GET /workspaces/{id}/transfer-pack` returns a ZIP (`manifest.json`, `chunks.json`, `files/{paper_id}/…`). `POST /workspaces/import-pack` recreates the project for the JWT user: new paper ids, files under the new owner path, Qdrant upsert of literature/findings/ethics **chunk texts** using the current embedder (hash on Render may differ from local sentence-transformers). Sample datasets restore files only. `023_papers_storage.sql` adds `papers.storage_key`, `original_filename`, `content_type`. Hosted files go in private Storage bucket `peggy-uploads`: literature at `{workspace_id}/{filename}`, ethics and sample datasets at `{workspace_id}/study_docs/{filename}` (same layout as a project folder in the Supabase dashboard). Solo mode uses the same relative paths under `UPLOAD_DIR`. Older `{user_id}/{workspace_id}/{paper_id}/{filename}` and `{workspace_id}/{paper_id}_{filename}` objects are copied onto the current path by `POST /corpus/migrate-files` (and on first `GET /corpus/{id}/file`). `DELETE /corpus/{id}` and `DELETE /corpus?source_type=literature` remove catalog rows, stored bytes, and Qdrant points.
 
 `013_workspace_project_fields.sql` adds Figma-aligned project fields on `workspaces`:
-- `resources JSONB`, `settings JSONB`, `enabled_modules JSONB`
+- `resources JSONB`, `settings JSONB` (includes optional `research_field`, `starting_point`, `peer_reviewed_only`; no extra columns), `enabled_modules JSONB`
 - `privacy_mode TEXT` (`strict` | `standard`; migration `024` maps `local_only` → `strict`, `hosted_allowed` → `standard`)
 - optional `last_opened_at TIMESTAMPTZ` (project hub cards)
 

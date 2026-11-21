@@ -13,6 +13,7 @@ export function ConditionalShell({ children }: { children: ReactNode }) {
   const isHomeShell =
     pathname === "/" ||
     pathname === "/projects" ||
+    pathname.startsWith("/projects/") ||
     pathname === "/ask" ||
     pathname === "/help" ||
     pathname === "/useful-links" ||

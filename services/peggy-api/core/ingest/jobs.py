@@ -138,6 +138,7 @@ async def _persist_upload_bytes(
             "storage_key": storage_key,
             "original_filename": filename or "",
             "content_type": content_type or "",
+            **({"full_text": True} if source_type not in ("sample_datasets",) else {}),
         },
     )
     if not updated:

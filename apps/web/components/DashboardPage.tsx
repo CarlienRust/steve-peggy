@@ -21,13 +21,17 @@ import { isAuthOptional } from "@/lib/localMode";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { WorkspaceEditDialog } from "@/components/WorkspaceEditDialog";
 import { WorkspaceGithubSection } from "@/components/WorkspaceGithubSection";
-import { countLiterature } from "@/lib/projectProgress";
+import {
+  buildProjectProgress,
+  countLiterature,
+  countOwnFindings,
+  type ProjectProgressSnapshot,
+} from "@/lib/projectProgress";
 import { EvidenceCoverageMatrix } from "@/components/EvidenceCoverageMatrix";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { eyebrowSx } from "@/theme/peggyTheme";
 import { StatusChip } from "@/components/StatusChip";
-import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 
 const DEFAULT_TITLE = process.env.NEXT_PUBLIC_WORKSPACE_TITLE ?? "Research project";
 
@@ -49,10 +53,46 @@ export function DashboardPage() {
     queryFn: () => peggyApi.listCorpus(undefined, activeWorkspace?.id),
     enabled: authReady && !!userId && !!activeWorkspace?.id,
   });
+  const gapHistory = useQuery({
+    queryKey: ["gap-history", activeWorkspace?.id],
+    queryFn: () => peggyApi.gapAnalysisHistory(activeWorkspace!.id),
+    enabled: authReady && !!userId && !!activeWorkspace?.id,
+  });
+  const aimHistory = useQuery({
+    queryKey: ["validate-aim-history", activeWorkspace?.id],
+    queryFn: () => peggyApi.validateAimHistory(activeWorkspace!.id),
+    enabled: authReady && !!userId && !!activeWorkspace?.id,
+  });
 
   const workspaceTitle = activeWorkspace?.title ?? DEFAULT_TITLE;
   const papers = corpus.data?.papers ?? [];
   const literatureCount = countLiterature(papers);
+  const findingsCount = countOwnFindings(papers);
+  const ethicsDocumentCount = papers.filter((p) => p.source_type === "ethics_documents").length;
+  const sampleDatasetCount = papers.filter((p) => p.source_type === "sample_datasets").length;
+  const progress = useMemo(
+    () =>
+      buildProjectProgress({
+        workspace: activeWorkspace,
+        studyDesign,
+        literatureCount,
+        ownFindingsCount: findingsCount,
+        ethicsDocumentCount,
+        sampleDatasetCount,
+        hasGapAnalysis: (gapHistory.data?.length ?? 0) > 0,
+        hasValidateAim: (aimHistory.data?.length ?? 0) > 0,
+      }),
+    [
+      activeWorkspace,
+      studyDesign,
+      literatureCount,
+      findingsCount,
+      ethicsDocumentCount,
+      sampleDatasetCount,
+      gapHistory.data,
+      aimHistory.data,
+    ]
+  );
 
   const llmReady = health.data?.llm_reachable ?? health.data?.llm_configured;
   const embeddingsOk = Boolean(health.data?.embeddings && health.data.embeddings !== "uninitialized");
@@ -158,19 +198,23 @@ export function DashboardPage() {
         <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }}>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
             <Typography sx={sectionEyebrowSx}>PROJECT FLOW</Typography>
-            <FlowRow objectives={objectivesNormalized} studyDesign={studyDesign} />
+            <FlowRow progress={progress} />
           </Paper>
 
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
             <Typography sx={sectionEyebrowSx}>NEXT STEP</Typography>
             <Typography fontWeight={600} sx={{ mb: 1 }}>
-              Review your objectives
+              {progress.nextStep?.label ?? "Project steps are complete"}
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {firstChangedObjective?.index
-                ? `Objective ${firstChangedObjective.index} changed after its method was written. Check that the link still fits.`
-                : "Check that your objectives still match the methods and analysis steps you have written."}
+              {progress.nextStep?.reason ?? `${progress.completedCount} of ${progress.totalCount} project steps done.`}
             </Typography>
+            {firstChangedObjective?.index ? (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Objective {firstChangedObjective.index} changed after linked methods or findings were written. Check the
+                link on Aim and objectives if that still matters.
+              </Alert>
+            ) : null}
             {objectivesNormalized.length > 0 ? (
               <Stack spacing={0.5} sx={{ mb: 2 }}>
                 {objectivesNormalized.map((o, i) => (
@@ -182,14 +226,22 @@ export function DashboardPage() {
               </Stack>
             ) : null}
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              <Button variant="contained" sx={{ textTransform: "none" }} onClick={() => (window.location.href = "/validate/aim")}>
-                Edit objectives
+              <Button
+                variant="contained"
+                sx={{ textTransform: "none" }}
+                onClick={() => {
+                  window.location.href = progress.nextStep?.href ?? "/validate/aim";
+                }}
+              >
+                {progress.nextStep ? `Go to ${progress.nextStep.label}` : "Open aim"}
               </Button>
-              <DisabledTooltipButton title="Finish your methods plan first">
-                <Button variant="outlined" disabled sx={{ textTransform: "none" }}>
-                  Start ethics
-                </Button>
-              </DisabledTooltipButton>
+              <Button
+                variant="outlined"
+                sx={{ textTransform: "none" }}
+                onClick={() => (window.location.href = "/study-design/ethics")}
+              >
+                {progress.flow.find((s) => s.id === "flow-ethics")?.done ? "Open ethics" : "Start ethics"}
+              </Button>
             </Stack>
           </Paper>
         </Stack>
@@ -226,39 +278,15 @@ type FlowStep = {
   number?: string;
 };
 
-function FlowRow({ objectives, studyDesign }: { objectives: ReturnType<typeof normalizeObjectives>; studyDesign: any }) {
-  const aimDone = objectives.length > 0;
-  const aimDraftCount = objectives.filter((o) => o.status === "draft").length;
-
-  const designSectionsTotal = 6;
-  const designSectionsDone = [
-    studyDesign.samples && Object.keys(studyDesign.samples || {}).some((k) => String((studyDesign.samples as any)[k] || "").trim()),
-    studyDesign.ethics && Object.keys(studyDesign.ethics || {}).some((k) => String((studyDesign.ethics as any)[k] || "").trim()),
-    studyDesign.methodsPlan && ((studyDesign.methodsPlan?.steps?.length ?? 0) > 0 || String(studyDesign.methodsPlan?.userPlan || "").trim()),
-    studyDesign.analysisPlan && ((studyDesign.analysisPlan?.steps?.length ?? 0) > 0 || String(studyDesign.analysisPlan?.userPlan || "").trim()),
-    studyDesign.budget && Object.keys(studyDesign.budget || {}).some((k) => String((studyDesign.budget as any)[k] || "").trim()),
-    studyDesign.proposal && (studyDesign.proposal?.generatedAt || studyDesign.proposal?.lastResult),
-  ].filter(Boolean).length;
-
-  const steps: FlowStep[] = [
-    { state: "done", label: "Idea or gap", note: aimDone ? "Idea entered" : "Not started", href: "/validate/gap-analysis", number: "1" },
-    {
-      state: "current",
-      label: "Aim and objectives",
-      note: `${aimDraftCount} drafted`,
-      number: "2",
-      href: "/validate/aim",
-    },
-    {
-      state: "upcoming",
-      label: "Design",
-      note: `${designSectionsDone} of ${designSectionsTotal} sections`,
-      number: "3",
-      href: "/study-design/samples",
-    },
-    { state: "upcoming", label: "Ethics and admin", note: "Not started", number: "4", href: "/study-design/ethics" },
-    { state: "upcoming", label: "Results", note: "Not started", number: "5", href: "/results/findings" },
-  ];
+function FlowRow({ progress }: { progress: ProjectProgressSnapshot }) {
+  const currentIdx = progress.flow.findIndex((s) => !s.done);
+  const steps: FlowStep[] = progress.flow.map((s, i) => ({
+    state: s.done ? "done" : currentIdx === i || (currentIdx === -1 && i === progress.flow.length - 1) ? "current" : "upcoming",
+    label: s.label,
+    note: s.reason ?? "",
+    href: s.href ?? "/dashboard",
+    number: String(i + 1),
+  }));
 
   return (
     <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" sx={{ pt: 1 }}>

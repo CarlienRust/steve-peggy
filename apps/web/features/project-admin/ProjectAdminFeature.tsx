@@ -388,14 +388,26 @@ export function ProjectAdminFeature() {
                     fullWidth
                   />
                   <TextField
+                    select
+                    SelectProps={{ native: true }}
                     label="Status"
-                    value={o.status}
+                    value={o.status || ""}
                     onChange={(e) => {
                       const next = outputs.map((row, idx) => (idx === i ? { ...row, status: e.target.value } : row));
                       patch({ outputs: next });
                     }}
+                    helperText="Where this output is in the writing cycle"
                     fullWidth
-                  />
+                  >
+                    <option value=""></option>
+                    <option value="planned">Planned (idea, not started)</option>
+                    <option value="in_progress">In progress (drafting)</option>
+                    <option value="submitted">Submitted (under review)</option>
+                    <option value="accepted">Accepted</option>
+                    <option value="published">Published</option>
+                    <option value="presented">Presented</option>
+                    <option value="withdrawn">Withdrawn</option>
+                  </TextField>
                 </Stack>
               </Stack>
             </Paper>

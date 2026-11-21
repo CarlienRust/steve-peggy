@@ -116,6 +116,13 @@ async def get_corpus_item_text(paper_id: int, user: AuthUser = Depends(get_curre
         )
     except Exception:
         text = ""
+    if not (text or "").strip():
+        from core.rag.document_seed import load_paper_text
+
+        try:
+            text = await load_paper_text(user.id, paper)
+        except Exception:
+            text = ""
     return {"paper_id": paper_id, "title": paper.get("title"), "text": text}
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Alert,
@@ -38,14 +38,18 @@ export function DocumentSeedDialog({
   open,
   onClose,
   closeLabel = "Cancel",
+  initialFile = null,
+  workspaceId: workspaceIdProp,
 }: {
   open: boolean;
   onClose: () => void;
   closeLabel?: string;
+  initialFile?: File | null;
+  workspaceId?: string;
 }) {
   const qc = useQueryClient();
   const { activeWorkspace, refetch } = useWorkspace();
-  const workspaceId = activeWorkspace?.id;
+  const workspaceId = workspaceIdProp ?? activeWorkspace?.id;
   const [paperId, setPaperId] = useState<number | "">("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [overwrite, setOverwrite] = useState(false);
@@ -115,6 +119,15 @@ export function DocumentSeedDialog({
     },
     onError: (e: unknown) => setError(formatApiError(e)),
   });
+
+  const uploadedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open || !workspaceId || !initialFile) return;
+    const key = `${workspaceId}:${initialFile.name}:${initialFile.size}`;
+    if (uploadedKey.current === key) return;
+    uploadedKey.current = key;
+    upload.mutate(initialFile);
+  }, [open, workspaceId, initialFile, upload]);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>

@@ -106,6 +106,7 @@ export function CalendarFeature() {
     return { year: n.getFullYear(), month: n.getMonth() };
   });
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
 
   const workspacesQuery = useQuery({
@@ -120,8 +121,8 @@ export function CalendarFeature() {
   });
 
   const saveEvent = useMutation({
-    mutationFn: () =>
-      peggyApi.createCalendarEvent({
+    mutationFn: () => {
+      const body = {
         title: draft.title.trim(),
         kind: draft.kind,
         starts_at: fromLocalInput(draft.starts_at),
@@ -130,13 +131,32 @@ export function CalendarFeature() {
         workspace_id: draft.workspace_id || null,
         recurrence: draft.recurrence,
         recurrence_until: draft.recurrence_until ? fromLocalInput(draft.recurrence_until) : null,
-      }),
+      };
+      if (editingId) return peggyApi.updateCalendarEvent(editingId, body);
+      return peggyApi.createCalendarEvent(body);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["calendar"] });
       setDialogOpen(false);
+      setEditingId(null);
       setDraft(emptyDraft());
     },
   });
+
+  const openEdit = (ev: CalendarEvent) => {
+    setEditingId(ev.id);
+    setDraft({
+      title: ev.title || "",
+      kind: ev.kind,
+      starts_at: toLocalInput(ev.starts_at),
+      ends_at: toLocalInput(ev.ends_at),
+      notes: ev.notes || "",
+      workspace_id: ev.workspace_id || "",
+      recurrence: ev.recurrence && ev.recurrence !== "none" ? ev.recurrence : "none",
+      recurrence_until: toLocalInput(ev.recurrence_until),
+    });
+    setDialogOpen(true);
+  };
 
   const deleteEvent = useMutation({
     mutationFn: (id: string) => peggyApi.deleteCalendarEvent(id),
@@ -197,6 +217,7 @@ export function CalendarFeature() {
         <Button
           variant="contained"
           onClick={() => {
+            setEditingId(null);
             setDraft(emptyDraft());
             setDialogOpen(true);
           }}
@@ -238,7 +259,14 @@ export function CalendarFeature() {
                       .filter((ev) => sameDay(ev.starts_at, cell.date as Date))
                       .slice(0, 3)
                       .map((ev) => (
-                        <Typography key={`${ev.id}-${ev.starts_at}`} variant="caption" noWrap display="block">
+                        <Typography
+                          key={`${ev.id}-${ev.starts_at}`}
+                          variant="caption"
+                          noWrap
+                          display="block"
+                          sx={{ cursor: "pointer", "&:hover": { textDecoration: "underline" } }}
+                          onClick={() => openEdit(ev)}
+                        >
                           {ev.title}
                         </Typography>
                       ))
@@ -273,6 +301,9 @@ export function CalendarFeature() {
                   {new Date(ev.starts_at).toLocaleString()}
                 </Typography>
               </Box>
+              <Button size="small" onClick={() => openEdit(ev)} sx={{ textTransform: "none" }}>
+                Edit
+              </Button>
               <Button size="small" color="warning" onClick={() => deleteEvent.mutate(ev.id)}>
                 {ev.recurrence && ev.recurrence !== "none" ? "Delete series" : "Delete"}
               </Button>
@@ -286,7 +317,7 @@ export function CalendarFeature() {
       </Stack>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Add event</DialogTitle>
+        <DialogTitle>{editingId ? "Edit event" : "Add event"}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             <TextField label="Title" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} fullWidth />
@@ -367,7 +398,14 @@ export function CalendarFeature() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setDialogOpen(false);
+              setEditingId(null);
+            }}
+          >
+            Cancel
+          </Button>
           <Button variant="contained" disabled={!draft.title.trim() || saveEvent.isPending} onClick={() => saveEvent.mutate()}>
             Save
           </Button>
