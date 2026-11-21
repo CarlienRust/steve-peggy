@@ -159,26 +159,25 @@ Original notes:
 2.1) +New project: Step 3 module toggles were unclear
 2.2) Sidebar should be the hub sidebar when creating a new project
 3) Calendar: edit calendar entries
-4) Reading journal: SOP checkbox; uploaded file must preview and persist (local + Render)
+4) Reading journal: SOP checkbox; uploaded file must preview and persist (local + Render). Checkbox needs visible text so the user knows what they are checking.
 5) Inside project:
-5.1) Dashboard next steps / project flow must match real progress (ethics files, results, design not grey when done; next step must not say “review objectives” when that is not the work)
+5.1) Dashboard next steps / project flow must match real progress (ethics files, results, design not grey when done; next step must not say “review objectives” when that is not the work). Flow labels must wrap inside the block; no ellipsis / cut-off text.
 5.2) Project admin / Outputs: status needs an example
 5.3) Literature search: extraction + persistent original file (local + Render)
 Ethics must not be gated on samples or methods.
 Supabase must store the same fields as SQLite (no extra tables for new-project settings).
+Home + Project hub + New project must be the same wizard: hub Step 1 details, Home setting options, AI last.
 
 **Shipped**
 
-- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, optional type, field, optional data types, outcome, starting point (idea / gap / proposal + optional upload). Step 2: setting (country/region, setting type, population). Step 3 last: AI privacy. Proposal fill-from-document after create. `/setup/step-*` redirects here. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field, starting point, and setting keys → `workspaces.settings` JSON. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
+- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, optional type, field, optional data types, outcome, starting point (idea / gap / proposal + optional upload; optional aim if idea). Step 2: setting (country/region, setting type, population). Step 3 last: AI privacy. Proposal fill-from-document after create. `/setup/step-*` redirects here. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field, starting point, and setting keys → `workspaces.settings` JSON. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
 - **Ethics:** dashboard and study-design hub do not require samples/methods first.
 - **Calendar:** edit existing events.
-- **Reading journal:** SOP / required-method checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
+- **Reading journal:** labeled **Use as SOP** checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
 - **Outputs:** status field has example copy.
 - **Literature:** extraction can use stored file text (`load_paper_text`) when the session upload is gone.
-- **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only.
+- **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only. Labels and notes wrap in a grid; no `noWrap` / ellipsis on this row.
 - **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
-
-Dashboard/Project Flow: Text doesn't fit in the content. No where in the app should text overflow outside of content blocks. Text is cut-off here and use ... - this should never happen. It is weak UI design. 
 
 ## FUTURE:
 
