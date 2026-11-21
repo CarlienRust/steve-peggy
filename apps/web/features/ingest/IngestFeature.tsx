@@ -45,7 +45,7 @@ const findingsSchema = z.object({
   cohort: z.string().optional(),
 });
 
-type UploadResult = { name: string; ok: boolean; chunks?: number; paperId?: number; error?: string };
+type UploadResult = { name: string; ok: boolean; chunks?: number; paperId?: number; error?: string; note?: string };
 
 function isPdfFile(file: File) {
   return file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
@@ -216,7 +216,14 @@ export function IngestForm({
           if (res.status === "duplicate") {
             results.push({ name: file.name, ok: false, error: res.message ?? "Already ingested" });
           } else {
-            results.push({ name: file.name, ok: true, chunks: res.chunks, paperId: res.paper_id });
+            const refreshed = res.status === "updated";
+            results.push({
+              name: file.name,
+              ok: true,
+              chunks: res.chunks,
+              paperId: res.paper_id,
+              note: refreshed ? "Updated existing paper (file + text re-indexed)" : undefined,
+            });
           }
         } catch (e) {
           results.push({ name: file.name, ok: false, error: (e as Error).message });

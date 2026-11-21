@@ -170,16 +170,16 @@ Home + Project hub + New project must be the same wizard: hub Step 1 details, Ho
 
 **Shipped**
 
-- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, type, research field, starting point (idea / gap / proposal). Step 2: data type, outcome, aim, country/region, setting type, population. Idea suggests these fields; gap lists filled vs missing; proposal adds upload then fill-from-document after create. Step 3: AI privacy. `/setup/step-*` redirects here. Aim → `workspaces.aim`. Type, data types, setting, population → `study_design.samples`. Outcome → `analysisPlan.outcomeTypes`. Field, starting point, country, setting type, population → `workspaces.settings` JSON (same on SQLite and Supabase). Samples page and dashboard subtitle show those fields. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
+- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, type, research field, starting point (creates a draft project, standard privacy so step 2 can call the model). Step 2 idea: `POST /workflows/setup-suggestions` fills empty data type, outcome, aim, country, setting type, population; user edits. Step 2 gap: copy is “Add if applicable (improves the scan): …”; Next runs `gap-analysis` (abstracts) then user reviews topics before AI settings. Step 2 proposal: upload, seed preview into the same fields for review, then apply empty-only. Step 3: AI privacy saved onto the draft (`PATCH` privacy_mode). Same JSON on SQLite and Supabase. `/setup/step-*` redirects here.
 - **Ethics:** dashboard and study-design hub do not require samples/methods first.
 - **Calendar:** edit existing events.
 - **Reading journal:** labeled **Use as SOP** checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
 - **Outputs:** status field has example copy.
-- **Literature:** extraction can use stored file text (`load_paper_text`) when the session upload is gone.
+- **Literature:** extraction uses Qdrant text, then stored PDF (`load_paper_text`). Re-uploading a duplicate title replaces the file, re-indexes chunks, and refreshes `storage_key`. Preview uses `GET /corpus/{id}/file` (PDF inline); extraction job shows a warning when zero fields with a reason (no text, AI off, model error).
 - **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only. Labels and notes wrap in a grid; no `noWrap` / ellipsis on this row.
 - **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
 
-+ NEW PROJECT
++ NEW PROJECT flow
 Step 1: Project name, Project type, Research field, Just an idea/Looking for gap/Already have a proposal
 Just an idea Step 2: Suggest to user -> Data type, Outcome, Aim, Country or region, Setting type, Population
 Looking for gap Step 2: Fill all user has (Data type, Outcome, Aim, Country or region, Setting type, Population) to help guide looking for the gap, suggest what users doesn't have or what should be improved. 

@@ -106,7 +106,7 @@ Open http://localhost:3000 — no login screen in solo mode. Setup check UI: htt
 
 | What | Where |
 |------|-------|
-| New project | `/projects/new`: (1) name, type, field, starting point (2) data type, outcome, aim, country, setting, population (+ proposal upload) (3) AI |
+| New project | `/projects/new`: (1) name, type, field, start (2) idea suggestions / gap scan / proposal review (3) AI |
 | Literature PDFs / PubMed | **Validate → Literature search** (`/validate/literature`) |
 | Your findings | **Results → Findings** (`/results/findings`) — summary, upload, and tags on one page |
 | Study design drafts | **Study Design** (`/study-design/*`) — saved per workspace |

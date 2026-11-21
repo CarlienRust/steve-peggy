@@ -163,13 +163,15 @@ async def get_corpus_item_file(paper_id: int, user: AuthUser = Depends(get_curre
         )
     name = paper.get("original_filename") or paper.get("title") or "download"
     media = paper.get("content_type") or "application/octet-stream"
-    if str(name).lower().endswith(".pdf"):
+    is_pdf = str(name).lower().endswith(".pdf") or (data[:4] == b"%PDF")
+    if is_pdf:
         media = "application/pdf"
+    disposition = "inline" if is_pdf else "attachment"
     return Response(
         content=data,
         media_type=media,
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(str(name))}",
+            "Content-Disposition": f"{disposition}; filename*=UTF-8''{quote(str(name))}",
         },
     )
 

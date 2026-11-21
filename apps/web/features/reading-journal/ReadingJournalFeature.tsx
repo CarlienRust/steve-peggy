@@ -73,8 +73,10 @@ export function ReadingJournalFeature() {
 
   useEffect(() => {
     if (!ready || !userId) return;
-    void peggyApi.migrateCorpusFiles(filterWs || undefined);
-  }, [ready, userId, filterWs]);
+    void peggyApi.migrateCorpusFiles(filterWs || undefined).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["corpus"] });
+    });
+  }, [ready, userId, filterWs, queryClient]);
 
   const deleteOneMut = useMutation({
     mutationFn: (id: number) => peggyApi.deletePaper(id),

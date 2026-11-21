@@ -38,6 +38,7 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_project_admin.py` | `project_admin` row ↔ API camelCase |
 | Unit | `test_calendar_sync.py` | Ethics/project-admin date → ISO start |
 | Unit | `test_document_seed.py` | Seed apply empty-vs-overwrite; JSON field map |
+| Unit | `test_setup_suggestions.py` | New-project step 2 JSON field map; unknown country dropped |
 | Unit | `test_guidance_prompt.py` | SOP / required-method text in methods prompts |
 | Unit | `test_secrets.py` / `test_llm_settings.py` | Fernet roundtrip; GET omits `api_key`; BYOK `get_llm`; tighter token cap; RLS table list in SQL |
 | Integration | `test_api.py` | Health, corpus, chat, gap, ingest queue (`workspace_id` required on chat/gap/agent) |

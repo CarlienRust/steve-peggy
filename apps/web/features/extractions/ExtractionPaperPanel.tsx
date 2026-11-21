@@ -33,6 +33,31 @@ function statusTone(status: ExtractionRecord["status"]) {
   return "default" as const;
 }
 
+function extractionJobHint(result?: {
+  papers?: Array<Record<string, unknown>>;
+  paper_count?: number;
+  total_fields?: number;
+  message?: string;
+}) {
+  if (result?.message) return result.message;
+  const rows = result?.papers ?? [];
+  const one = rows.find((r) => Number(r.paper_id) > 0) ?? rows[0];
+  const reason = String(one?.reason ?? "");
+  if (reason === "ai_disabled") {
+    return "AI is off for this project (strict privacy). Switch to standard privacy to run extraction.";
+  }
+  if (reason === "no_extractable_text" || reason === "no_text_in_vectors") {
+    return "No text could be read from this paper. Re-upload the PDF in Literature search, then run extraction again.";
+  }
+  if (reason === "llm_failed") {
+    return `Extraction model failed.${one?.detail ? ` ${String(one.detail)}` : ""}`;
+  }
+  if (one?.status === "no_fields") {
+    return "Extraction ran but returned no fields. Try again or check your LLM API key in Settings.";
+  }
+  return "Extraction finished with no fields. Re-upload the PDF if preview fails, then try again.";
+}
+
 export function ExtractionPaperPanel({
   workspaceId,
   paperId,
@@ -163,7 +188,14 @@ export function ExtractionPaperPanel({
 
       {runExtract.isError ? <Alert severity="error">Could not start extraction job.</Alert> : null}
       {jobQuery.data?.status === "failed" ? (
-        <Alert severity="error">Extraction job failed. Check that a PDF is ingested for this paper.</Alert>
+        <Alert severity="error">
+          Extraction job failed.{jobQuery.data.error ? ` ${jobQuery.data.error}` : " Check that a PDF is ingested for this paper."}
+        </Alert>
+      ) : null}
+      {jobQuery.data?.status === "completed" && (jobQuery.data.result?.total_fields ?? 0) === 0 ? (
+        <Alert severity="warning">
+          {extractionJobHint(jobQuery.data.result)}
+        </Alert>
       ) : null}
 
       {extractions.isError ? (

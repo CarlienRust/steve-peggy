@@ -213,16 +213,29 @@ async def ingest_upload_bytes(
             text, meta, source_type=source_type, user_id=user_id, workspace_id=workspace_id
         )
     except DuplicateDocumentError as e:
+        paper_id = e.paper_id
         await _persist_upload_bytes(
             user_id=user_id,
             workspace_id=workspace_id,
-            paper_id=e.paper_id,
+            paper_id=paper_id,
             filename=filename,
             content_type=content_type,
             raw=raw,
             source_type=source_type,
         )
-        return {"chunks": 0, "paper_id": e.paper_id, "status": "created"}
+        chunk_meta = {**meta, "paper_id": paper_id}
+        chunks = chunk_text(text, chunk_meta)
+        try:
+            n = qdrant_store.upsert_chunks(
+                chunks,
+                source_type=source_type,
+                user_id=user_id,
+                workspace_id=workspace_id,
+            )
+        except Exception:
+            logger.exception("Re-index after duplicate upload failed for paper %s", paper_id)
+            n = 0
+        return {"chunks": n, "paper_id": paper_id, "status": "updated"}
     await _persist_upload_bytes(
         user_id=user_id,
         workspace_id=workspace_id,

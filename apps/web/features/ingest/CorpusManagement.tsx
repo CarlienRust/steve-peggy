@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import FileDownloadOutlinedIcon from "@mui/icons-material/FileDownloadOutlined";
@@ -131,10 +131,13 @@ export function CorpusManagement() {
   const [deletePaper, setDeletePaper] = useState<PaperRecord | null>(null);
   const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
+  const queryClient = useQueryClient();
   useEffect(() => {
     if (!workspaceId) return;
-    void peggyApi.migrateCorpusFiles(workspaceId);
-  }, [workspaceId]);
+    void peggyApi.migrateCorpusFiles(workspaceId).then(() => {
+      queryClient.invalidateQueries({ queryKey: ["workspace-papers-summary", workspaceId] });
+    });
+  }, [workspaceId, queryClient]);
 
   const deleteOneMut = useMutation({
     mutationFn: (id: number) => peggyApi.deletePaper(id),

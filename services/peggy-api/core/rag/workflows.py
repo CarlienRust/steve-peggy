@@ -775,6 +775,79 @@ async def run_idea_from_resources(user_id: str, workspace_id: str) -> dict:
     return {"body": {"questions": qs}, "sources": [], "confidence": "low", "limitations": []}
 
 
+_SETUP_COUNTRIES = (
+    "South Africa",
+    "Sub-Saharan Africa",
+    "Africa (multi-country)",
+    "Europe",
+    "North America",
+    "Asia",
+    "Global / multi-region",
+    "Other (specify in population)",
+)
+_SETUP_SETTING_TYPES = (
+    "Urban community",
+    "Rural community",
+    "Hospital or clinic",
+    "National cohort",
+    "Household survey",
+    "University student cohort",
+    "Primary care network",
+    "Other",
+)
+
+
+async def run_setup_suggestions(user_id: str, workspace_id: str) -> dict:
+    from core.project_context import load_project_context
+    from core.safety.policy import CLASS_B, set_policy_context
+
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if not ws:
+        raise ValueError("Workspace not found")
+    set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
+    llm = await get_llm()
+    ctx = await load_project_context(user_id, workspace_id)
+    raw = await llm.complete(
+        prompts.build_system_prompt(),
+        "Suggest project setup fields from this project (title, type, research field). "
+        "User will edit. Empty string if unknown. dataTypes is an array of short labels. "
+        f"countryOrRegion must be one of: {list(_SETUP_COUNTRIES)} or empty. "
+        f"settingType must be one of: {list(_SETUP_SETTING_TYPES)} or empty. "
+        "Return JSON only: "
+        '{"dataTypes":[],"outcome":"","aim":"","countryOrRegion":"","settingType":"","population":""}\n'
+        f"Project:\n{ctx[:4000]}",
+        json_mode=True,
+    )
+    body = _parse_json(raw)
+    if not isinstance(body, dict):
+        body = {}
+    types = body.get("dataTypes") or body.get("data_types") or []
+    if isinstance(types, str):
+        types = [p.strip() for p in types.split(",") if p.strip()]
+    if not isinstance(types, list):
+        types = []
+    data_types = [str(t).strip() for t in types if str(t).strip()][:8]
+    country = str(body.get("countryOrRegion") or body.get("country_or_region") or "").strip()
+    if country not in _SETUP_COUNTRIES:
+        country = ""
+    setting = str(body.get("settingType") or body.get("setting_type") or "").strip()
+    if setting not in _SETUP_SETTING_TYPES:
+        setting = ""
+    return {
+        "body": {
+            "dataTypes": data_types,
+            "outcome": str(body.get("outcome") or "").strip(),
+            "aim": str(body.get("aim") or "").strip(),
+            "countryOrRegion": country,
+            "settingType": setting,
+            "population": str(body.get("population") or "").strip(),
+        },
+        "sources": [],
+        "confidence": "low",
+        "limitations": ["Suggestions from step 1 only. Edit before you continue."],
+    }
+
+
 async def run_findings_summary(user_id: str, workspace_id: str) -> dict:
     """Rebuild the stored briefing from every own_findings document in this project."""
     papers = await catalog.list_papers(user_id, source_type="own_findings", workspace_id=workspace_id)

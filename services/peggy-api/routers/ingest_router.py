@@ -168,8 +168,9 @@ async def upload_document(
         raise HTTPException(400, str(e)) from e
     except RuntimeError as e:
         raise HTTPException(503, str(e)) from e
+    ingest_status = result.get("status") or "created"
     return {
-        "status": "ok",
+        "status": "updated" if ingest_status == "updated" else "ok",
         "chunks": result["chunks"],
         "paper_id": result["paper_id"],
         "filename": file.filename,

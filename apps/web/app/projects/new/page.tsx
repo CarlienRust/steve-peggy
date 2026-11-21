@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -8,6 +8,7 @@ import {
   Button,
   Checkbox,
   Chip,
+  CircularProgress,
   FormControl,
   FormControlLabel,
   InputLabel,
@@ -16,13 +17,13 @@ import {
   Select,
   Stack,
   TextField,
+  Typography,
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChoiceCard } from "@/components/ChoiceCard";
 import { TrainingOptOutTable } from "@/components/TrainingOptOutTable";
 import { SetupShell } from "@/components/setup/SetupShell";
-import { peggyApi, queryKeys, formatApiError } from "@/lib/api";
-import { DocumentSeedDialog } from "@/components/DocumentSeedDialog";
+import { peggyApi, queryKeys, formatApiError, type WorkflowResponse } from "@/lib/api";
 import { DATA_TYPES, STUDY_TYPES } from "@/lib/studyDesign";
 import { SETUP_COUNTRY_REGIONS, SETUP_SETTING_TYPES } from "@/lib/setupSettings";
 import { useAuthSession } from "@/lib/authContext";
@@ -61,24 +62,23 @@ export default function NewProjectPage() {
   const [privacy, setPrivacy] = useState<"standard" | "strict">("standard");
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [createdWorkspaceId, setCreatedWorkspaceId] = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [gapResult, setGapResult] = useState<WorkflowResponse | null>(null);
+  const [seedPreview, setSeedPreview] = useState<Record<string, unknown> | null>(null);
+  const ideaRan = useRef(false);
 
   const resolvedType =
     projectType === "Other" ? projectTypeOther.trim() : projectType.trim();
 
-  const detailStatus = useMemo(
-    () => [
-      { label: "Data type", filled: dataTypes.length > 0 },
-      { label: "Outcome", filled: outcome.trim().length > 0 },
-      { label: "Aim", filled: aim.trim().length > 0 },
-      { label: "Country or region", filled: countryOrRegion.trim().length > 0 },
-      { label: "Setting type", filled: settingType.trim().length > 0 },
-      { label: "Population", filled: population.trim().length > 0 },
-    ],
-    [dataTypes, outcome, aim, countryOrRegion, settingType, population]
-  );
-  const missingDetails = detailStatus.filter((d) => !d.filled).map((d) => d.label);
-  const filledDetails = detailStatus.filter((d) => d.filled).map((d) => d.label);
+  const missingDetails = [
+    dataTypes.length ? "" : "Data type",
+    outcome.trim() ? "" : "Outcome",
+    aim.trim() ? "" : "Aim",
+    countryOrRegion.trim() ? "" : "Country or region",
+    settingType.trim() ? "" : "Setting type",
+    population.trim() ? "" : "Population",
+  ].filter(Boolean);
 
   const canNext = useMemo(() => {
     if (step === 1) return title.trim().length > 0;
@@ -86,62 +86,211 @@ export default function NewProjectPage() {
     return true;
   }, [step, title, privacy, consent]);
 
-  const create = useMutation({
+  const persist = async (id: string) => {
+    await peggyApi.updateWorkspace(id, {
+      title: title.trim() || "Untitled project",
+      aim: aim.trim(),
+      settings: {
+        peer_reviewed_only: true,
+        research_field: researchField.trim(),
+        starting_point: startingPoint,
+        country_or_region: countryOrRegion.trim(),
+        setting_type: settingType.trim(),
+        population: population.trim(),
+      },
+    });
+    await peggyApi.patchStudyDesign(id, {
+      samples: {
+        studyType: resolvedType,
+        dataTypes,
+        setting: [countryOrRegion.trim(), settingType.trim()].filter(Boolean).join(" · "),
+        population: population.trim(),
+      },
+      analysisPlan: { outcomeTypes: outcome.trim() },
+    });
+  };
+
+  const ensureWorkspace = async () => {
+    if (workspaceId) {
+      await persist(workspaceId);
+      return workspaceId;
+    }
+    const ws = await peggyApi.createWorkspace({
+      title: title.trim() || "Untitled project",
+      aim: aim.trim(),
+      resources: { notes: "" },
+      enabled_modules: ["core"],
+      privacy_mode: "standard",
+      last_opened_at: new Date().toISOString(),
+      settings: {
+        peer_reviewed_only: true,
+        research_field: researchField.trim(),
+        starting_point: startingPoint,
+        country_or_region: "",
+        setting_type: "",
+        population: "",
+      },
+    });
+    await peggyApi.patchStudyDesign(ws.id, {
+      samples: { studyType: resolvedType, dataTypes: [] },
+    });
+    if (userId) void qc.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
+    setActiveWorkspaceId(ws.id);
+    setWorkspaceId(ws.id);
+    return ws.id;
+  };
+
+  const applySuggestionBody = (body: Record<string, unknown>, onlyEmpty: boolean) => {
+    const types = Array.isArray(body.dataTypes)
+      ? body.dataTypes.map((v) => String(v).trim()).filter(Boolean)
+      : [];
+    const nextAim = String(body.aim ?? "").trim();
+    const nextOutcome = String(body.outcome ?? "").trim();
+    const nextCountry = String(body.countryOrRegion ?? "").trim();
+    const nextSetting = String(body.settingType ?? "").trim();
+    const nextPop = String(body.population ?? "").trim();
+    if (types.length && (!onlyEmpty || dataTypes.length === 0)) setDataTypes(types);
+    if (nextAim && (!onlyEmpty || !aim.trim())) setAim(nextAim);
+    if (nextOutcome && (!onlyEmpty || !outcome.trim())) setOutcome(nextOutcome);
+    if (nextCountry && SETUP_COUNTRY_REGIONS.includes(nextCountry as (typeof SETUP_COUNTRY_REGIONS)[number])) {
+      if (!onlyEmpty || !countryOrRegion.trim()) setCountryOrRegion(nextCountry);
+    }
+    if (nextSetting && SETUP_SETTING_TYPES.includes(nextSetting as (typeof SETUP_SETTING_TYPES)[number])) {
+      if (!onlyEmpty || !settingType.trim()) setSettingType(nextSetting);
+    }
+    if (nextPop && (!onlyEmpty || !population.trim())) setPopulation(nextPop);
+  };
+
+  const applySeedPreview = (preview: Record<string, unknown>) => {
+    setSeedPreview(preview);
+    const samples = (preview.samples && typeof preview.samples === "object" ? preview.samples : {}) as Record<
+      string,
+      string
+    >;
+    applySuggestionBody(
+      {
+        aim: preview.aim,
+        outcome: preview.outcome,
+        dataTypes: preview.dataTypes,
+        countryOrRegion: preview.countryOrRegion,
+        settingType: preview.settingType,
+        population: preview.population,
+      },
+      true
+    );
+    const seedAim = String(preview.aim ?? "").trim();
+    if (seedAim && !aim.trim()) setAim(seedAim);
+    if (samples.studyType && !resolvedType) setProjectType(samples.studyType);
+    if (samples.setting && !settingType.trim() && !countryOrRegion.trim()) {
+      const hit = SETUP_SETTING_TYPES.find((s) => samples.setting.toLowerCase().includes(s.toLowerCase()));
+      if (hit) setSettingType(hit);
+    }
+    if (preview.population && !population.trim()) setPopulation(String(preview.population));
+  };
+
+  useEffect(() => {
+    if (step !== 2 || startingPoint !== "idea" || !workspaceId || ideaRan.current) return;
+    ideaRan.current = true;
+    setBusy(true);
+    setError(null);
+    void peggyApi
+      .setupSuggestions(workspaceId)
+      .then((res) => applySuggestionBody(res.body, true))
+      .catch((e: unknown) => setError(formatApiError(e)))
+      .finally(() => setBusy(false));
+    // run once when idea step 2 opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, startingPoint, workspaceId]);
+
+  const finish = useMutation({
     mutationFn: async () => {
-      const ws = await peggyApi.createWorkspace({
-        title: title.trim() || "Untitled project",
-        aim: aim.trim(),
-        resources: { notes: "" },
-        enabled_modules: ["core"],
-        privacy_mode: privacy,
-        last_opened_at: new Date().toISOString(),
-        settings: {
-          peer_reviewed_only: true,
-          research_field: researchField.trim(),
-          starting_point: startingPoint,
-          country_or_region: countryOrRegion.trim(),
-          setting_type: settingType.trim(),
-          population: population.trim(),
-        },
-      });
-      await peggyApi.patchStudyDesign(ws.id, {
-        samples: {
-          studyType: resolvedType,
-          dataTypes,
-          setting: [countryOrRegion.trim(), settingType.trim()].filter(Boolean).join(" · "),
-          population: population.trim(),
-        },
-        analysisPlan: {
-          outcomeTypes: outcome.trim(),
-        },
-      });
-      return { ws };
+      const id = await ensureWorkspace();
+      await persist(id);
+      await peggyApi.updateWorkspace(id, { privacy_mode: privacy });
+      return id;
     },
-    onSuccess: ({ ws }) => {
+    onSuccess: () => {
       if (userId) void qc.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
-      setActiveWorkspaceId(ws.id);
-      setCreatedWorkspaceId(ws.id);
-      if (startingPoint === "proposal") {
-        setStep(4);
-        return;
-      }
-      router.push(startingPoint === "gap" ? "/validate/gap-analysis" : "/dashboard");
+      router.push("/dashboard");
     },
     onError: (e: unknown) => setError(formatApiError(e)),
   });
 
+  const onNextFrom1 = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      await ensureWorkspace();
+      setStep(2);
+    } catch (e: unknown) {
+      setError(formatApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onNextFrom2 = async () => {
+    setError(null);
+    setBusy(true);
+    try {
+      const id = await ensureWorkspace();
+      await persist(id);
+      if (startingPoint === "gap" && !gapResult) {
+        const q = [title, researchField, aim, outcome].map((s) => s.trim()).filter(Boolean).join(" ");
+        const res = await peggyApi.gapAnalysis(q || title.trim(), {
+          workspaceId: id,
+          sourceTypes: ["literature"],
+          abstractsOnly: true,
+        });
+        setGapResult(res);
+        return;
+      }
+      if (startingPoint === "proposal" && proposalFile && !seedPreview) {
+        const up = await peggyApi.uploadDocument(proposalFile, {
+          title: proposalFile.name.replace(/\.(pdf|html|htm|txt|md)$/i, ""),
+          sourceType: "project_documents",
+          workspaceId: id,
+        });
+        if (!up.paper_id) throw new Error("Upload did not return a document id.");
+        const seeded = await peggyApi.seedFromDocument({ workspaceId: id, paperId: up.paper_id });
+        applySeedPreview(seeded.preview);
+        return;
+      }
+      if (startingPoint === "proposal" && seedPreview) {
+        await peggyApi.applyDocumentSeed({ workspaceId: id, preview: seedPreview, overwrite: false });
+        await persist(id);
+      }
+      setStep(3);
+    } catch (e: unknown) {
+      setError(formatApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const gapTopics = useMemo(() => {
+    const raw = gapResult?.body?.gaps;
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((g) => {
+        if (!g || typeof g !== "object") return "";
+        const rec = g as Record<string, unknown>;
+        return String(rec.topic ?? rec.gap ?? rec.title ?? "").trim();
+      })
+      .filter(Boolean)
+      .slice(0, 8);
+  }, [gapResult]);
+
   const subtitle =
-    step === 4
-      ? "Fill empty project fields from the uploaded proposal."
-      : step === 3
-        ? "AI settings for this project."
-        : step === 2 && startingPoint === "gap"
-          ? "Add what you already know. Empty fields are listed so you can improve the gap scan."
-          : step === 2 && startingPoint === "proposal"
-            ? "Fill what the proposal covers, then upload it. Empty fields can be filled after you create the project."
-            : step === 2
-              ? "Suggested details if you have them. All optional."
-              : "Name, type, field, and how you want to start.";
+    step === 3
+      ? "AI settings for this project."
+      : step === 2 && startingPoint === "gap"
+        ? "Add what you already know, then scan for a gap before AI settings."
+        : step === 2 && startingPoint === "proposal"
+          ? "Fill what you know, upload the proposal, and check the auto-fill before AI settings."
+          : step === 2
+            ? "Suggestions from your name, type, and field. Edit anything that is wrong."
+            : "Name, type, field, and how you want to start.";
 
   const detailFields = (
     <>
@@ -224,10 +373,24 @@ export default function NewProjectPage() {
   );
 
   return (
-    <SetupShell title="New project" subtitle={subtitle} step={Math.min(step, 3)} totalSteps={3} showBackButton={false}>
+    <SetupShell title="New project" subtitle={subtitle} step={step} totalSteps={3} showBackButton={false}>
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Stack spacing={2}>
           {error ? <Alert severity="error">{error}</Alert> : null}
+          {busy ? (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={18} />
+              <Typography variant="body2" color="text.secondary">
+                {startingPoint === "gap" && step === 2 && !gapResult
+                  ? "Looking for a gap…"
+                  : startingPoint === "proposal" && step === 2 && !seedPreview
+                    ? "Reading proposal…"
+                    : startingPoint === "idea" && step === 2
+                      ? "Generating suggestions…"
+                      : "Working…"}
+              </Typography>
+            </Stack>
+          ) : null}
           {step === 1 ? (
             <>
               <TextField
@@ -275,7 +438,7 @@ export default function NewProjectPage() {
               />
               <ChoiceCard
                 title="Already have a proposal"
-                description="Upload a proposal or brief. Empty fields can be filled from the document after you create the project."
+                description="Upload a proposal. You will review auto-filled fields before AI settings."
                 selected={startingPoint === "proposal"}
                 onSelect={() => setStartingPoint("proposal")}
               />
@@ -285,24 +448,20 @@ export default function NewProjectPage() {
             <>
               {startingPoint === "idea" ? (
                 <Alert severity="info">
-                  Suggested if you have them: data type, outcome, aim, country or region, setting type, and population.
-                  Skip any you do not know yet.
+                  Suggestions use your project name, type, and field (hosted AI). Edit anything that is wrong before
+                  the next step.
                 </Alert>
               ) : null}
               {startingPoint === "gap" ? (
                 <Alert severity="info">
-                  {filledDetails.length > 0
-                    ? `On file for the gap scan: ${filledDetails.join(", ")}.`
-                    : "Nothing extra on file yet."}{" "}
-                  {missingDetails.length > 0
-                    ? `Add if you can (improves the scan): ${missingDetails.join(", ")}.`
-                    : "All suggested fields are filled."}
+                  Add if applicable (improves the scan): {missingDetails.length ? missingDetails.join(", ") : "all listed fields are filled"}.
+                  Next runs the gap scan. After you review it, Next again opens AI settings.
                 </Alert>
               ) : null}
               {startingPoint === "proposal" ? (
                 <Alert severity="info">
-                  Fill what you already know, then upload the proposal. After Create project, Peggy can fill empty
-                  fields from the document.
+                  Upload a proposal, then check the filled fields. Next reads the file if you have not yet; Next
+                  again saves what you reviewed.
                 </Alert>
               ) : null}
               {detailFields}
@@ -315,10 +474,19 @@ export default function NewProjectPage() {
                     accept=".pdf,.txt,.md,.html"
                     onChange={(e) => {
                       setProposalFile(e.target.files?.[0] ?? null);
+                      setSeedPreview(null);
                       e.target.value = "";
                     }}
                   />
                 </Button>
+              ) : null}
+              {startingPoint === "proposal" && seedPreview ? (
+                <Alert severity="success">Auto-fill loaded. Check the fields above before you continue.</Alert>
+              ) : null}
+              {startingPoint === "gap" && gapTopics.length > 0 ? (
+                <Alert severity="success">
+                  Gap scan: {gapTopics.join("; ")}
+                </Alert>
               ) : null}
             </>
           ) : null}
@@ -347,35 +515,29 @@ export default function NewProjectPage() {
               ) : null}
             </>
           ) : null}
-          {step < 4 ? (
-            <Stack direction="row" justifyContent="space-between">
-              <Button disabled={step === 1} onClick={() => setStep((s) => s - 1)}>
-                Back
-              </Button>
-              {step < 3 ? (
-                <Button variant="contained" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
-                  Next
-                </Button>
-              ) : (
-                <Button variant="contained" disabled={!canNext || create.isPending} onClick={() => create.mutate()}>
-                  Create project
-                </Button>
-              )}
-            </Stack>
-          ) : (
-            <Button variant="outlined" onClick={() => router.push("/dashboard")} sx={{ textTransform: "none" }}>
-              Skip and go to dashboard
+          <Stack direction="row" justifyContent="space-between">
+            <Button
+              disabled={step === 1 || busy}
+              onClick={() => setStep((s) => s - 1)}
+            >
+              Back
             </Button>
-          )}
+            {step === 1 ? (
+              <Button variant="contained" disabled={!canNext || busy} onClick={() => void onNextFrom1()}>
+                Next
+              </Button>
+            ) : step === 2 ? (
+              <Button variant="contained" disabled={busy} onClick={() => void onNextFrom2()}>
+                Next
+              </Button>
+            ) : (
+              <Button variant="contained" disabled={!canNext || finish.isPending} onClick={() => finish.mutate()}>
+                Save and open project
+              </Button>
+            )}
+          </Stack>
         </Stack>
       </Paper>
-      <DocumentSeedDialog
-        open={step === 4}
-        closeLabel="Skip"
-        initialFile={proposalFile}
-        workspaceId={createdWorkspaceId ?? undefined}
-        onClose={() => router.push("/dashboard")}
-      />
     </SetupShell>
   );
 }

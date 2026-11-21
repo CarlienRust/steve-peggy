@@ -65,13 +65,20 @@ async def extract_paper_fields(
         except Exception:
             text = ""
     if not (text or "").strip():
+        has_file = bool(paper.get("storage_key") or paper.get("original_filename"))
         return {
             "paper_id": paper_id,
             "title": title,
             "status": "skipped",
-            "reason": "no_text_in_vectors",
+            "reason": "no_extractable_text" if has_file else "no_text_in_vectors",
             "fields_written": 0,
         }
+
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if ws:
+        from core.safety.policy import CLASS_B, PolicyDenied, set_policy_context
+
+        set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
 
     truncated = text[: config.MAX_EXTRACTION_TEXT_LEN]
     llm = await get_llm()
@@ -83,7 +90,25 @@ async def extract_paper_fields(
         text=truncated,
         module_ids=module_ids,
     )
-    response = await llm.complete(system, user, json_mode=True)
+    try:
+        response = await llm.complete(system, user, json_mode=True)
+    except PolicyDenied:
+        return {
+            "paper_id": paper_id,
+            "title": title,
+            "status": "skipped",
+            "reason": "ai_disabled",
+            "fields_written": 0,
+        }
+    except Exception as e:
+        return {
+            "paper_id": paper_id,
+            "title": title,
+            "status": "error",
+            "reason": "llm_failed",
+            "detail": str(e),
+            "fields_written": 0,
+        }
     parsed = _parse_extraction_json(response)
     fields_raw = parsed.get("fields") or []
     if not isinstance(fields_raw, list):

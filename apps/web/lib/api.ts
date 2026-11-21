@@ -483,7 +483,11 @@ export const peggyApi = {
     const star = /filename\*=UTF-8''([^;]+)/i.exec(disp);
     const plain = /filename="?([^";]+)"?/i.exec(disp);
     const name = decodeURIComponent(star?.[1] || plain?.[1] || `paper-${id}`);
-    return new File([blob], name, { type: blob.type || "application/octet-stream" });
+    let type = blob.type || res.headers.get("Content-Type") || "application/octet-stream";
+    if ((type === "application/octet-stream" || !type.includes("/")) && name.toLowerCase().endsWith(".pdf")) {
+      type = "application/pdf";
+    }
+    return new File([blob], name, { type });
   },
 
   discoverSuggestions: (workspaceId?: string) => {
@@ -935,6 +939,12 @@ export const peggyApi = {
 
   ideaFromResources: (workspaceId: string) =>
     apiFetch<WorkflowResponse>("/workflows/idea-from-resources", {
+      method: "POST",
+      body: JSON.stringify({ workspace_id: workspaceId }),
+    }),
+
+  setupSuggestions: (workspaceId: string) =>
+    apiFetch<WorkflowResponse>("/workflows/setup-suggestions", {
       method: "POST",
       body: JSON.stringify({ workspace_id: workspaceId }),
     }),

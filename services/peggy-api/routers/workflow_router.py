@@ -19,6 +19,7 @@ from core.rag.workflows import (
     run_manuscript_framing,
     run_methods_plan,
     run_proposal,
+    run_setup_suggestions,
     run_validate_aim,
 )
 from core.store import catalog
@@ -450,6 +451,19 @@ async def refresh_findings_summary(
 
 class IdeaFromResourcesRequest(BaseModel):
     workspace_id: str
+
+
+class SetupSuggestionsRequest(BaseModel):
+    workspace_id: str
+
+
+@router.post("/setup-suggestions", response_model=WorkflowResponse)
+async def setup_suggestions(body: SetupSuggestionsRequest, user: AuthUser = Depends(get_current_user)):
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    return _wrap(await run_setup_suggestions(user.id, body.workspace_id))
 
 
 @router.post("/idea-from-resources", response_model=WorkflowResponse)

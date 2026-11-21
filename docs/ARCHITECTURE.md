@@ -121,7 +121,8 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /extraction-modules` | Versioned field schemas (`core`, `outcomes`, …) from `core/extraction/schemas/` |
 | `GET/POST /workspaces/{id}/extractions` | List or bulk upsert structured extractions per paper |
 | `PATCH /workspaces/{id}/extractions/{id}` | Review screen: confirm or correct a field (`status`, `value`, quote) |
-| `POST /workflows/extract` | Queue background extraction job (2 papers at a time); writes `extractions` rows. Paper text comes from Qdrant, then the stored original file if vectors are empty. |
+| `POST /workflows/extract` | Queue background extraction job (2 papers at a time); writes `extractions` rows. Paper text comes from Qdrant, then the stored original file if vectors are empty. Job results include per-paper `reason` when skipped (no text, AI off, LLM error). |
+| `GET /corpus/{id}/file` | Original upload bytes (`inline` for PDF preview). `POST /corpus/migrate-files` copies legacy paths to canonical `sb:{workspace_id}/…` on hosted. |
 | `GET /workflows/extract/jobs/{id}` | Poll extraction job status and per-paper results |
 | `PATCH /workspaces/{id}/github` | Link repo to project |
 | `POST /workspaces/{id}/github/sync` | Ingest README + `docs/*.md` as own findings |
@@ -140,6 +141,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /health` | Qdrant, LLM, embeddings, Gemini tier, database, storage |
 | `GET/PUT /profile/llm-settings` | Per-user provider, key last-4, daily cap. PUT may set `api_key` (write-only). GET never returns the secret. |
 | `GET /setup/checks` | Hosted status; local fix commands only when `AUTH_REQUIRED=false` |
+| `POST /workflows/setup-suggestions` | Suggest data type, outcome, aim, country, setting type, population from the new-project step 1 workspace (class B). User edits on step 2. |
 | `POST /workflows/idea-from-resources` | 3–5 questions from project resources (class B) |
 | `GET /workspaces/{id}/confounder-audit` | Covariates from extractions |
 | `POST /jobs/retraction-recheck` | Weekly job token; OpenAlex/PubMed recheck |
@@ -166,7 +168,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 |-------|-----|---------|
 | `/` | 01 Home | `PeggyWelcomeHub` (unchanged) then stats (projects / literature papers / unread), project cards with paper counts, recent activity derived from ingest/open/read timestamps (no activity table), reading reminder → journal |
 | `/projects` | 02 Project hub | Dedicated project list and **+ New project** |
-| `/projects/new` | — | Same wizard from Home and Project hub. Step 1: name, type, research field, starting point (idea / gap / proposal). Step 2 depends on starting point (data type, outcome, aim, country, setting type, population; proposal also upload). Step 3: AI privacy. Proposal fill-from-document after create. Settings JSON + `samples` / `analysisPlan.outcomeTypes` / `workspaces.aim`. `/setup/step-*` redirects here. |
+| `/projects/new` | — | Same wizard from Home and Project hub. Step 1: name, type, field, starting point (creates a draft project). Step 2: idea generates field suggestions; gap scans literature (abstracts) then shows topics; proposal upload + seed preview for review. Step 3: AI privacy (saved onto the draft). `/setup/step-*` redirects here. |
 | `/calendar` | 03 Calendar | Month/list events; optional project filter; Add event; weekly/monthly/yearly repeat (one stored series, expanded on list). Ethics renewal and project-admin dates arrive from those screens. |
 | `/reading-journal` | 04 Reading journal | Literature only; To read / Completed (`read_at`); search, project filter, paper cards with project title and PMID; Preview PDF; delete one paper or all literature; migrate stored files on load |
 | `/ask` | 05 Ask Peggy | Research assistant chat; project + sources (literature / own findings / both); suggested questions fill the composer; Auto/Ask. Same layout as in-project Ask Peggy. |

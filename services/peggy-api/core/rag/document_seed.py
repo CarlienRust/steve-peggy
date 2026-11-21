@@ -34,7 +34,12 @@ Return JSON only:
   "analysisUserPlan": "",
   "startDate": "YYYY-MM-DD or empty",
   "endDate": "YYYY-MM-DD or empty",
-  "grantNotes": ""
+  "grantNotes": "",
+  "dataTypes": [""],
+  "outcome": "",
+  "countryOrRegion": "",
+  "settingType": "",
+  "population": ""
 }
 
 Document title: {title}
@@ -84,10 +89,21 @@ def normalize_seed(raw: Any) -> dict[str, Any]:
                 objectives.append(_as_str(item.get("text")))
     start = _as_str(data.get("startDate") or data.get("start_date"))[:10]
     end = _as_str(data.get("endDate") or data.get("end_date"))[:10]
+    data_types_raw = data.get("dataTypes") or data.get("data_types") or []
+    data_types: list[str] = []
+    if isinstance(data_types_raw, str) and data_types_raw.strip():
+        data_types = [p.strip() for p in data_types_raw.split(",") if p.strip()]
+    elif isinstance(data_types_raw, list):
+        data_types = [str(x).strip() for x in data_types_raw if str(x).strip()]
     return {
         "title": _as_str(data.get("title")),
         "aim": _as_str(data.get("aim")),
         "objectives": objectives,
+        "dataTypes": data_types,
+        "outcome": _as_str(data.get("outcome")),
+        "countryOrRegion": _as_str(data.get("countryOrRegion") or data.get("country_or_region")),
+        "settingType": _as_str(data.get("settingType") or data.get("setting_type")),
+        "population": _as_str(data.get("population")),
         "samples": samples,
         "ethicsNotes": _as_str(data.get("ethicsNotes") or data.get("ethics_notes")),
         "methodsUserPlan": _as_str(data.get("methodsUserPlan") or data.get("methods_user_plan")),
