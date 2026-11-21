@@ -57,6 +57,8 @@ function samplesStarted(samples: StudyDesignData["samples"], sampleDatasetCount:
     samples.summary?.trim() ||
     samples.recruitment?.trim() ||
     samples.inclusionCriteria?.trim() ||
+    samples.setting?.trim() ||
+    samples.population?.trim() ||
     (samples.dataTypes?.length ?? 0) > 0 ||
     sampleDatasetCount > 0
   );

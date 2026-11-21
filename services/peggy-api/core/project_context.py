@@ -62,10 +62,21 @@ def format_project_context(ws: dict, study_design: dict) -> str:
     """Build de-identified project context for prompts."""
     samples = study_design.get("samples") or {}
     ethics = study_design.get("ethics") or {}
+    settings = ws.get("settings") if isinstance(ws.get("settings"), dict) else {}
     parts = [
         f"Project title: {ws.get('title', '')}",
         f"Aim: {ws.get('aim', '')}",
     ]
+    if settings.get("research_field"):
+        parts.append(f"Research field: {settings['research_field']}")
+    if settings.get("starting_point"):
+        parts.append(f"Starting point: {settings['starting_point']}")
+    if settings.get("country_or_region"):
+        parts.append(f"Country or region: {settings['country_or_region']}")
+    if settings.get("setting_type"):
+        parts.append(f"Setting type: {settings['setting_type']}")
+    if settings.get("population"):
+        parts.append(f"Population: {settings['population']}")
     from core.aims import normalize_aims, overall_aim_text
     from core.objectives import objective_texts
 
@@ -90,6 +101,10 @@ def format_project_context(ws: dict, study_design: dict) -> str:
     if samples:
         parts.append(f"Study type: {samples.get('studyType', 'unknown')}")
         parts.append(f"Expected N: {samples.get('expectedN', 'unknown')}")
+        if samples.get("setting"):
+            parts.append(f"Setting: {samples['setting']}")
+        if samples.get("population"):
+            parts.append(f"Population (samples): {samples['population']}")
         data_types = samples.get("dataTypes") or []
         if data_types:
             parts.append(f"Data types: {', '.join(data_types)}")

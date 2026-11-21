@@ -16,7 +16,6 @@ import {
   Select,
   Stack,
   TextField,
-  Typography,
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ChoiceCard } from "@/components/ChoiceCard";
@@ -67,6 +66,20 @@ export default function NewProjectPage() {
   const resolvedType =
     projectType === "Other" ? projectTypeOther.trim() : projectType.trim();
 
+  const detailStatus = useMemo(
+    () => [
+      { label: "Data type", filled: dataTypes.length > 0 },
+      { label: "Outcome", filled: outcome.trim().length > 0 },
+      { label: "Aim", filled: aim.trim().length > 0 },
+      { label: "Country or region", filled: countryOrRegion.trim().length > 0 },
+      { label: "Setting type", filled: settingType.trim().length > 0 },
+      { label: "Population", filled: population.trim().length > 0 },
+    ],
+    [dataTypes, outcome, aim, countryOrRegion, settingType, population]
+  );
+  const missingDetails = detailStatus.filter((d) => !d.filled).map((d) => d.label);
+  const filledDetails = detailStatus.filter((d) => d.filled).map((d) => d.label);
+
   const canNext = useMemo(() => {
     if (step === 1) return title.trim().length > 0;
     if (step === 3) return privacy === "strict" || consent;
@@ -96,6 +109,7 @@ export default function NewProjectPage() {
           studyType: resolvedType,
           dataTypes,
           setting: [countryOrRegion.trim(), settingType.trim()].filter(Boolean).join(" · "),
+          population: population.trim(),
         },
         analysisPlan: {
           outcomeTypes: outcome.trim(),
@@ -118,12 +132,96 @@ export default function NewProjectPage() {
 
   const subtitle =
     step === 4
-      ? "Upload a proposal or brief to fill empty project fields."
+      ? "Fill empty project fields from the uploaded proposal."
       : step === 3
         ? "AI settings for this project."
-        : step === 2
-          ? "Where and in whom the study takes place. All optional."
-          : "Name the project and describe what you are studying. Type and data types are optional.";
+        : step === 2 && startingPoint === "gap"
+          ? "Add what you already know. Empty fields are listed so you can improve the gap scan."
+          : step === 2 && startingPoint === "proposal"
+            ? "Fill what the proposal covers, then upload it. Empty fields can be filled after you create the project."
+            : step === 2
+              ? "Suggested details if you have them. All optional."
+              : "Name, type, field, and how you want to start.";
+
+  const detailFields = (
+    <>
+      <Autocomplete
+        multiple
+        freeSolo
+        options={DATA_TYPE_OPTIONS}
+        value={dataTypes}
+        onChange={(_e, next) => setDataTypes(next.map((v) => String(v).trim()).filter(Boolean))}
+        renderTags={(value, getTagProps) =>
+          value.map((option, index) => {
+            const { key, ...tagProps } = getTagProps({ index });
+            return <Chip key={key} size="small" label={option} {...tagProps} />;
+          })
+        }
+        renderInput={(params) => (
+          <TextField {...params} label="Data type" placeholder="Diet, gut microbiome, genetics… or type your own" />
+        )}
+      />
+      <TextField
+        label="Outcome"
+        value={outcome}
+        onChange={(e) => setOutcome(e.target.value)}
+        placeholder="e.g. incident type 2 diabetes"
+      />
+      <TextField
+        label="Aim"
+        value={aim}
+        onChange={(e) => setAim(e.target.value)}
+        multiline
+        minRows={2}
+        placeholder="What this project is trying to answer"
+      />
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
+        <FormControl fullWidth>
+          <InputLabel id="new-project-country-label">Country or region</InputLabel>
+          <Select
+            labelId="new-project-country-label"
+            label="Country or region"
+            value={countryOrRegion}
+            onChange={(e) => setCountryOrRegion(String(e.target.value))}
+          >
+            <MenuItem value="">
+              <em>Select…</em>
+            </MenuItem>
+            {SETUP_COUNTRY_REGIONS.map((r) => (
+              <MenuItem key={r} value={r}>
+                {r}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <FormControl fullWidth>
+          <InputLabel id="new-project-setting-label">Setting type</InputLabel>
+          <Select
+            labelId="new-project-setting-label"
+            label="Setting type"
+            value={settingType}
+            onChange={(e) => setSettingType(String(e.target.value))}
+          >
+            <MenuItem value="">
+              <em>e.g. Urban community</em>
+            </MenuItem>
+            {SETUP_SETTING_TYPES.map((s) => (
+              <MenuItem key={s} value={s}>
+                {s}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+      <TextField
+        label="Population"
+        value={population}
+        onChange={(e) => setPopulation(e.target.value)}
+        fullWidth
+        placeholder="e.g. adults aged 18 to 65"
+      />
+    </>
+  );
 
   return (
     <SetupShell title="New project" subtitle={subtitle} step={Math.min(step, 3)} totalSteps={3} showBackButton={false}>
@@ -140,7 +238,7 @@ export default function NewProjectPage() {
               />
               <TextField
                 select
-                label="Project type (optional)"
+                label="Project type"
                 value={projectType}
                 onChange={(e) => setProjectType(e.target.value)}
               >
@@ -163,42 +261,6 @@ export default function NewProjectPage() {
                 onChange={(e) => setResearchField(e.target.value)}
                 placeholder="e.g. nutritional epidemiology"
               />
-              <Autocomplete
-                multiple
-                freeSolo
-                options={DATA_TYPE_OPTIONS}
-                value={dataTypes}
-                onChange={(_e, next) => setDataTypes(next.map((v) => String(v).trim()).filter(Boolean))}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, index) => {
-                    const { key, ...tagProps } = getTagProps({ index });
-                    return <Chip key={key} size="small" label={option} {...tagProps} />;
-                  })
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Data type (optional)"
-                    placeholder="Diet, gut microbiome, genetics… or type your own"
-                  />
-                )}
-              />
-              <TextField
-                label="Outcome"
-                value={outcome}
-                onChange={(e) => setOutcome(e.target.value)}
-                placeholder="e.g. incident type 2 diabetes"
-              />
-              {startingPoint === "idea" ? (
-                <TextField
-                  label="Aim (optional)"
-                  value={aim}
-                  onChange={(e) => setAim(e.target.value)}
-                  multiline
-                  minRows={2}
-                  placeholder="What this project is trying to answer"
-                />
-              ) : null}
               <ChoiceCard
                 title="Just an idea"
                 description="You have a question or topic and want to start from there."
@@ -213,10 +275,37 @@ export default function NewProjectPage() {
               />
               <ChoiceCard
                 title="Already have a proposal"
-                description="Upload a proposal or brief. After you create the project, empty fields can be filled from the document."
+                description="Upload a proposal or brief. Empty fields can be filled from the document after you create the project."
                 selected={startingPoint === "proposal"}
                 onSelect={() => setStartingPoint("proposal")}
               />
+            </>
+          ) : null}
+          {step === 2 ? (
+            <>
+              {startingPoint === "idea" ? (
+                <Alert severity="info">
+                  Suggested if you have them: data type, outcome, aim, country or region, setting type, and population.
+                  Skip any you do not know yet.
+                </Alert>
+              ) : null}
+              {startingPoint === "gap" ? (
+                <Alert severity="info">
+                  {filledDetails.length > 0
+                    ? `On file for the gap scan: ${filledDetails.join(", ")}.`
+                    : "Nothing extra on file yet."}{" "}
+                  {missingDetails.length > 0
+                    ? `Add if you can (improves the scan): ${missingDetails.join(", ")}.`
+                    : "All suggested fields are filled."}
+                </Alert>
+              ) : null}
+              {startingPoint === "proposal" ? (
+                <Alert severity="info">
+                  Fill what you already know, then upload the proposal. After Create project, Peggy can fill empty
+                  fields from the document.
+                </Alert>
+              ) : null}
+              {detailFields}
               {startingPoint === "proposal" ? (
                 <Button component="label" variant="outlined" sx={{ textTransform: "none", alignSelf: "flex-start" }}>
                   {proposalFile ? proposalFile.name : "Upload proposal"}
@@ -231,60 +320,6 @@ export default function NewProjectPage() {
                   />
                 </Button>
               ) : null}
-            </>
-          ) : null}
-          {step === 2 ? (
-            <>
-              <Typography
-                sx={{ fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", color: "text.secondary" }}
-              >
-                SETTING
-              </Typography>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-                <FormControl fullWidth>
-                  <InputLabel id="new-project-country-label">Country or region</InputLabel>
-                  <Select
-                    labelId="new-project-country-label"
-                    label="Country or region"
-                    value={countryOrRegion}
-                    onChange={(e) => setCountryOrRegion(String(e.target.value))}
-                  >
-                    <MenuItem value="">
-                      <em>Select…</em>
-                    </MenuItem>
-                    {SETUP_COUNTRY_REGIONS.map((r) => (
-                      <MenuItem key={r} value={r}>
-                        {r}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <FormControl fullWidth>
-                  <InputLabel id="new-project-setting-label">Setting type</InputLabel>
-                  <Select
-                    labelId="new-project-setting-label"
-                    label="Setting type"
-                    value={settingType}
-                    onChange={(e) => setSettingType(String(e.target.value))}
-                  >
-                    <MenuItem value="">
-                      <em>e.g. Urban community</em>
-                    </MenuItem>
-                    {SETUP_SETTING_TYPES.map((s) => (
-                      <MenuItem key={s} value={s}>
-                        {s}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              </Stack>
-              <TextField
-                label="Population"
-                value={population}
-                onChange={(e) => setPopulation(e.target.value)}
-                fullWidth
-                placeholder="e.g. adults aged 18 to 65"
-              />
             </>
           ) : null}
           {step === 3 ? (

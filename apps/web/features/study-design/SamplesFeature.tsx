@@ -8,6 +8,7 @@ import {
   Alert,
   Autocomplete,
   Button,
+  Chip,
   Checkbox,
   CircularProgress,
   Divider,
@@ -30,6 +31,7 @@ import {
   DialogTitle,
   TextField,
   Typography,
+  MenuItem,
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
@@ -41,6 +43,8 @@ import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import {
+  DATA_TYPES,
+  STUDY_TYPES,
   findingLinkForPaper,
   linkedDocumentsChanged,
   linkedDocumentsFromPapers,
@@ -207,6 +211,50 @@ export function SamplesFeature() {
           <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} sx={{ mt: 2 }}>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
               <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                STUDY TYPE
+              </Typography>
+              <TextField
+                select
+                size="small"
+                value={samples.studyType ?? ""}
+                onChange={(e) => saveSection("samples", { studyType: e.target.value })}
+                fullWidth
+              >
+                <MenuItem value="">Not set</MenuItem>
+                {STUDY_TYPES.map((t) => (
+                  <MenuItem key={t} value={t}>
+                    {t}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Stack>
+            <Stack spacing={0.5} sx={{ flex: 1 }}>
+              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                DATA TYPES
+              </Typography>
+              <Autocomplete
+                multiple
+                freeSolo
+                size="small"
+                options={[...DATA_TYPES]}
+                value={samples.dataTypes ?? []}
+                onChange={(_e, next) =>
+                  saveSection("samples", { dataTypes: next.map((v) => String(v).trim()).filter(Boolean) })
+                }
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const { key, ...tagProps } = getTagProps({ index });
+                    return <Chip key={key} size="small" label={option} {...tagProps} />;
+                  })
+                }
+                renderInput={(params) => <TextField {...params} placeholder="Diet, genetics…" />}
+              />
+            </Stack>
+          </Stack>
+
+          <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} sx={{ mt: 2 }}>
+            <Stack spacing={0.5} sx={{ flex: 1 }}>
+              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
                 SETTING
               </Typography>
               <TextField
@@ -246,6 +294,17 @@ export function SamplesFeature() {
                 placeholder="e.g. 412 participants"
                 value={samples.expectedN ?? ""}
                 onChange={(e) => saveSection("samples", { expectedN: e.target.value })}
+                fullWidth
+              />
+            </Stack>
+            <Stack spacing={0.5} sx={{ flex: 1 }}>
+              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                POPULATION
+              </Typography>
+              <TextField
+                placeholder="e.g. adults aged 18 to 65"
+                value={samples.population ?? ""}
+                onChange={(e) => saveSection("samples", { population: e.target.value })}
                 fullWidth
               />
             </Stack>

@@ -170,7 +170,7 @@ Home + Project hub + New project must be the same wizard: hub Step 1 details, Ho
 
 **Shipped**
 
-- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, optional type, field, optional data types, outcome, starting point (idea / gap / proposal + optional upload; optional aim if idea). Step 2: setting (country/region, setting type, population). Step 3 last: AI privacy. Proposal fill-from-document after create. `/setup/step-*` redirects here. Type + data types → `study_design.samples`; outcome → `analysisPlan.outcomeTypes`; field, starting point, and setting keys → `workspaces.settings` JSON. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
+- **New project (`/projects/new`):** one wizard from Home and Project hub. Step 1: name, type, research field, starting point (idea / gap / proposal). Step 2: data type, outcome, aim, country/region, setting type, population. Idea suggests these fields; gap lists filled vs missing; proposal adds upload then fill-from-document after create. Step 3: AI privacy. `/setup/step-*` redirects here. Aim → `workspaces.aim`. Type, data types, setting, population → `study_design.samples`. Outcome → `analysisPlan.outcomeTypes`. Field, starting point, country, setting type, population → `workspaces.settings` JSON (same on SQLite and Supabase). Samples page and dashboard subtitle show those fields. Evidence module toggles not in this wizard. `enabled_modules` stays `["core"]` for extraction.
 - **Ethics:** dashboard and study-design hub do not require samples/methods first.
 - **Calendar:** edit existing events.
 - **Reading journal:** labeled **Use as SOP** checkbox (`papers.guidance_role`, migration `031`); original file via `storage_key` + `GET /corpus/{id}/file`.
@@ -178,6 +178,14 @@ Home + Project hub + New project must be the same wizard: hub Step 1 details, Ho
 - **Literature:** extraction can use stored file text (`load_paper_text`) when the session upload is gone.
 - **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only. Labels and notes wrap in a grid; no `noWrap` / ellipsis on this row.
 - **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
+
++ NEW PROJECT
+Step 1: Project name, Project type, Research field, Just an idea/Looking for gap/Already have a proposal
+Just an idea Step 2: Suggest to user -> Data type, Outcome, Aim, Country or region, Setting type, Population
+Looking for gap Step 2: Fill all user has (Data type, Outcome, Aim, Country or region, Setting type, Population) to help guide looking for the gap, suggest what users doesn't have or what should be improved. 
+Already have a proposal Step 2: Data type, Outcome, Aim, Country or region, Setting type, Population, Upload proposal/Auto fill project info
+Step 3: Ai settings
+- double check Supabase store of info aligns and info is display where is should in app correctly. 
 
 ## FUTURE:
 

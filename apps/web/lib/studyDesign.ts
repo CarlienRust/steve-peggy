@@ -6,6 +6,7 @@ export type StudyDesignSamples = {
   setting?: string;
   ageRange?: string;
   dataTypes?: string[];
+  population?: string;
   identifierLevel?: "none" | "de_identified" | "identifiable";
   collectionStatus?: string;
   recruitment?: string;

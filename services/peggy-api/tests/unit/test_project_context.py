@@ -1,6 +1,26 @@
 from core.project_context import format_project_context
 
 
+def test_format_project_context_includes_settings():
+    ws = {
+        "title": "T2D",
+        "aim": "Gut microbiome",
+        "settings": {
+            "research_field": "nutrition",
+            "country_or_region": "South Africa",
+            "setting_type": "Urban community",
+            "population": "adults",
+            "starting_point": "idea",
+        },
+    }
+    sd = {"samples": {"studyType": "Cross-sectional study", "dataTypes": ["Diet"], "population": "adults"}}
+    text = format_project_context(ws, sd)
+    assert "nutrition" in text
+    assert "South Africa" in text
+    assert "Urban community" in text
+    assert "Diet" in text
+
+
 def test_format_project_context_includes_plans():
     ws = {"title": "T2D", "aim": "Gut microbiome", "objectives": ["Obj 1"]}
     sd = {

@@ -159,8 +159,17 @@ export function DashboardPage() {
         {health.data?.gemini_tier ? (
           <StatusChip label={`Gemini ${health.data.gemini_tier}`} tone="neutral" />
         ) : null}
-        <Typography variant="body2" color="text.secondary">
-          {samples.studyType ? String(samples.studyType) : "Human-subjects study"}
+        <Typography variant="body2" color="text.secondary" sx={{ overflowWrap: "break-word" }}>
+          {[
+            samples.studyType,
+            typeof activeWorkspace?.settings?.research_field === "string"
+              ? activeWorkspace.settings.research_field
+              : "",
+            samples.setting,
+            samples.population,
+          ]
+            .filter((v) => String(v ?? "").trim())
+            .join(" · ") || "Human-subjects study"}
         </Typography>
       </Stack>
       {activeWorkspace?.privacy_mode === "strict" ? (
