@@ -19,6 +19,7 @@ const HUB_INTROS: Record<string, string> = {
 const HUB_PREREQUISITES: Record<string, string> = {
   "/validate/gap-analysis": "A research question or aim. Quick scan works without ingested PDFs.",
   "/validate/literature": "PubMed queries or PDF files for this project.",
+  "/validate/datasets": "Optional de-identified CSV, TSV, or SAV files for this project.",
   "/validate/aim": "Aim and objectives set, plus at least one literature paper ingested.",
   "/study-design/samples": "Project aim helps Peggy prefill cohort and recruitment fields.",
   "/study-design/ethics": "You can open Ethics at any time. Approval notes and letters are optional.",

@@ -8,6 +8,7 @@ import { eyebrowSx } from "@/theme/peggyTheme";
 const TABS = [
   { label: "Gap analysis", href: "/validate/gap-analysis" },
   { label: "Literature search", href: "/validate/literature" },
+  { label: "Validate datasets", href: "/validate/datasets" },
   { label: "Aim and objectives", href: "/validate/aim" },
 ] as const;
 

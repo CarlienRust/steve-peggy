@@ -53,6 +53,10 @@ export const PLATFORM_HELP_SECTIONS: HelpSection[] = [
         heading: "Gap analysis",
         body: "Scan coverage across your ingested papers and note gaps before you lock your design.",
       },
+      {
+        heading: "Validate datasets",
+        body: "Upload the same de-identified tables as on Samples & datasets. Peggy checks format and readiness from column names and summary stats only.",
+      },
     ],
   },
   {

@@ -943,10 +943,35 @@ export const peggyApi = {
       body: JSON.stringify({ workspace_id: workspaceId }),
     }),
 
-  setupSuggestions: (workspaceId: string) =>
+  setupSuggestions: (workspaceId: string, ideaDescription?: string) =>
     apiFetch<WorkflowResponse>("/workflows/setup-suggestions", {
       method: "POST",
-      body: JSON.stringify({ workspace_id: workspaceId }),
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        idea_description: ideaDescription?.trim() || undefined,
+      }),
+    }),
+
+  validateDataset: (
+    workspaceId: string,
+    body: {
+      fileLabel: string;
+      fileType: string;
+      headers: string[];
+      rowCount: number;
+      columnStats: { name: string; inferredType: string; missingPct: number }[];
+    }
+  ) =>
+    apiFetch<WorkflowResponse>("/workflows/validate-dataset", {
+      method: "POST",
+      body: JSON.stringify({
+        workspace_id: workspaceId,
+        file_label: body.fileLabel,
+        file_type: body.fileType,
+        headers: body.headers,
+        row_count: body.rowCount,
+        column_stats: body.columnStats,
+      }),
     }),
 
   getConfounderAudit: (workspaceId: string) =>

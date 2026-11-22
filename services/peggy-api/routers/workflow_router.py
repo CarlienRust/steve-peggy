@@ -21,6 +21,7 @@ from core.rag.workflows import (
     run_proposal,
     run_setup_suggestions,
     run_validate_aim,
+    run_validate_dataset,
 )
 from core.store import catalog
 from core.rag.limitation_utils import normalize_limitations
@@ -455,6 +456,7 @@ class IdeaFromResourcesRequest(BaseModel):
 
 class SetupSuggestionsRequest(BaseModel):
     workspace_id: str
+    idea_description: Optional[str] = None
 
 
 @router.post("/setup-suggestions", response_model=WorkflowResponse)
@@ -463,7 +465,44 @@ async def setup_suggestions(body: SetupSuggestionsRequest, user: AuthUser = Depe
     ws = await catalog.get_workspace(user.id, body.workspace_id)
     if not ws:
         raise HTTPException(404, "Workspace not found")
-    return _wrap(await run_setup_suggestions(user.id, body.workspace_id))
+    if body.idea_description:
+        enforce_text_length(body.idea_description, max_len=8000, label="Idea description")
+    return _wrap(
+        await run_setup_suggestions(user.id, body.workspace_id, idea_description=body.idea_description)
+    )
+
+
+class ValidateDatasetRequest(BaseModel):
+    workspace_id: str
+    file_label: str = ""
+    file_type: str = ""
+    headers: list[str] = Field(default_factory=list)
+    row_count: int = 0
+    column_stats: list[dict] = Field(default_factory=list)
+
+
+@router.post("/validate-dataset", response_model=WorkflowResponse)
+async def validate_dataset(body: ValidateDatasetRequest, user: AuthUser = Depends(get_current_user)):
+    await enforce_user_rate(user.id, "workflow", config.RATE_LIMIT_WORKFLOW_PER_HOUR)
+    ws = await catalog.get_workspace(user.id, body.workspace_id)
+    if not ws:
+        raise HTTPException(404, "Workspace not found")
+    if not body.headers:
+        raise HTTPException(400, "headers required")
+    try:
+        return _wrap(
+            await run_validate_dataset(
+                user.id,
+                body.workspace_id,
+                file_label=body.file_label,
+                file_type=body.file_type,
+                headers=body.headers,
+                row_count=max(0, body.row_count),
+                column_stats=body.column_stats,
+            )
+        )
+    except ValueError as e:
+        raise HTTPException(400, str(e)) from e
 
 
 @router.post("/idea-from-resources", response_model=WorkflowResponse)

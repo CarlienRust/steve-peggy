@@ -390,7 +390,9 @@ export function SamplesFeature() {
                 Sample datasets
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Optional. De-identified PDF, CSV, TSV, or SPSS SAV. Confirm at your own risk.
+                Optional. De-identified PDF, CSV, TSV, or SPSS SAV. Confirm at your own risk. To check format and
+                readiness, use{" "}
+                <Link href="/validate/datasets">Validate → Validate datasets</Link> (same files).
               </Typography>
             </Stack>
             <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: "none" }}>

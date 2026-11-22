@@ -179,13 +179,21 @@ Home + Project hub + New project must be the same wizard: hub Step 1 details, Ho
 - **Dashboard flow:** each chip uses stored work. Ethics = ethics JSON **or** `ethics_documents` papers. Results = `own_findings`. Design complete when samples + methods exist (budget/proposal still counted in the note, not required for the check). Done chips stay done even if an earlier chip is empty. Next step = first incomplete chip. Stale `objectiveChangedObjectiveIds` is an info note only. Labels and notes wrap in a grid; no `noWrap` / ellipsis on this row.
 - **Storage:** no new Postgres columns. `settings` JSONB already on `workspaces` (SQLite + Supabase). Study design patches merge into existing `study_design` JSON. Files still `peggy-uploads` / `UPLOAD_DIR` as in Batch 15. 
 
-+ NEW PROJECT flow
-Step 1: Project name, Project type, Research field, Just an idea/Looking for gap/Already have a proposal
-Just an idea Step 2: Suggest to user -> Data type, Outcome, Aim, Country or region, Setting type, Population
-Looking for gap Step 2: Fill all user has (Data type, Outcome, Aim, Country or region, Setting type, Population) to help guide looking for the gap, suggest what users doesn't have or what should be improved. 
-Already have a proposal Step 2: Data type, Outcome, Aim, Country or region, Setting type, Population, Upload proposal/Auto fill project info
-Step 3: Ai settings
-- double check Supabase store of info aligns and info is display where is should in app correctly. 
+## Batch 24
+
+**Shipped**
+
+- **New project step 2 (idea):** “Describe your idea” + **Suggest fields from my idea** calls `POST /workflows/setup-suggestions` with `idea_description` (stored as `settings.project_idea`). No auto-run on enter.
+- **New project step 2 (gap):** **Project idea** field + **Look for a gap** CTA runs abstract-only gap scan (public literature; project PDFs not required). **Next** goes to AI settings without coupling to the scan.
+- **New project step 2 (proposal):** unchanged upload + seed preview.
+- **Validate datasets:** `/validate/datasets` tab; same `sample_datasets` corpus as Study design → Samples (upload, preview, delete here; edit/notes on Samples). **Validate** runs `POST /workflows/validate-dataset` on column-name aggregates (class D).
+- **Post-wizard edits:** dashboard project edit, study design sections, and Validate gap analysis remain the place to refine fields after create (no new storage shape).
+
+**Still open (Batch 24)**
+
+- Full audit that every wizard field surfaces on dashboard subtitle, Samples, and “From your project” panels on every path.
+
+Project details modal from Dashboard should include the project type and research field
 
 ## FUTURE:
 

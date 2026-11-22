@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   Stack,
+  MenuItem,
   TextField,
 } from "@mui/material";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +23,7 @@ import { downloadJson } from "@/lib/downloadJson";
 import { normalizeObjectives } from "@/lib/objectives";
 import { objectivesForForm, workspaceFormSchema, type WorkspaceFormValues } from "@/lib/schemas/workspace";
 import type { StudyDesignData } from "@/lib/studyDesign";
+import { STUDY_TYPES } from "@/lib/studyDesign";
 
 type WorkspaceEditDialogProps = {
   open: boolean;
@@ -42,29 +44,47 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
     formState: { errors },
   } = useForm<WorkspaceFormValues>({
     resolver: zodResolver(workspaceFormSchema),
-    defaultValues: { title: "", aim: "", objectives: [] },
+    defaultValues: { title: "", projectType: "", researchField: "", aim: "", objectives: [] },
   });
 
   useEffect(() => {
     if (!workspace || !open) return;
+    const researchField =
+      typeof workspace.settings?.research_field === "string" ? workspace.settings.research_field : "";
     reset({
       title: workspace.title,
+      projectType: studyDesign?.samples?.studyType ?? "",
+      researchField,
       aim: workspace.aim ?? "",
       objectives: objectivesForForm(workspace.objectives),
     });
-  }, [workspace, open, reset]);
+  }, [workspace, open, reset, studyDesign?.samples?.studyType]);
 
   const saveMutation = useMutation({
     mutationFn: async (values: WorkspaceFormValues) => {
       if (!workspace) throw new Error("No project selected");
       const objectives = normalizeObjectives(values.objectives).filter((o) => o.text.trim());
-      return peggyApi.updateWorkspace(workspace.id, {
+      const settings = { ...(workspace.settings ?? {}), research_field: (values.researchField ?? "").trim() };
+      const ws = await peggyApi.updateWorkspace(workspace.id, {
         title: values.title.trim(),
         aim: (values.aim ?? "").trim(),
         objectives,
+        settings,
       });
+      const studyType = (values.projectType ?? "").trim();
+      if (studyDesign) {
+        await peggyApi.patchStudyDesign(workspace.id, {
+          samples: { ...studyDesign.samples, studyType },
+        });
+      } else if (studyType) {
+        await peggyApi.patchStudyDesign(workspace.id, { samples: { studyType } });
+      }
+      return ws;
     },
     onSuccess: () => {
+      if (workspace?.id) {
+        void queryClient.invalidateQueries({ queryKey: ["study-design", workspace.id] });
+      }
       if (userId) {
         void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
       } else {
@@ -133,6 +153,40 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
                   error={!!fieldState.error}
                   helperText={fieldState.error?.message}
                   fullWidth
+                />
+              )}
+            />
+            <Controller
+              name="projectType"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  select
+                  label="Project type"
+                  fullWidth
+                  helperText="Same as Study design → Samples"
+                >
+                  <MenuItem value="">
+                    <em>Not set</em>
+                  </MenuItem>
+                  {STUDY_TYPES.map((t) => (
+                    <MenuItem key={t} value={t}>
+                      {t}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              )}
+            />
+            <Controller
+              name="researchField"
+              control={control}
+              render={({ field }) => (
+                <TextField
+                  {...field}
+                  label="Research field"
+                  fullWidth
+                  placeholder="e.g. nutritional epidemiology"
                 />
               )}
             />

@@ -3,6 +3,8 @@ import { normalizeObjectives, type WorkspaceObjective } from "@/lib/objectives";
 
 export const workspaceFormSchema = z.object({
   title: z.string().trim().min(1, "Project title is required"),
+  projectType: z.string().optional(),
+  researchField: z.string().optional(),
   aim: z.string().optional(),
   objectives: z.array(
     z.object({

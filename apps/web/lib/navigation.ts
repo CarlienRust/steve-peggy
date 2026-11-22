@@ -50,6 +50,12 @@ export const MAIN_NAV: NavItem[] = [
         ready: true,
       },
       {
+        label: "Validate datasets",
+        href: "/validate/datasets",
+        description: "Upload tables and check format, missing fields, and analysis readiness.",
+        ready: true,
+      },
+      {
         label: "Aim and objectives",
         href: "/validate/aim",
         description: "Check project aim and objectives against ingested literature.",

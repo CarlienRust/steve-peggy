@@ -77,6 +77,8 @@ def format_project_context(ws: dict, study_design: dict) -> str:
         parts.append(f"Setting type: {settings['setting_type']}")
     if settings.get("population"):
         parts.append(f"Population: {settings['population']}")
+    if settings.get("project_idea"):
+        parts.append(f"Project idea: {settings['project_idea']}")
     from core.aims import normalize_aims, overall_aim_text
     from core.objectives import objective_texts
 

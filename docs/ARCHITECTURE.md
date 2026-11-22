@@ -141,7 +141,8 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `GET /health` | Qdrant, LLM, embeddings, Gemini tier, database, storage |
 | `GET/PUT /profile/llm-settings` | Per-user provider, key last-4, daily cap. PUT may set `api_key` (write-only). GET never returns the secret. |
 | `GET /setup/checks` | Hosted status; local fix commands only when `AUTH_REQUIRED=false` |
-| `POST /workflows/setup-suggestions` | Suggest data type, outcome, aim, country, setting type, population from the new-project step 1 workspace (class B). User edits on step 2. |
+| `POST /workflows/setup-suggestions` | Suggest data type, outcome, aim, country, setting type, population from step 1 plus optional `idea_description` (class B). Stored on `workspaces.settings.project_idea`. |
+| `POST /workflows/validate-dataset` | Dataset readiness review from column names and aggregate stats only (class D). Used on `/validate/datasets`. |
 | `POST /workflows/idea-from-resources` | 3–5 questions from project resources (class B) |
 | `GET /workspaces/{id}/confounder-audit` | Covariates from extractions |
 | `POST /jobs/retraction-recheck` | Weekly job token; OpenAlex/PubMed recheck |
@@ -182,6 +183,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate` | 03 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
+| `/validate/datasets` | · Validate datasets | Upload `sample_datasets` (shared with Study design → Samples); Peggy validates format and readiness |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 04 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 04 · Samples | Cohort profile (study type, data types, setting, population, recruitment, inclusion/exclusion, age range) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |

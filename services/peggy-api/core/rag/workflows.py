@@ -797,16 +797,25 @@ _SETUP_SETTING_TYPES = (
 )
 
 
-async def run_setup_suggestions(user_id: str, workspace_id: str) -> dict:
+async def run_setup_suggestions(
+    user_id: str, workspace_id: str, *, idea_description: str | None = None
+) -> dict:
     from core.project_context import load_project_context
     from core.safety.policy import CLASS_B, set_policy_context
 
     ws = await catalog.get_workspace(user_id, workspace_id)
     if not ws:
         raise ValueError("Workspace not found")
+    idea = (idea_description or "").strip()
+    if idea:
+        settings = dict(ws.get("settings") or {}) if isinstance(ws.get("settings"), dict) else {}
+        settings["project_idea"] = idea[:8000]
+        await catalog.update_workspace(user_id, workspace_id, {"settings": settings})
+        ws = await catalog.get_workspace(user_id, workspace_id) or ws
     set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_B], user_id=user_id)
     llm = await get_llm()
     ctx = await load_project_context(user_id, workspace_id)
+    idea_block = f"\nUser idea description:\n{idea}\n" if idea else ""
     raw = await llm.complete(
         prompts.build_system_prompt(),
         "Suggest project setup fields from this project (title, type, research field). "
@@ -815,7 +824,7 @@ async def run_setup_suggestions(user_id: str, workspace_id: str) -> dict:
         f"settingType must be one of: {list(_SETUP_SETTING_TYPES)} or empty. "
         "Return JSON only: "
         '{"dataTypes":[],"outcome":"","aim":"","countryOrRegion":"","settingType":"","population":""}\n'
-        f"Project:\n{ctx[:4000]}",
+        f"Project:\n{ctx[:4000]}{idea_block[:4000]}",
         json_mode=True,
     )
     body = _parse_json(raw)
@@ -844,7 +853,69 @@ async def run_setup_suggestions(user_id: str, workspace_id: str) -> dict:
         },
         "sources": [],
         "confidence": "low",
-        "limitations": ["Suggestions from step 1 only. Edit before you continue."],
+        "limitations": [
+            "Suggestions from your idea and step 1 fields. Edit before you continue."
+            if idea
+            else "Suggestions from step 1 only. Edit before you continue."
+        ],
+    }
+
+
+async def run_validate_dataset(
+    user_id: str,
+    workspace_id: str,
+    *,
+    file_label: str,
+    file_type: str,
+    headers: list[str],
+    row_count: int,
+    column_stats: list[dict],
+) -> dict:
+    from core.project_context import load_project_context
+    from core.safety.policy import CLASS_D, PolicyDenied, assert_can_send, set_policy_context
+
+    ws = await catalog.get_workspace(user_id, workspace_id)
+    if not ws:
+        raise ValueError("Workspace not found")
+    set_policy_context(privacy_mode=ws.get("privacy_mode"), data_classes=[CLASS_D], user_id=user_id)
+    try:
+        assert_can_send([CLASS_D], workspace=ws)
+    except PolicyDenied as e:
+        raise ValueError(str(getattr(e, "detail", e))) from e
+    llm = await get_llm()
+    ctx = await load_project_context(user_id, workspace_id)
+    stats_json = json.dumps(column_stats[:40], ensure_ascii=True)[:6000]
+    headers_line = ", ".join(headers[:60])
+    prompt = (
+        "Review a de-identified dataset profile for epidemiology / biostatistics readiness. "
+        "Use only the column names and aggregate stats below, not individual rows. "
+        "Return JSON only:\n"
+        '{"formatAssessment":"","missingElements":[],"strengths":[],"concerns":[],'
+        '"recommendedFileTypes":[],"readiness":"ready|partial|needs_work"}\n'
+        f"File: {file_label} ({file_type})\nRows (approx): {row_count}\nHeaders: {headers_line}\n"
+        f"Column stats: {stats_json}\n"
+        f"Project context:\n{ctx[:3000]}"
+    )
+    raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)
+    body = _parse_json(raw)
+    if not isinstance(body, dict):
+        body = {}
+    readiness = str(body.get("readiness") or "partial").strip().lower()
+    if readiness not in ("ready", "partial", "needs_work"):
+        readiness = "partial"
+    for key in ("missingElements", "strengths", "concerns", "recommendedFileTypes"):
+        val = body.get(key)
+        if not isinstance(val, list):
+            body[key] = []
+        else:
+            body[key] = [str(x).strip() for x in val if str(x).strip()][:12]
+    body["formatAssessment"] = str(body.get("formatAssessment") or "").strip()
+    body["readiness"] = readiness
+    return {
+        "body": body,
+        "sources": [],
+        "confidence": "low",
+        "limitations": ["Aggregates and column names only; confirm against your data dictionary."],
     }
 
 

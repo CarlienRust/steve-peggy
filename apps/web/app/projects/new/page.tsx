@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Alert,
@@ -66,7 +66,9 @@ export default function NewProjectPage() {
   const [busy, setBusy] = useState(false);
   const [gapResult, setGapResult] = useState<WorkflowResponse | null>(null);
   const [seedPreview, setSeedPreview] = useState<Record<string, unknown> | null>(null);
-  const ideaRan = useRef(false);
+  const [ideaDescription, setIdeaDescription] = useState("");
+  const [projectIdea, setProjectIdea] = useState("");
+  const [suggestionsLoaded, setSuggestionsLoaded] = useState(false);
 
   const resolvedType =
     projectType === "Other" ? projectTypeOther.trim() : projectType.trim();
@@ -97,6 +99,7 @@ export default function NewProjectPage() {
         country_or_region: countryOrRegion.trim(),
         setting_type: settingType.trim(),
         population: population.trim(),
+        project_idea: (startingPoint === "gap" ? projectIdea : ideaDescription).trim(),
       },
     });
     await peggyApi.patchStudyDesign(id, {
@@ -188,19 +191,44 @@ export default function NewProjectPage() {
     if (preview.population && !population.trim()) setPopulation(String(preview.population));
   };
 
-  useEffect(() => {
-    if (step !== 2 || startingPoint !== "idea" || !workspaceId || ideaRan.current) return;
-    ideaRan.current = true;
+  const runIdeaSuggestions = async () => {
+    if (!workspaceId) return;
     setBusy(true);
     setError(null);
-    void peggyApi
-      .setupSuggestions(workspaceId)
-      .then((res) => applySuggestionBody(res.body, true))
-      .catch((e: unknown) => setError(formatApiError(e)))
-      .finally(() => setBusy(false));
-    // run once when idea step 2 opens
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, startingPoint, workspaceId]);
+    try {
+      await persist(workspaceId);
+      const res = await peggyApi.setupSuggestions(workspaceId, ideaDescription);
+      applySuggestionBody(res.body, true);
+      setSuggestionsLoaded(true);
+    } catch (e: unknown) {
+      setError(formatApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const runGapScan = async () => {
+    const id = await ensureWorkspace();
+    await persist(id);
+    setBusy(true);
+    setError(null);
+    try {
+      const q = [projectIdea, title, researchField, aim, outcome, population, countryOrRegion, settingType]
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .join(" ");
+      const res = await peggyApi.gapAnalysis(q || title.trim(), {
+        workspaceId: id,
+        sourceTypes: ["literature"],
+        abstractsOnly: true,
+      });
+      setGapResult(res);
+    } catch (e: unknown) {
+      setError(formatApiError(e));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const finish = useMutation({
     mutationFn: async () => {
@@ -235,16 +263,6 @@ export default function NewProjectPage() {
     try {
       const id = await ensureWorkspace();
       await persist(id);
-      if (startingPoint === "gap" && !gapResult) {
-        const q = [title, researchField, aim, outcome].map((s) => s.trim()).filter(Boolean).join(" ");
-        const res = await peggyApi.gapAnalysis(q || title.trim(), {
-          workspaceId: id,
-          sourceTypes: ["literature"],
-          abstractsOnly: true,
-        });
-        setGapResult(res);
-        return;
-      }
       if (startingPoint === "proposal" && proposalFile && !seedPreview) {
         const up = await peggyApi.uploadDocument(proposalFile, {
           title: proposalFile.name.replace(/\.(pdf|html|htm|txt|md)$/i, ""),
@@ -381,13 +399,9 @@ export default function NewProjectPage() {
             <Stack direction="row" spacing={1} alignItems="center">
               <CircularProgress size={18} />
               <Typography variant="body2" color="text.secondary">
-                {startingPoint === "gap" && step === 2 && !gapResult
-                  ? "Looking for a gap…"
-                  : startingPoint === "proposal" && step === 2 && !seedPreview
-                    ? "Reading proposal…"
-                    : startingPoint === "idea" && step === 2
-                      ? "Generating suggestions…"
-                      : "Working…"}
+                {startingPoint === "proposal" && step === 2 && !seedPreview
+                  ? "Reading proposal…"
+                  : "Working…"}
               </Typography>
             </Stack>
           ) : null}
@@ -447,16 +461,57 @@ export default function NewProjectPage() {
           {step === 2 ? (
             <>
               {startingPoint === "idea" ? (
-                <Alert severity="info">
-                  Suggestions use your project name, type, and field (hosted AI). Edit anything that is wrong before
-                  the next step.
-                </Alert>
+                <>
+                  <Alert severity="info">
+                    Describe your idea, then run suggestions. Uses hosted AI on your description plus step 1 fields.
+                    Edit anything that is wrong before AI settings.
+                  </Alert>
+                  <TextField
+                    label="Describe your idea"
+                    value={ideaDescription}
+                    onChange={(e) => setIdeaDescription(e.target.value)}
+                    multiline
+                    minRows={3}
+                    fullWidth
+                    placeholder="What you want to study, why, and any constraints"
+                  />
+                  <Button
+                    variant="outlined"
+                    disabled={busy || !ideaDescription.trim()}
+                    onClick={() => void runIdeaSuggestions()}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                  >
+                    Suggest fields from my idea
+                  </Button>
+                  {suggestionsLoaded ? (
+                    <Alert severity="success">Suggestions loaded. Check the fields below.</Alert>
+                  ) : null}
+                </>
               ) : null}
               {startingPoint === "gap" ? (
-                <Alert severity="info">
-                  Add if applicable (improves the scan): {missingDetails.length ? missingDetails.join(", ") : "all listed fields are filled"}.
-                  Next runs the gap scan. After you review it, Next again opens AI settings.
-                </Alert>
+                <>
+                  <Alert severity="info">
+                    Add what you know. Gap scan uses public peer-reviewed abstracts (no project PDFs required). Fill:{" "}
+                    {missingDetails.length ? missingDetails.join(", ") : "optional fields as needed"}.
+                  </Alert>
+                  <TextField
+                    label="Project idea"
+                    value={projectIdea}
+                    onChange={(e) => setProjectIdea(e.target.value)}
+                    multiline
+                    minRows={2}
+                    fullWidth
+                    placeholder="The question or gap you are exploring"
+                  />
+                  <Button
+                    variant="outlined"
+                    disabled={busy}
+                    onClick={() => void runGapScan()}
+                    sx={{ alignSelf: "flex-start", textTransform: "none" }}
+                  >
+                    Look for a gap
+                  </Button>
+                </>
               ) : null}
               {startingPoint === "proposal" ? (
                 <Alert severity="info">
