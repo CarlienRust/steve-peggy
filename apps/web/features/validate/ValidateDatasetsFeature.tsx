@@ -24,8 +24,12 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { DatasetTablePreview } from "@/components/DatasetTablePreview";
+import { ValidateDatasetDialog, type ValidateDatasetForm } from "@/components/ValidateDatasetDialog";
 import { formatApiError, peggyApi, queryKeys, type PaperRecord, type WorkflowResponse } from "@/lib/api";
 import { loadDatasetProfile } from "@/lib/datasetColumnStats";
+import { DATASET_UPLOAD_ACCEPT, datasetUploadTitle, isAcceptedDatasetFile } from "@/lib/datasetFiles";
+import { linkedDocumentsFromPapers } from "@/lib/studyDesign";
+import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
 
@@ -39,9 +43,12 @@ export function ValidateDatasetsFeature() {
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [uploading, setUploading] = useState(false);
   const [previewPaper, setPreviewPaper] = useState<PaperRecord | null>(null);
+  const [validateDialogPaper, setValidateDialogPaper] = useState<PaperRecord | null>(null);
+  const [validating, setValidating] = useState(false);
   const [validateResult, setValidateResult] = useState<WorkflowResponse | null>(null);
-  const [validatePaper, setValidatePaper] = useState<string | null>(null);
+  const [validatedPaper, setValidatedPaper] = useState<PaperRecord | null>(null);
   const [validateError, setValidateError] = useState<string | null>(null);
+  const { studyDesign, commitSection } = useStudyDesign(activeWorkspace?.id);
 
   const datasets = useQuery({
     queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
@@ -59,17 +66,7 @@ export function ValidateDatasetsFeature() {
   const datasetPapers = datasets.data?.papers ?? [];
 
   const addFiles = useCallback((incoming: FileList | File[]) => {
-    const accepted = Array.from(incoming).filter((f) => {
-      const n = f.name.toLowerCase();
-      return (
-        n.endsWith(".pdf") ||
-        n.endsWith(".csv") ||
-        n.endsWith(".tsv") ||
-        n.endsWith(".txt") ||
-        n.endsWith(".sav") ||
-        n.endsWith(".zsav")
-      );
-    });
+    const accepted = Array.from(incoming).filter(isAcceptedDatasetFile);
     if (!accepted.length) return;
     setPendingFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
@@ -87,7 +84,7 @@ export function ValidateDatasetsFeature() {
         try {
           const res = await peggyApi.uploadDocument(file, {
             sourceType: "sample_datasets",
-            title: file.name.replace(/\.(pdf|csv|tsv|txt|sav|zsav)$/i, ""),
+            title: datasetUploadTitle(file),
             workspaceId: activeWorkspace.id,
           });
           if (res.status === "duplicate") {
@@ -116,11 +113,12 @@ export function ValidateDatasetsFeature() {
     },
   });
 
-  const runValidate = async (paper: PaperRecord) => {
+  const runValidate = async (paper: PaperRecord, form: ValidateDatasetForm) => {
     if (!paper.id || !activeWorkspace?.id) return;
     setValidateError(null);
     setValidateResult(null);
-    setValidatePaper(paper.title ?? `Dataset ${paper.id}`);
+    setValidatedPaper(paper);
+    setValidating(true);
     try {
       const raw = await peggyApi.getPaperFile(paper.id);
       const profile = await loadDatasetProfile(paper, raw);
@@ -130,11 +128,29 @@ export function ValidateDatasetsFeature() {
         headers: profile.headers,
         rowCount: profile.rowCount,
         columnStats: profile.columnStats,
+        expectations: form.expectations,
+        expectedFileFormat: form.expectedFileFormat,
+        requiredVariables: form.requiredVariables,
       });
       setValidateResult(res);
+      setValidateDialogPaper(null);
     } catch (e) {
       setValidateError(formatApiError(e));
+    } finally {
+      setValidating(false);
     }
+  };
+
+  const setAsProjectDataset = async () => {
+    if (!activeWorkspace?.id || !validatedPaper?.id) return;
+    const samples = studyDesign.samples ?? {};
+    const papers = datasetPapers.filter((p) => p.id != null);
+    await commitSection("samples", {
+      ...samples,
+      validatedDatasetPaperId: validatedPaper.id,
+      linkedDocuments: linkedDocumentsFromPapers(papers),
+    });
+    queryClient.invalidateQueries({ queryKey: ["study-design", activeWorkspace.id] });
   };
 
   const formatAdded = (iso?: string) => (iso ? String(iso).slice(5, 10).replace("-", " ") : "—");
@@ -171,7 +187,7 @@ export function ValidateDatasetsFeature() {
         <input
           ref={fileInputRef}
           type="file"
-          accept="application/pdf,.pdf,.csv,.tsv,.txt,.sav,.zsav"
+          accept={DATASET_UPLOAD_ACCEPT}
           multiple
           hidden
           onChange={(e) => {
@@ -249,7 +265,13 @@ export function ValidateDatasetsFeature() {
                     <Button size="small" variant="text" sx={{ textTransform: "none" }} disabled={!p.id} onClick={() => setPreviewPaper(p)}>
                       Preview
                     </Button>
-                    <Button size="small" variant="text" sx={{ textTransform: "none" }} disabled={!p.id} onClick={() => void runValidate(p)}>
+                    <Button
+                      size="small"
+                      variant="text"
+                      sx={{ textTransform: "none" }}
+                      disabled={!p.id}
+                      onClick={() => setValidateDialogPaper(p)}
+                    >
                       Validate
                     </Button>
                     <Button
@@ -269,11 +291,18 @@ export function ValidateDatasetsFeature() {
         </Table>
       </Paper>
 
-      {validatePaper ? (
+      {validatedPaper ? (
         <Paper variant="outlined" sx={{ p: 2.5 }}>
-          <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-            Validation — {validatePaper}
-          </Typography>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
+            <Typography variant="subtitle1" fontWeight={600}>
+              Validation — {validatedPaper.title ?? "Dataset"}
+            </Typography>
+            {validateResult ? (
+              <Button variant="outlined" sx={{ textTransform: "none" }} onClick={() => void setAsProjectDataset()}>
+                Use in Study design → Samples
+              </Button>
+            ) : null}
+          </Stack>
           {validateError ? <Alert severity="error">{validateError}</Alert> : null}
           {!validateResult && !validateError ? <CircularProgress size={22} /> : null}
           {validateResult ? (
@@ -315,6 +344,14 @@ export function ValidateDatasetsFeature() {
       ) : null}
 
       <DatasetTablePreview paper={previewPaper} onClose={() => setPreviewPaper(null)} />
+      <ValidateDatasetDialog
+        paper={validateDialogPaper}
+        busy={validating}
+        onClose={() => setValidateDialogPaper(null)}
+        onConfirm={(form) => {
+          if (validateDialogPaper) void runValidate(validateDialogPaper, form);
+        }}
+      />
     </Stack>
   );
 }

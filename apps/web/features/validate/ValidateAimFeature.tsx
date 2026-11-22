@@ -15,6 +15,7 @@ import {
   Tooltip,
   Typography,
 } from "@mui/material";
+import { AimsObjectivesSignoff } from "@/components/AimsObjectivesSignoff";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { AimListEditor } from "@/components/AimListEditor";
@@ -191,12 +192,33 @@ export function ValidateAimFeature() {
         aims,
         aim: overall.text.trim(),
         objectives: normalizeObjectives(objectivesToKeep).filter((o) => o.text.trim()),
+        settings: {
+          ...(activeWorkspace.settings ?? {}),
+          aims_objectives_signoff: false,
+        },
       });
     },
     onSuccess: async () => {
       await invalidateWorkspace();
       setEditingAim(false);
     },
+  });
+
+  const aimsSignoff =
+    activeWorkspace?.settings && (activeWorkspace.settings as Record<string, unknown>).aims_objectives_signoff === true;
+
+  const signoffAims = useMutation({
+    mutationFn: async (signedOff: boolean) => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      return peggyApi.updateWorkspace(activeWorkspace.id, {
+        settings: {
+          ...(activeWorkspace.settings ?? {}),
+          aims_objectives_signoff: signedOff,
+          aims_objectives_signoff_at: signedOff ? new Date().toISOString() : null,
+        },
+      });
+    },
+    onSuccess: () => void invalidateWorkspace(),
   });
 
   const saveObjectives = useMutation({
@@ -207,7 +229,13 @@ export function ValidateAimFeature() {
         normalizeObjectives(draftObjectives).filter((o) => o.text.trim()),
         aims
       );
-      return peggyApi.updateWorkspace(activeWorkspace.id, { objectives: objectivesToSave });
+      return peggyApi.updateWorkspace(activeWorkspace.id, {
+        objectives: objectivesToSave,
+        settings: {
+          ...(activeWorkspace.settings ?? {}),
+          aims_objectives_signoff: false,
+        },
+      });
     },
     onSuccess: async () => {
       await invalidateWorkspace();
@@ -529,6 +557,19 @@ export function ValidateAimFeature() {
               Dropped objectives stay in the history.
             </Typography>
           </Stack>
+        ) : null}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+        <AimsObjectivesSignoff
+          checked={aimsSignoff}
+          disabled={!hasSavedAimOrObjectives || signoffAims.isPending}
+          onChange={(signedOff) => signoffAims.mutate(signedOff)}
+        />
+        {signoffAims.isError ? (
+          <Typography variant="caption" color="error" display="block" sx={{ mt: 1 }}>
+            {formatApiError(signoffAims.error)}
+          </Typography>
         ) : null}
       </Paper>
 

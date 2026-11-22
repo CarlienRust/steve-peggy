@@ -870,6 +870,9 @@ async def run_validate_dataset(
     headers: list[str],
     row_count: int,
     column_stats: list[dict],
+    expectations: str = "",
+    expected_file_format: str = "",
+    required_variables: str = "",
 ) -> dict:
     from core.project_context import load_project_context
     from core.safety.policy import CLASS_D, PolicyDenied, assert_can_send, set_policy_context
@@ -894,6 +897,9 @@ async def run_validate_dataset(
         '"recommendedFileTypes":[],"readiness":"ready|partial|needs_work"}\n'
         f"File: {file_label} ({file_type})\nRows (approx): {row_count}\nHeaders: {headers_line}\n"
         f"Column stats: {stats_json}\n"
+        f"Researcher expectations: {(expectations or '').strip()[:2000]}\n"
+        f"Expected file format: {(expected_file_format or '').strip()[:500]}\n"
+        f"Required variables: {(required_variables or '').strip()[:1000]}\n"
         f"Project context:\n{ctx[:3000]}"
     )
     raw = await llm.complete(prompts.build_system_prompt(), prompt, json_mode=True)

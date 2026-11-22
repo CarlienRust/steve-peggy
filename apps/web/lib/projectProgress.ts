@@ -107,6 +107,8 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
     hasValidateAim,
   } = input;
   const samples = studyDesign.samples ?? {};
+  const methodsPlan = studyDesign.methodsPlan ?? {};
+  const analysisPlan = studyDesign.analysisPlan ?? {};
   const ethics = studyDesign.ethics ?? {};
   const budget = studyDesign.budget ?? {};
   const proposal = studyDesign.proposal ?? {};
@@ -119,11 +121,17 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
   const aim = aims.find((a) => a.role === "overall")?.text.trim() || workspace?.aim?.trim() || "";
   const objectives = normalizeObjectives(workspace?.objectives).filter((o) => o.text.trim());
   const samplesDone = samplesStarted(samples, sampleDatasetCount);
-  const methodsDone = methodsStarted(studyDesign);
+  const methodsDone =
+    methodsPlan.draftStatus === "completed" && analysisPlan.draftStatus === "completed"
+      ? true
+      : methodsStarted(studyDesign);
   const ethicsDone = ethicsStarted(ethics, ethicsDocumentCount);
   const findingsDone = ownFindingsCount > 0;
   const ideaDone = !!aim || hasGapAnalysis || startingPoint === "gap" || startingPoint === "idea";
-  const aimDone = !!aim && objectives.length > 0;
+  const aimSignoff =
+    workspace?.settings && (workspace.settings as Record<string, unknown>).aims_objectives_signoff === true;
+  const aimContent = !!aim && objectives.length > 0;
+  const aimDone = (aimSignoff && aimContent) || (aimContent && hasValidateAim);
   const designDone = samplesDone && methodsDone;
   const budgetDone = !!(budget.summary?.trim() || (budget.lineItems?.length ?? 0) > 0);
   const proposalDone = !!(proposal.lastResult || proposal.generatedAt);

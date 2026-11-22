@@ -479,6 +479,9 @@ class ValidateDatasetRequest(BaseModel):
     headers: list[str] = Field(default_factory=list)
     row_count: int = 0
     column_stats: list[dict] = Field(default_factory=list)
+    expectations: str = ""
+    expected_file_format: str = ""
+    required_variables: str = ""
 
 
 @router.post("/validate-dataset", response_model=WorkflowResponse)
@@ -499,6 +502,9 @@ async def validate_dataset(body: ValidateDatasetRequest, user: AuthUser = Depend
                 headers=body.headers,
                 row_count=max(0, body.row_count),
                 column_stats=body.column_stats,
+                expectations=body.expectations,
+                expected_file_format=body.expected_file_format,
+                required_variables=body.required_variables,
             )
         )
     except ValueError as e:

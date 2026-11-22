@@ -195,6 +195,19 @@ Home + Project hub + New project must be the same wizard: hub Step 1 details, Ho
 
 Project details modal from Dashboard should include the project type and research field
 
+## Batch 25
+
+**Shipped**
+
+- **Validate → Aim and objectives:** sign-off checkbox (`settings.aims_objectives_signoff`). Saving aims or objectives clears sign-off. Dashboard “Aim and objectives” chip respects sign-off or a completed literature check.
+- **Methods plan → Review:** `PlanDraftSignoff` sets `methodsPlan.draftStatus` and `analysisPlan.draftStatus` to `completed` (dashboard design flow).
+- **Validate → datasets:** modal for expectations, file format, and variables before `POST /workflows/validate-dataset`. **Use in Study design → Samples** sets `samples.validatedDatasetPaperId` and refreshes `linkedDocuments`. Shared upload helpers in `apps/web/lib/datasetFiles.ts`.
+- **Dashboard project details:** project type + research field in `WorkspaceEditDialog` (Batch 25 note).
+
+**Still open (Batch 25)**
+
+- Full platform alignment pass (item 4): every shared corpus path, edit surface, and doc cross-link audited end-to-end.
+
 ## FUTURE:
 
 **Still open:**

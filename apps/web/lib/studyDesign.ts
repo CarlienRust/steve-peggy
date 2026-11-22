@@ -16,6 +16,8 @@ export type StudyDesignSamples = {
   /** @deprecated Legacy — use `budget` section */
   budget?: string;
   linkedDocuments?: LinkedDocument[];
+  /** Paper id highlighted as the main dataset after Validate → datasets */
+  validatedDatasetPaperId?: number;
 };
 
 export type LinkedDocument = {

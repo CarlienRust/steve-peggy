@@ -51,6 +51,7 @@ import {
   upsertFindingLink,
 } from "@/lib/studyDesign";
 import { detectPhiFlags, phiWarningMessage } from "@/lib/sensitiveData";
+import { DATASET_UPLOAD_ACCEPT, datasetUploadTitle, isAcceptedDatasetFile } from "@/lib/datasetFiles";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 
 type UploadResult = { name: string; ok: boolean; chunks?: number; error?: string };
@@ -95,18 +96,7 @@ export function SamplesFeature() {
     commitSection("samples", { ...samples, linkedDocuments: linkedDocumentsFromPapers(datasetPapers) });
 
   const addPdfFiles = useCallback((incoming: FileList | File[]) => {
-    const pdfs = Array.from(incoming).filter((f) => {
-      const n = f.name.toLowerCase();
-      return (
-        f.type === "application/pdf" ||
-        n.endsWith(".pdf") ||
-        n.endsWith(".csv") ||
-        n.endsWith(".tsv") ||
-        n.endsWith(".txt") ||
-        n.endsWith(".sav") ||
-        n.endsWith(".zsav")
-      );
-    });
+    const pdfs = Array.from(incoming).filter(isAcceptedDatasetFile);
     if (pdfs.length === 0) return;
     setPdfFiles((prev) => {
       const names = new Set(prev.map((f) => f.name));
@@ -134,7 +124,7 @@ export function SamplesFeature() {
         try {
           const res = await peggyApi.uploadDocument(file, {
             sourceType: "sample_datasets",
-            title: file.name.replace(/\.(pdf|csv|tsv|txt|sav|zsav)$/i, ""),
+            title: datasetUploadTitle(file),
             workspaceId: activeWorkspace?.id,
           });
           if (res.status === "duplicate") {
@@ -404,7 +394,7 @@ export function SamplesFeature() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="application/pdf,.pdf,.csv,.tsv,.txt,.sav,.zsav"
+            accept={DATASET_UPLOAD_ACCEPT}
             multiple
             hidden
             onChange={onFileInputChange}
@@ -494,11 +484,13 @@ export function SamplesFeature() {
                 ) : (
                   datasetPapers.map((p) => {
                     const linked = p.id != null && linkedIds.has(p.id);
+                    const primary = p.id != null && samples.validatedDatasetPaperId === p.id;
                     return (
                       <TableRow key={p.id ?? p.title} hover sx={{ height: 56 }}>
                         <TableCell sx={{ maxWidth: 360 }}>
                           <Typography variant="body2" noWrap title={p.title ?? "Untitled"}>
                             {p.title ?? "Untitled"}
+                            {primary ? " · Primary (validated)" : ""}
                           </Typography>
                         </TableCell>
                         <TableCell sx={{ width: 90 }}>

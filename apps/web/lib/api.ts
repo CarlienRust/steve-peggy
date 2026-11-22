@@ -960,6 +960,9 @@ export const peggyApi = {
       headers: string[];
       rowCount: number;
       columnStats: { name: string; inferredType: string; missingPct: number }[];
+      expectations?: string;
+      expectedFileFormat?: string;
+      requiredVariables?: string;
     }
   ) =>
     apiFetch<WorkflowResponse>("/workflows/validate-dataset", {
@@ -971,6 +974,9 @@ export const peggyApi = {
         headers: body.headers,
         row_count: body.rowCount,
         column_stats: body.columnStats,
+        expectations: body.expectations ?? "",
+        expected_file_format: body.expectedFileFormat ?? "",
+        required_variables: body.requiredVariables ?? "",
       }),
     }),
 

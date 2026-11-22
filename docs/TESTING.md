@@ -93,6 +93,12 @@ API_URL=https://... SMOKE_AUTH_TOKEN=<access_token> ./scripts/smoke-remote.sh
 
 Env template for Render: [`services/peggy-api/.env.render.example`](../services/peggy-api/.env.render.example).
 
+**Catalog vs Supabase migrations (SQLite + optional Postgres):**
+
+```bash
+cd services/peggy-api && .venv/bin/python scripts/verify_catalog_alignment.py
+```
+
 ## Priority order
 
 1. ~~Unit: chunker, dedup, intent~~ (done)

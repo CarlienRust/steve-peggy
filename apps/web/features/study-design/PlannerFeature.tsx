@@ -22,6 +22,7 @@ import { AdhocAnalysesEditor } from "@/features/study-design/AdhocAnalysesEditor
 import { CovariateEntriesEditor } from "@/features/study-design/CovariateEntriesEditor";
 import { PlanStepsEditor } from "@/features/study-design/PlanStepsEditor";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
+import { PlanDraftSignoff } from "@/components/PlanDraftSignoff";
 import { StatusChip } from "@/components/StatusChip";
 import { normalizeAims } from "@/lib/aims";
 import { linkTargetOptions, normalizeObjectives } from "@/lib/objectives";
@@ -562,6 +563,18 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
 
       {wizardStep === 3 ? (
         <>
+          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+            <PlanDraftSignoff
+              checked={methodsPlan.draftStatus === "completed" && analysisPlan.draftStatus === "completed"}
+              onChange={(completed) => {
+                const status = completed ? "completed" : "draft";
+                saveSection("methodsPlan", { draftStatus: status });
+                saveSection("analysisPlan", { draftStatus: status });
+                void commitSection("methodsPlan", { ...methodsFields, draftStatus: status });
+                void commitSection("analysisPlan", { ...analysisFields, draftStatus: status });
+              }}
+            />
+          </Paper>
           {llmBlocked ? <Alert severity="warning">Update Samples to de-identified before using AI planners.</Alert> : null}
           {run.isError ? <Alert severity="error">{formatApiError(run.error)}</Alert> : null}
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>

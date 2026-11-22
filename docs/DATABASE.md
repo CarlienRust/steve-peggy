@@ -31,7 +31,23 @@ Use the **transaction pooler** URI (port **6543**), not the direct session conne
 
 ## Migration
 
-Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations in order through `031_papers_guidance_role.sql`. `031` adds `papers.guidance_role` (`sop` \| `required_method` \| empty) for methods/analysis must-follow text. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
+Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL editor, then later migrations **in numeric order** through `031_papers_guidance_role.sql`. SQLite applies the same shape on API startup via `sqlite_catalog.init_catalog()` (no manual SQL locally).
+
+### Verify alignment (local + hosted)
+
+```bash
+cd services/peggy-api
+.venv/bin/python scripts/verify_catalog_alignment.py
+```
+
+With `DATABASE_URL` in `.env`, the script also checks Postgres `public` tables and `papers` columns. On Render, `GET /health` must show `storage: true` and `storage_configured: true` when uploads should work (`SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`, private bucket `peggy-uploads`). Create the bucket in Supabase Storage if missing; migration `027` adds owner policies (API uploads use the **service role**, not browser JWT).
+
+| Concern | Local (no `DATABASE_URL`) | Hosted (Render + Supabase) |
+|--------|---------------------------|----------------------------|
+| Catalog | SQLite file `SQLITE_DB` | Postgres via pooler `:6543` |
+| Files | `UPLOAD_DIR` + `local:{path}` keys | `sb:{path}` in `peggy-uploads` + ephemeral cache under `UPLOAD_DIR` |
+| Study design / settings | `study_design` table + `workspaces.settings` JSON | Same columns (JSONB) |
+| New Batch 24/25 fields | JSON only (`settings.project_idea`, `samples.validatedDatasetPaperId`, `aims_objectives_signoff`, plan `draftStatus`) | Same — no new SQL migrations required | `031` adds `papers.guidance_role` (`sop` \| `required_method` \| empty) for methods/analysis must-follow text. `017` adds optional `researcher_profiles.orcid`. `018` adds `workspaces.aims` JSONB (overall + specific aims). `019` creates `user_calendar_events`. `020` adds `papers.notes` and `papers.read_at`. `021` creates `lab_book_entries`. `022` adds `user_calendar_events.recurrence` and `recurrence_until` (occurrences are expanded on list, one stored row). `analysis_plan` JSONB already holds `covariateEntries` and `adhocAnalyses`. `001` creates:
 
 - `papers`, `ingest_jobs`, `feedback_queue`, `agent_sessions`, `agent_messages`
 - `user_id UUID NOT NULL REFERENCES auth.users(id)` on all owner tables
@@ -44,7 +60,9 @@ Run `services/peggy-api/migrations/001_supabase_initial.sql` in the Supabase SQL
 
 `009_objective_links.sql` adds `objective_links JSONB` on `study_design` (default `{"findingLinks":[]}`). Workspace `objectives` JSON is `{ id, text, status, aimId? }[]` at read time. `018_workspace_aims.sql` adds `workspaces.aims` JSONB (`{ id, text, role }[]`). `workspaces.aim` remains the overall-aim text mirror. Settings still mirror `aims` for older rows.
 
-Analysis plan JSON may include `covariateEntries[]` (`description`, `scope` project|aim|objective, `scopeId`) and optional `adhocAnalyses[]` (sensitivity/ad hoc tests). Methods and analysis plans may set `draftStatus` to `completed` when the researcher is happy with the draft. Plan step `objectiveIds` may include `project`, legacy `aim`, aim UUIDs, and objective UUIDs.
+Analysis plan JSON may include `covariateEntries[]` (`description`, `scope` project|aim|objective, `scopeId`) and optional `adhocAnalyses[]` (sensitivity/ad hoc tests). Methods and analysis plans may set `draftStatus` to `completed` when the researcher is happy with the draft (Methods plan → Review checkbox). Plan step `objectiveIds` may include `project`, legacy `aim`, aim UUIDs, and objective UUIDs.
+
+`workspaces.settings` may include `aims_objectives_signoff` (boolean) from Validate → Aim and objectives. `study_design.samples` may include `validatedDatasetPaperId` (paper id) after Validate → datasets → **Use in Study design → Samples**.
 
 `010_papers_workspace.sql` adds `workspace_id` FK on `papers`. Ingest and `/corpus` list filter by `workspace_id` when the active project is set.
 
