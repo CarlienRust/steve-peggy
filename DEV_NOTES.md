@@ -219,7 +219,7 @@ Meeting scheduler/Doodle
 Invite collaborators/share project with other user
 Link invited supervisor/collaborator to specific objective/task/aim 
 
-## ANALYSIS TOOLS:
+## Batch 26: ANALYSIS TOOLS:
 
 - Gut microbiome analysis
 NGS & Python-Based Gut Microbiome Profiling

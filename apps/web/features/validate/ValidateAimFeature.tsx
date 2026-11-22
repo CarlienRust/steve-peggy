@@ -204,8 +204,10 @@ export function ValidateAimFeature() {
     },
   });
 
-  const aimsSignoff =
-    activeWorkspace?.settings && (activeWorkspace.settings as Record<string, unknown>).aims_objectives_signoff === true;
+  const aimsSignoff = Boolean(
+    activeWorkspace?.settings &&
+      (activeWorkspace.settings as Record<string, unknown>).aims_objectives_signoff === true
+  );
 
   const signoffAims = useMutation({
     mutationFn: async (signedOff: boolean) => {

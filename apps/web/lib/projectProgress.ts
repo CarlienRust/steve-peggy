@@ -128,8 +128,9 @@ export function buildProjectProgress(input: BuildProgressInput): ProjectProgress
   const ethicsDone = ethicsStarted(ethics, ethicsDocumentCount);
   const findingsDone = ownFindingsCount > 0;
   const ideaDone = !!aim || hasGapAnalysis || startingPoint === "gap" || startingPoint === "idea";
-  const aimSignoff =
-    workspace?.settings && (workspace.settings as Record<string, unknown>).aims_objectives_signoff === true;
+  const aimSignoff = Boolean(
+    workspace?.settings && (workspace.settings as Record<string, unknown>).aims_objectives_signoff === true
+  );
   const aimContent = !!aim && objectives.length > 0;
   const aimDone = (aimSignoff && aimContent) || (aimContent && hasValidateAim);
   const designDone = samplesDone && methodsDone;
