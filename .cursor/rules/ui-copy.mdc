@@ -12,6 +12,7 @@ User-facing strings are brief, professional, and essential only. Same bar for ch
 - Checkboxes name the commitment. Do not list other screens or “you can still edit.”
 - Page descriptions: what the screen is. Do not narrate the workflow.
 - Empty project: `Select a project.`
+- Below tablet width: `Desktop required` / `Peggy is built for desktop web.`
 - Tooltips: a few words, not a sentence with “and.”
 - Help: facts and locations, not a tour. Prefer an (i) `InfoTip` next to the heading, not a paragraph under it. Dashboard keeps visible body copy.
 - Table row actions use icons (`aria-label`). Exceptions: Reading journal, Calendar, Ethics, Methods plan.

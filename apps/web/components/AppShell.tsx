@@ -2,22 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  AppBar,
-  Box,
-  Chip,
-  Drawer,
-  IconButton,
-  Toolbar,
-  Tooltip,
-  Typography,
-  alpha,
-  useMediaQuery,
-  useTheme,
-} from "@mui/material";
-import MenuIcon from "@mui/icons-material/Menu";
+import { useState, type ReactNode } from "react";
+import { Box, Chip, IconButton, Tooltip, Typography, alpha } from "@mui/material";
 import ChatBubbleOutlineIcon from "@mui/icons-material/ChatBubbleOutline";
+import { DesktopRequiredOverlay } from "@/components/DesktopRequiredOverlay";
 import { PeggyBrandLockup } from "@/components/PeggyBrandLockup";
 import { peggyColors, monoSx } from "@/theme/peggyTheme";
 import { ResearcherProfile } from "@/components/ResearcherProfile";
@@ -25,7 +13,6 @@ import { AskPeggyDrawer, ASK_PEGGY_DRAWER_W } from "@/components/AskPeggyDrawer"
 import { MAIN_NAV, PROJECT_NAV_TOOLTIPS, isNavItemActive, type NavItem } from "@/lib/navigation";
 
 const SIDEBAR_W = 264;
-const MOBILE_HEADER_H = 56;
 const DESKTOP_RIGHT_GUTTER = 16;
 
 function NavLinkRow({
@@ -158,93 +145,34 @@ function SidebarContent({ pathname, onNavigate }: { pathname: string; onNavigate
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname() ?? "";
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [askOpen, setAskOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
-
-  const closeMobile = () => setMobileOpen(false);
 
   return (
     <Box sx={{ minHeight: "100vh", bgcolor: "background.default" }}>
-      {isMobile && (
-        <>
-          <AppBar
-            position="fixed"
-            elevation={0}
-            sx={{
-              height: MOBILE_HEADER_H,
-              bgcolor: peggyColors.sidebar,
-              borderBottom: 1,
-              borderColor: "divider",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <Toolbar sx={{ minHeight: MOBILE_HEADER_H, px: 2, gap: 1 }}>
-              <IconButton
-                edge="start"
-                color="inherit"
-                aria-label="Open menu"
-                onClick={() => setMobileOpen(true)}
-                sx={{ color: "text.primary", mr: 0.5 }}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Box component={Link} href="/" sx={{ textDecoration: "none", color: "inherit", minWidth: 0 }}>
-                <PeggyBrandLockup variant="compact" />
-              </Box>
-              <Box sx={{ flex: 1 }} />
-              <Tooltip title="Ask Peggy">
-                <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
-                  <ChatBubbleOutlineIcon />
-                </IconButton>
-              </Tooltip>
-            </Toolbar>
-          </AppBar>
-          <Drawer
-            anchor="left"
-            open={mobileOpen}
-            onClose={closeMobile}
-            ModalProps={{ keepMounted: true }}
-            PaperProps={{
-              sx: { width: SIDEBAR_W, maxWidth: "85vw", border: "none" },
-            }}
-          >
-            <SidebarContent pathname={pathname} onNavigate={closeMobile} />
-          </Drawer>
-        </>
-      )}
-
-      {!isMobile && (
-        <Box
-          component="nav"
-          aria-label="Main navigation"
-          sx={{
-            position: "fixed",
-            left: 0,
-            top: 0,
-            zIndex: 1200,
-            width: SIDEBAR_W,
-            height: "100vh",
-            borderRight: 1,
-            borderColor: "divider",
-          }}
-        >
-          <SidebarContent pathname={pathname} />
-        </Box>
-      )}
+      <DesktopRequiredOverlay />
+      <Box
+        component="nav"
+        aria-label="Main navigation"
+        sx={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          zIndex: 1200,
+          width: SIDEBAR_W,
+          height: "100vh",
+          borderRight: 1,
+          borderColor: "divider",
+        }}
+      >
+        <SidebarContent pathname={pathname} />
+      </Box>
 
       <Box
         component="main"
         sx={{
           minHeight: "100vh",
-          pl: { xs: 0, md: `${SIDEBAR_W}px` },
-          pr: { xs: 0, md: askOpen ? `${ASK_PEGGY_DRAWER_W + DESKTOP_RIGHT_GUTTER}px` : 0 },
-          pt: { xs: `${MOBILE_HEADER_H}px`, md: 0 },
+          pl: `${SIDEBAR_W}px`,
+          pr: askOpen ? `${ASK_PEGGY_DRAWER_W + DESKTOP_RIGHT_GUTTER}px` : 0,
           animation: "peggyFadeIn 600ms cubic-bezier(0.16, 1, 0.3, 1) both",
           "@keyframes peggyFadeIn": {
             from: { opacity: 0, transform: "translateY(8px)" },
@@ -265,25 +193,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Box>
       </Box>
 
-      {!isMobile ? (
-        <Tooltip title="Ask Peggy">
-          <IconButton
-            aria-label="Ask Peggy"
-            onClick={() => setAskOpen(true)}
-            sx={{
-              position: "fixed",
-              right: 16,
-              bottom: 16,
-              zIndex: 1300,
-              bgcolor: "background.paper",
-              border: `0.5px solid ${peggyColors.border}`,
-              "&:hover": { bgcolor: "background.paper" },
-            }}
-          >
-            <ChatBubbleOutlineIcon />
-          </IconButton>
-        </Tooltip>
-      ) : null}
+      <Tooltip title="Ask Peggy">
+        <IconButton
+          aria-label="Ask Peggy"
+          onClick={() => setAskOpen(true)}
+          sx={{
+            position: "fixed",
+            right: 16,
+            bottom: 16,
+            zIndex: 1300,
+            bgcolor: "background.paper",
+            border: `0.5px solid ${peggyColors.border}`,
+            "&:hover": { bgcolor: "background.paper" },
+          }}
+        >
+          <ChatBubbleOutlineIcon />
+        </IconButton>
+      </Tooltip>
 
       <AskPeggyDrawer open={askOpen} onClose={() => setAskOpen(false)} />
     </Box>
