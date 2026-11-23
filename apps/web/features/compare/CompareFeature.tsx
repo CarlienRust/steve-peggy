@@ -115,7 +115,7 @@ export function CompareFeature() {
         <div style={{ flex: 1 }} />
         <FormControlLabel
           control={<Checkbox checked={includeLive} onChange={(e) => setIncludeLive(e.target.checked)} size="small" />}
-          label="Include live literature (not only this corpus)"
+          label="Include live literature"
         />
         <Button
           variant="outlined"
@@ -129,9 +129,9 @@ export function CompareFeature() {
 
       <Stack direction={{ xs: "column", md: "row" }} spacing={2}>
         {[
-          { label: "Agrees", tone: "accent" as const, value: agreement.length, sub: "papers point the same way as your result" },
-          { label: "Differs", tone: "warning" as const, value: discrepancy.length, sub: "papers found a different effect" },
-          { label: "Unclear", tone: "neutral" as const, value: unclear.length, sub: "reviews or results not pooled" },
+          { label: "Agrees", tone: "accent" as const, value: agreement.length, sub: "Same direction" },
+          { label: "Differs", tone: "warning" as const, value: discrepancy.length, sub: "Different effect" },
+          { label: "Unclear", tone: "neutral" as const, value: unclear.length, sub: "Not pooled" },
         ].map((c) => (
           <Paper key={c.label} variant="outlined" sx={{ p: 2.5, flex: 1 }}>
             <StatusChip tone={c.tone} label={c.label} />

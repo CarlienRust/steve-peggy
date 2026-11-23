@@ -141,7 +141,7 @@ export function DashboardPage() {
           {workspaceTitle}
         </Typography>
         {activeWorkspace ? (
-          <Tooltip title="Edit project details, export JSON, and settings">
+          <Tooltip title="Project details">
             <IconButton size="small" aria-label="Edit project details" onClick={() => setEditOpen(true)}>
               <EditOutlinedIcon fontSize="small" />
             </IconButton>
@@ -174,10 +174,7 @@ export function DashboardPage() {
       </Stack>
       {activeWorkspace?.privacy_mode === "strict" ? (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Strict means Peggy will not send this project's aim, plans, findings, chat, or dataset summaries to a hosted
-          model. Literature search and saved records still work. Open your profile menu (name at the bottom of the
-          sidebar) and choose Peggy AI settings to switch this project to Standard if you want Ask Peggy and plan
-          review.
+          Strict: no hosted AI for this project. Search and records stay on. Change in Peggy AI settings.
         </Alert>
       ) : null}
 
@@ -220,8 +217,7 @@ export function DashboardPage() {
             </Typography>
             {firstChangedObjective?.index ? (
               <Alert severity="info" sx={{ mb: 2 }}>
-                Objective {firstChangedObjective.index} changed after linked methods or findings were written. Check the
-                link on Aim and objectives if that still matters.
+                Objective {firstChangedObjective.index} changed after linked work. Review Aim and objectives.
               </Alert>
             ) : null}
             {objectivesNormalized.length > 0 ? (

@@ -198,7 +198,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <PeggyBrandLockup variant="compact" />
               </Box>
               <Box sx={{ flex: 1 }} />
-              <Tooltip title="Open Ask Peggy side panel">
+              <Tooltip title="Ask Peggy">
                 <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
                   <ChatBubbleOutlineIcon />
                 </IconButton>
@@ -266,7 +266,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </Box>
 
       {!isMobile ? (
-        <Tooltip title="Ask Peggy about this project">
+        <Tooltip title="Ask Peggy">
           <IconButton
             aria-label="Ask Peggy"
             onClick={() => setAskOpen(true)}

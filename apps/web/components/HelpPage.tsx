@@ -14,8 +14,7 @@ export function HelpPage() {
         Help using Peggy
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.7, mb: 3, maxWidth: 720 }}>
-        Short tips for navigation, validation, study design, and chat. Your data stays in the project you choose unless
-        you export it.
+        Navigation, validate, study design, chat. Data stays in the project unless you export.
       </Typography>
 
       <Stack spacing={3}>

@@ -156,7 +156,7 @@ export function ValidateDatasetsFeature() {
   const formatAdded = (iso?: string) => (iso ? String(iso).slice(5, 10).replace("-", " ") : "—");
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to validate datasets.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   const body = validateResult?.body ?? {};
@@ -164,9 +164,7 @@ export function ValidateDatasetsFeature() {
   return (
     <Stack spacing={2}>
       <Alert severity="info">
-        Same files as{" "}
-        <Link href="/study-design/samples">Study design → Samples &amp; datasets</Link>. Upload here to check format,
-        missing fields, and analysis readiness. Edit titles and notes on the Samples page.
+        Same files as <Link href="/study-design/samples">Samples</Link>. Check format and readiness here.
       </Alert>
 
       <Paper variant="outlined" sx={{ overflow: "hidden" }}>
@@ -176,7 +174,7 @@ export function ValidateDatasetsFeature() {
               Project datasets
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              De-identified CSV, TSV, TXT, SAV, or PDF data dictionary. Confirm at your own risk.
+              De-identified CSV, TSV, TXT, SAV, or dictionary PDF.
             </Typography>
           </Stack>
           <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: "none" }}>

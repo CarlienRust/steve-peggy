@@ -354,13 +354,13 @@ export function CorpusManagement() {
           >
             {!workspaceId ? (
               <Typography variant="body2" color="text.secondary">
-                Select a project to review extractions.
+                Select a project.
               </Typography>
             ) : !selectedPaperId || !selectedPaper ? (
               <Stack spacing={1} sx={{ py: 4, px: 1, textAlign: "center" }}>
                 <Typography fontWeight={600}>Select a paper</Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Click a row to review extracted fields or run extraction on the full PDF.
+                  Select a row to extract or review fields.
                 </Typography>
               </Stack>
             ) : (

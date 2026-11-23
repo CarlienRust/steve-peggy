@@ -24,6 +24,7 @@ Repo entry: [../README.md](../README.md)
 ## When you change the product
 
 - **User-facing** (routes, ingest, corpus, UI, local run) → [ARCHITECTURE.md](ARCHITECTURE.md), [ROADMAP.md](ROADMAP.md), [LOCAL.md](LOCAL.md), [../README.md](../README.md)
+- **UI copy** (labels, alerts, help, tooltips) → [ARCHITECTURE.md](ARCHITECTURE.md) UI copy; Cursor rule `.cursor/rules/ui-copy.mdc`
 - **Objectives / study design linking** → also [DATABASE.md](DATABASE.md)
 - **Study Design claims or methodology copy** → also [REFERENCES.md](REFERENCES.md)
 - **Chat / workflow behavior** → also [AGENT.md](AGENT.md)

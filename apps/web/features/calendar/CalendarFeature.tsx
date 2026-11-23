@@ -369,7 +369,7 @@ export function CalendarFeature() {
                 value={draft.recurrence_until}
                 onChange={(e) => setDraft({ ...draft, recurrence_until: e.target.value })}
                 InputLabelProps={{ shrink: true }}
-                helperText="Leave empty to show up to two years of weekly dates."
+                helperText="Empty: up to two years of weekly dates."
               />
             ) : null}
             <FormControl fullWidth>

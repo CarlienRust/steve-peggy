@@ -40,25 +40,25 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Gap analysis",
         href: "/validate/gap-analysis",
-        description: "Structured view of literature gaps, contradictions, and methodological weaknesses.",
+        description: "Gaps, contradictions, and weak methods in the literature.",
         ready: true,
       },
       {
         label: "Literature search",
         href: "/validate/literature",
-        description: "PubMed and PDF literature for your project.",
+        description: "PubMed and PDFs for this project.",
         ready: true,
       },
       {
         label: "Validate datasets",
         href: "/validate/datasets",
-        description: "Upload tables and check format, missing fields, and analysis readiness.",
+        description: "Check tables for format and analysis readiness.",
         ready: true,
       },
       {
         label: "Aim and objectives",
         href: "/validate/aim",
-        description: "Check project aim and objectives against ingested literature.",
+        description: "Aim and objectives vs ingested literature.",
         ready: true,
       },
     ],
@@ -73,31 +73,31 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Samples & datasets",
         href: "/study-design/samples",
-        description: "Cohort, recruitment, inclusion/exclusion, and data dictionary.",
+        description: "Cohort, recruitment, criteria, dictionary.",
         ready: true,
       },
       {
         label: "Ethics",
         href: "/study-design/ethics",
-        description: "IRB, consent, and recruitment considerations.",
+        description: "IRB, consent, recruitment.",
         ready: true,
       },
       {
         label: "Methods plan",
         href: "/study-design/methods-plan",
-        description: "Methods and analysis in one flow: project context, methods, analysis, then review.",
+        description: "Methods, analysis, then review.",
         ready: true,
       },
       {
         label: "Budget",
         href: "/study-design/budget",
-        description: "Funding overview and spending constraints.",
+        description: "Funding and constraints.",
         ready: true,
       },
       {
         label: "Proposal",
         href: "/study-design/proposal",
-        description: "Generate a one–two page study or grant proposal from your project context.",
+        description: "One- to two-page draft from this project.",
         ready: true,
       },
     ],
@@ -113,13 +113,13 @@ export const MAIN_NAV: NavItem[] = [
       {
         label: "Upload and summary",
         href: "/results/findings",
-        description: "Upload results, summary, and objective tags in one place.",
+        description: "Results, summary, objective tags.",
         ready: true,
       },
       {
         label: "Comparison",
         href: "/results/comparison",
-        description: "Your finding against ingested literature and published evidence.",
+        description: "Your finding vs the literature.",
         ready: true,
       },
     ],
@@ -143,25 +143,25 @@ export type HomeNavItem = {
 
 /** Main sidebar (home shell) — no active project. */
 export const HOME_NAV: HomeNavItem[] = [
-  { num: "01", label: "Home", href: "/", tooltip: "Welcome, project stats, and reading reminder" },
-  { num: "02", label: "Project hub", href: "/projects", tooltip: "All projects and new project wizard" },
-  { num: "03", label: "Calendar", href: "/calendar", tooltip: "Deadlines and project dates for this account" },
-  { num: "04", label: "Reading journal", href: "/reading-journal", tooltip: "To read and completed literature papers" },
-  { num: "05", label: "Ask Peggy", href: "/ask", tooltip: "Ask questions grounded in a project corpus" },
-  { num: "06", label: "Useful links", href: "/useful-links", tooltip: "Curated external tools and databases" },
+  { num: "01", label: "Home", href: "/", tooltip: "Overview" },
+  { num: "02", label: "Project hub", href: "/projects", tooltip: "All projects" },
+  { num: "03", label: "Calendar", href: "/calendar", tooltip: "Dates" },
+  { num: "04", label: "Reading journal", href: "/reading-journal", tooltip: "To-read list" },
+  { num: "05", label: "Ask Peggy", href: "/ask", tooltip: "General chat" },
+  { num: "06", label: "Useful links", href: "/useful-links", tooltip: "External tools" },
 ];
 
 /** Hover hints for project sidebar top-level links (keyed by href). */
 export const PROJECT_NAV_TOOLTIPS: Record<string, string> = {
-  "/dashboard": "Objectives, setup flow, and project overview",
-  "/project-admin": "Registration, grants, outputs, MOU file, and project dates",
-  "/validate/gap-analysis": "Gap scan, literature, and aim checks",
-  "/study-design/samples": "Samples, ethics, methods, analysis, and proposal",
-  "/analysis-tool": "CSV table, descriptives, and a test selector",
-  "/results/findings": "Findings upload and comparison to literature",
-  "/outputs": "Figures, tables, and poster drafts from your results",
-  "/lab-book": "Progress notes, meetings, and methods for this project",
-  "/chat": "Chat grounded in this project’s papers and findings",
+  "/dashboard": "Overview",
+  "/project-admin": "Admin files and dates",
+  "/validate/gap-analysis": "Validate",
+  "/study-design/samples": "Study design",
+  "/analysis-tool": "Local analysis",
+  "/results/findings": "Findings",
+  "/outputs": "Figures and tables",
+  "/lab-book": "Lab notes",
+  "/chat": "Project chat",
 };
 
 export function isHomeNavActive(pathname: string, href: string): boolean {

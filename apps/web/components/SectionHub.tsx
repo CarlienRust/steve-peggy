@@ -8,26 +8,23 @@ import { getNavGroup } from "@/lib/navigation";
 import { cardHoverSx, peggyColors } from "@/theme/peggyTheme";
 
 const HUB_INTROS: Record<string, string> = {
-  "/validate":
-    "Check your idea against published work before you invest in full reading or study design. Start with a quick gap scan, add papers, then validate your aim.",
-  "/study-design":
-    "Turn a validated idea into a concrete study plan: samples, ethics, methods and analysis plans, budget, and a proposal draft you can save explicitly.",
-  "/results":
-    "Add your own findings, review a summary, tag results to objectives, and compare against the literature corpus for this project.",
+  "/validate": "Check the idea against published work.",
+  "/study-design": "Plan samples, ethics, methods, budget, and a proposal.",
+  "/results": "Upload findings and compare them to the literature.",
 };
 
 const HUB_PREREQUISITES: Record<string, string> = {
-  "/validate/gap-analysis": "A research question or aim. Quick scan works without ingested PDFs.",
-  "/validate/literature": "PubMed queries or PDF files for this project.",
-  "/validate/datasets": "Optional de-identified CSV, TSV, or SAV files for this project.",
-  "/validate/aim": "Aim and objectives set, plus at least one literature paper ingested.",
-  "/study-design/samples": "Project aim helps Peggy prefill cohort and recruitment fields.",
-  "/study-design/ethics": "You can open Ethics at any time. Approval notes and letters are optional.",
-  "/study-design/methods-plan": "Literature ingested if you want grounded plan suggestions.",
-  "/study-design/budget": "Study type and expected N from samples (optional but helpful).",
-  "/study-design/proposal": "Any study design sections you want included in the draft.",
-  "/results/findings": "Your results as narrative text, PDF, or HTML upload.",
-  "/results/comparison": "A finding written out, plus literature or own findings in the corpus.",
+  "/validate/gap-analysis": "A question or aim. PDFs optional for a quick scan.",
+  "/validate/literature": "PubMed query or PDFs.",
+  "/validate/datasets": "Optional de-identified CSV, TSV, or SAV.",
+  "/validate/aim": "Aim, objectives, and at least one paper.",
+  "/study-design/samples": "Aim helps prefill cohort fields.",
+  "/study-design/ethics": "Optional notes and letters.",
+  "/study-design/methods-plan": "Literature if you want grounded suggestions.",
+  "/study-design/budget": "Study type and N (optional).",
+  "/study-design/proposal": "Any design sections to include.",
+  "/results/findings": "Narrative, PDF, or HTML.",
+  "/results/comparison": "A finding plus literature in the corpus.",
 };
 
 type SectionHubProps = {

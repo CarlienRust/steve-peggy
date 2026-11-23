@@ -64,7 +64,7 @@ export function ProposalFeature() {
   );
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to generate a study proposal.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   const readinessItems = [
@@ -156,12 +156,12 @@ export function ProposalFeature() {
         />
 
         {llmBlocked && (
-          <Alert severity="warning">Update Samples to de-identified before generating a proposal.</Alert>
+          <Alert severity="warning">Switch Samples to de-identified before generating a proposal.</Alert>
         )}
         {generate.isError && <Alert severity="error">{formatApiError(generate.error)}</Alert>}
         {generate.isSuccess && displayBody && !hasProposalSections(displayBody) && (
           <Alert severity="warning">
-            The model returned no structured proposal. Try Redraft again, or check that the API is running.
+            No structured proposal. Try Redraft, or check the API.
           </Alert>
         )}
 

@@ -94,7 +94,7 @@ export function OutputsAbstractTab() {
   };
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to draft abstracts.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   return (
@@ -144,7 +144,7 @@ export function OutputsAbstractTab() {
           ))}
         </Stack>
       ) : (
-        <Alert severity="info">No abstract versions yet. Click Generate new version.</Alert>
+        <Alert severity="info">No abstract versions yet.</Alert>
       )}
 
       {selected ? (

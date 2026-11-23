@@ -140,8 +140,8 @@ export function ObjectiveListEditor({ value, onChange, disabled, studyDesign, ai
               <Tooltip
                 title={
                   obj.status === "done"
-                    ? "Mark as open when this objective still needs work."
-                    : "Mark complete when you are done with this objective (manual only)."
+                    ? "Mark as open"
+                    : "Mark complete (manual)"
                 }
               >
                 <FormControlLabel

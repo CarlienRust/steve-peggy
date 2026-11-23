@@ -1,0 +1,19 @@
+---
+description: Keep Peggy UI copy brief and professional
+globs: apps/web/**/*.tsx,apps/web/**/*.ts
+alwaysApply: true
+---
+
+# UI copy
+
+User-facing strings are brief, professional, and essential only. Same bar for checkboxes, headings, alerts, help, helper text, and tooltips.
+
+- One idea per string. Prefer a clause over a paragraph.
+- Checkboxes name the commitment. Do not list other screens or “you can still edit.”
+- Page descriptions: what the screen is. Do not narrate the workflow.
+- Empty project: `Select a project.`
+- Tooltips: a few words, not a sentence with “and.”
+- Help: facts and locations, not a tour.
+- Privacy/consent: keep the legal fact; drop the rest.
+
+Do not use: “I’m happy with…”, “for now”, “You can still…”, “Click to…”, “Sample data shown” unless the UI is actually sample data.

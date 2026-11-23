@@ -9,7 +9,7 @@ export default function ValidateAimPage() {
     <>
       <ValidateShell
         title="Aim and objectives"
-        description="Write them here or paste yours. Peggy checks them against your papers. Sample data shown."
+        description="Write or paste. Check against your papers."
       >
         <PageSection>
           <Suspense

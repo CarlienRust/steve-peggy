@@ -440,19 +440,19 @@ export default function NewProjectPage() {
               />
               <ChoiceCard
                 title="Just an idea"
-                description="You have a question or topic and want to start from there."
+                description="Start from a question or topic."
                 selected={startingPoint === "idea"}
                 onSelect={() => setStartingPoint("idea")}
               />
               <ChoiceCard
                 title="Looking for a gap"
-                description="You want to scan the literature for an open question."
+                description="Scan literature for an open question."
                 selected={startingPoint === "gap"}
                 onSelect={() => setStartingPoint("gap")}
               />
               <ChoiceCard
                 title="Already have a proposal"
-                description="Upload a proposal. You will review auto-filled fields before AI settings."
+                description="Upload a proposal, then review auto-filled fields."
                 selected={startingPoint === "proposal"}
                 onSelect={() => setStartingPoint("proposal")}
               />
@@ -463,8 +463,7 @@ export default function NewProjectPage() {
               {startingPoint === "idea" ? (
                 <>
                   <Alert severity="info">
-                    Describe your idea, then run suggestions. Uses hosted AI on your description plus step 1 fields.
-                    Edit anything that is wrong before AI settings.
+                    Describe the idea, then run suggestions. Hosted AI. Edit before you continue.
                   </Alert>
                   <TextField
                     label="Describe your idea"
@@ -484,15 +483,15 @@ export default function NewProjectPage() {
                     Suggest fields from my idea
                   </Button>
                   {suggestionsLoaded ? (
-                    <Alert severity="success">Suggestions loaded. Check the fields below.</Alert>
+                    <Alert severity="success">Suggestions loaded. Check the fields.</Alert>
                   ) : null}
                 </>
               ) : null}
               {startingPoint === "gap" ? (
                 <>
                   <Alert severity="info">
-                    Add what you know. Gap scan uses public peer-reviewed abstracts (no project PDFs required). Fill:{" "}
-                    {missingDetails.length ? missingDetails.join(", ") : "optional fields as needed"}.
+                    Public abstracts. No project PDFs required. Fill:{" "}
+                    {missingDetails.length ? missingDetails.join(", ") : "optional fields"}.
                   </Alert>
                   <TextField
                     label="Project idea"
@@ -515,8 +514,7 @@ export default function NewProjectPage() {
               ) : null}
               {startingPoint === "proposal" ? (
                 <Alert severity="info">
-                  Upload a proposal, then check the filled fields. Next reads the file if you have not yet; Next
-                  again saves what you reviewed.
+                  Upload, then check the fields. Next reads the file, then saves.
                 </Alert>
               ) : null}
               {detailFields}
@@ -536,7 +534,7 @@ export default function NewProjectPage() {
                 </Button>
               ) : null}
               {startingPoint === "proposal" && seedPreview ? (
-                <Alert severity="success">Auto-fill loaded. Check the fields above before you continue.</Alert>
+                <Alert severity="success">Auto-fill loaded. Check the fields.</Alert>
               ) : null}
               {startingPoint === "gap" && gapTopics.length > 0 ? (
                 <Alert severity="success">
@@ -549,14 +547,14 @@ export default function NewProjectPage() {
             <>
               <ChoiceCard
                 title="Standard (recommended)"
-                description="Ask Peggy, planners, and abstracts stay on. Project text may go to Render, Supabase, Qdrant Cloud, and Gemini. Opt out of provider training in that account (Gemini: turn off Keep Activity). Peggy cannot verify the setting."
+                description="Hosted AI on. Project text may go to Render, Supabase, Qdrant Cloud, and Gemini. Turn off training in that account (Gemini: Keep Activity off). Peggy cannot verify this."
                 selected={privacy === "standard"}
                 onSelect={() => setPrivacy("standard")}
                 tag={{ label: "Hosted AI", tone: "warning" }}
               />
               <ChoiceCard
                 title="Strict (AI help off)"
-                description="Use this only if this project must not send aim, plans, findings, or dataset summaries to a hosted model. Search and saved records still work. You can switch back to Standard later from your profile menu under Peggy AI settings."
+                description="No hosted AI for this project. Search and records stay on. Switch later in Peggy AI settings."
                 selected={privacy === "strict"}
                 onSelect={() => setPrivacy("strict")}
                 tag={{ label: "No project AI", tone: "neutral" }}

@@ -15,11 +15,10 @@ export function TrainingOptOutTable() {
   return (
     <Paper variant="outlined" sx={{ overflow: "auto" }}>
       <Typography variant="subtitle2" sx={{ p: 1.5, pb: 0 }}>
-        Turn off training in the provider account (Peggy cannot verify this)
+        Turn off training in the provider account (Peggy cannot verify)
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, pt: 0.5, pb: 1 }}>
-        Default Peggy uses Gemini. Later you will be able to link your own model. Until then, opt out of training on the
-        account that serves this project.
+        Default: Gemini. Opt out on the account that serves this project.
       </Typography>
       <Table size="small">
         <TableHead>

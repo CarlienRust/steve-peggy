@@ -208,17 +208,6 @@ Project details modal from Dashboard should include the project type and researc
 
 - Full platform alignment pass (item 4): every shared corpus path, edit surface, and doc cross-link audited end-to-end.
 
-## FUTURE:
-
-**Still open:**
-
-- GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
-
-In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
-Meeting scheduler/Doodle
-Invite collaborators/share project with other user
-Link invited supervisor/collaborator to specific objective/task/aim 
-
 ## Batch 26: ANALYSIS TOOLS (M0–M6 in code)
 
 - M0–M3 as before (registry, scripts, compute profile `032`, JS OLS).
@@ -239,3 +228,16 @@ Hands-on: PubMed | KEGG | NCBI Taxonomy | gutMGene | MicrobiomeAnalyst | Google 
 AI-Based Microbiome Therapeutics, Postbiotic Analysis & FMT Response Prediction
 Metabolite evidence, probiotic/postbiotic prioritization, exploratory FMT response analysis and safety assessment.
 Hands-on: PubMed | KEGG | HMDB | gutMGene | NCBI SRA | Google Colab | MetaPhlAn | HUMAnN | CAZy | Scikit-learn | SHAP | Cytoscape | AMRFinderPlus
+
+## Batch 27: ANALYSIS TOOLS
+
+## FUTURE:
+
+**Still open:**
+
+- GitHub OAuth: configure env per [docs/ENV.md](docs/ENV.md)
+
+In research groups, there might already be specific SOPs or published methods that need to be used in other/follow-up studies. User needs to be able to indicate these and use them to guide the methods and analysis plans. Databases (public or private) - where research groups can share on database of all SOPs/group papers. So users can add members or anyone can find/search and add database to their platform. 
+Meeting scheduler/Doodle
+Invite collaborators/share project with other user
+Link invited supervisor/collaborator to specific objective/task/aim 

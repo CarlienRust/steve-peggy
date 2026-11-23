@@ -61,7 +61,7 @@ export function BudgetFeature() {
   const currency = budget.currency ?? "ZAR";
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to describe your study budget.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   const onPhiBlur = (field: string, text: string) => {

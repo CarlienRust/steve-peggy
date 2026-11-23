@@ -6,6 +6,10 @@
 
 Peggy ingests **literature** (labelled peer-reviewed only when `classify_peer_review` says so) and **your own findings** in separate spaces, then supports grounded Q&A, gap analysis, and comparison — with citations and stated limitations. Methodology and standards: [REFERENCES.md](REFERENCES.md). Retracted papers are excluded from retrieval.
 
+## UI copy
+
+Product strings are short and professional. Checkboxes name the action. Alerts are one sentence. Help states facts, not tours. Rule: [`.cursor/rules/ui-copy.mdc`](../.cursor/rules/ui-copy.mdc).
+
 ## Active codebase
 
 ```

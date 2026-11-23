@@ -5,7 +5,7 @@ import { StudyDesignShell } from "@/components/StudyDesignShell";
 export default function ProposalPage() {
   return (
     <>
-      <StudyDesignShell title="Proposal" description="A 1 to 2 page draft built from your project. Edit it before you share it.">
+      <StudyDesignShell title="Proposal" description="One- to two-page draft from this project.">
         <PageSection>
           <ProposalFeature />
         </PageSection>

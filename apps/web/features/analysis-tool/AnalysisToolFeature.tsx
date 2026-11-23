@@ -345,7 +345,7 @@ export function AnalysisToolFeature() {
       <Stack spacing={3}>
         {blocked ? (
           <Alert severity="warning">
-            Samples are marked identifiable. Update Samples & datasets to de-identified before uploading a data file.
+            Samples are identifiable. Switch to de-identified on Samples before upload.
           </Alert>
         ) : null}
 
@@ -394,7 +394,7 @@ export function AnalysisToolFeature() {
               Upload dataset
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              CSV, TSV, or SPSS SAV. You do not have to keep the file here. Rows stay in this browser only if you leave them. Save last results stores the label, column setup, descriptives, and the last test so you can open them later. No rows go to the server.
+              CSV, TSV, or SPSS SAV. Rows stay in this browser. Save last results stores setup and summaries, not rows.
             </Typography>
             <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
               <Button component="label" variant="contained" disabled={blocked}>
@@ -414,7 +414,7 @@ export function AnalysisToolFeature() {
           />
           {rows.length ? (
             <Alert severity="info" sx={{ mt: 1.5 }}>
-              Table stored in this browser only ({rows.length} rows{fileName ? `, from ${fileName}` : ""}). Clear the table anytime; saved last results still show below.
+              In this browser only ({rows.length} rows{fileName ? `, ${fileName}` : ""}).
               <Button
                 size="small"
                 sx={{ ml: 1, textTransform: "none" }}
@@ -462,8 +462,7 @@ export function AnalysisToolFeature() {
                     )}
                   />
                   <Typography variant="body2" color="text.secondary">
-                    Identifier-like headers are tagged admin and excluded from statistics. You can change the list.
-                    Outcome and tests use analysis columns only ({dataHeaders.length} of {headers.length}).
+                    Admin columns are excluded from stats ({dataHeaders.length} of {headers.length} used).
                   </Typography>
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                     <TextField
@@ -579,7 +578,7 @@ export function AnalysisToolFeature() {
                         {...params}
                         label="Column summaries to show"
                         placeholder="Participant columns only"
-                        helperText="Admin-related columns are excluded."
+                        helperText="Excluded from stats."
                       />
                     )}
                   />
@@ -700,7 +699,7 @@ export function AnalysisToolFeature() {
                     {...params}
                     label="Columns to guide the test"
                     placeholder="Select participant columns"
-                    helperText="Peggy uses these columns to suggest a test. Admin columns are excluded."
+                    helperText="Used to suggest a test. Admin columns excluded."
                   />
                 )}
               />
@@ -882,8 +881,7 @@ export function AnalysisToolFeature() {
 
         <Stack spacing={1}>
           <Typography variant="body2" color="text.secondary">
-            Save last results does not upload the data file. Share summary sends aggregates only, and is off on Strict
-            projects and unpaid Gemini.
+            Save last results does not upload the file. Share summary is aggregates only (off on Strict and unpaid Gemini).
           </Typography>
           <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
             <Button variant="contained" disabled={isSaving} onClick={saveMeta}>
@@ -1018,7 +1016,7 @@ export function AnalysisToolFeature() {
       <ConfirmDialog
         open={shareOpen}
         title="Share dataset summary?"
-        body={`This sends class D aggregates only (no rows). Preview:\n${sharePreview.slice(0, 800)}`}
+        body={`Class D aggregates only. Preview:\n${sharePreview.slice(0, 800)}`}
         confirmLabel="Share"
         onCancel={() => setShareOpen(false)}
         onConfirm={() => {

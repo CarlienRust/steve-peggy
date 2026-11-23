@@ -10,8 +10,7 @@ export function LocalDevBanner() {
   if (isAuthOptional()) {
     return (
       <Alert severity="success" sx={{ mb: 2 }}>
-        <strong>Solo local mode.</strong> Data stays on this machine (SQLite + local Qdrant + Ollama). No sign-in
-        required.
+        <strong>Solo local mode.</strong> Data stays on this machine. No sign-in.
       </Alert>
     );
   }

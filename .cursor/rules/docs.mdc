@@ -19,5 +19,6 @@ When adding or changing features **or defining new project concepts** (data shap
 | Auth / Postgres / deploy | Also [docs/AUTH.md](docs/AUTH.md), [docs/DATABASE.md](docs/DATABASE.md), [docs/SCALE.md](docs/SCALE.md) |
 | Privacy / data classes / provider training | Also [docs/PRIVACY.md](docs/PRIVACY.md), [docs/SECURITY.md](docs/SECURITY.md) |
 | New `.cursor/rules` or standing conventions | Extend the matching doc section; add a row to this table if the change type is new |
+| UI copy (labels, alerts, help, tooltips) | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (UI copy); follow [ui-copy.mdc](.cursor/rules/ui-copy.mdc) |
 
 Do not add redundant docs; extend existing files. Index: [docs/README.md](docs/README.md).

@@ -16,9 +16,9 @@ export function OutputsFiguresTab() {
   });
   const hasResults = (findings.data?.papers?.length ?? 0) > 0;
   const disabledReason = !activeWorkspace
-    ? "Select a project first"
+    ? "Select a project"
     : !hasResults
-      ? "Upload results on Our findings before starting from them"
+      ? "Upload findings first"
       : "";
 
   return (
@@ -56,8 +56,7 @@ export function OutputsFiguresTab() {
       </Paper>
 
       <Alert severity="info">
-        Figure generation inside Peggy is planned. For now, export tables from the Tables tab and paste into your design
-        tool.
+        Figure generation is not in Peggy yet. Export tables, then paste into your design tool.
       </Alert>
     </Stack>
   );

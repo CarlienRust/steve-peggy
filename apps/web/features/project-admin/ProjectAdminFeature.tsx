@@ -176,7 +176,7 @@ export function ProjectAdminFeature() {
       <PageHeader
         eyebrow="02 · Project admin"
         title="Project admin"
-        description="Registration, dates, grants, outputs, and project files. Dates also appear on Calendar."
+        description="Registration, dates, grants, outputs, files."
       />
       <PageSection>
         <Stack spacing={2}>
@@ -187,7 +187,7 @@ export function ProjectAdminFeature() {
             value={admin.studentRegistration ?? ""}
             onChange={(e) => patch({ studentRegistration: e.target.value })}
             fullWidth
-            helperText="Optional number or note. Upload the registration PDF below. Peggy does not look this up at a university."
+            helperText="Optional. Upload the PDF below. Peggy does not look this up."
           />
           <Button
             variant="outlined"
@@ -396,7 +396,7 @@ export function ProjectAdminFeature() {
                       const next = outputs.map((row, idx) => (idx === i ? { ...row, status: e.target.value } : row));
                       patch({ outputs: next });
                     }}
-                    helperText="Where this output is in the writing cycle"
+                    helperText="Writing stage"
                     fullWidth
                   >
                     <option value=""></option>

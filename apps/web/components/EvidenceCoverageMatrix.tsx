@@ -96,9 +96,9 @@ export function EvidenceCoverageMatrix({
             <CircularProgress size={28} />
           </Box>
         ) : coverage.isError ? (
-          <Alert severity="info">Coverage appears after papers are extracted. Run extraction from Literature search.</Alert>
+          <Alert severity="info">Extract papers on Literature search to see coverage.</Alert>
         ) : matrix.rows.length === 0 ? (
-          <Alert severity="info">No coverage data yet. Extract fields from your literature to populate this matrix.</Alert>
+          <Alert severity="info">No coverage yet.</Alert>
         ) : (
           <Box sx={{ overflow: "auto" }}>
             <Table size="small" sx={{ "& td, & th": { borderBottom: "none", py: 0.75 } }}>

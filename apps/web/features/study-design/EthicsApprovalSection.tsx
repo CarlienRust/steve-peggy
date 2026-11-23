@@ -167,7 +167,7 @@ export function EthicsApprovalSection({ ethics, onSave, papers, onUploadClick }:
                 InputLabelProps={{ shrink: true }}
                 size="small"
                 sx={{ minWidth: 160, flex: 1 }}
-                helperText="Shown on Calendar as an ethics renewal reminder."
+                helperText="Calendar reminder."
               />
             </Stack>
           </Stack>

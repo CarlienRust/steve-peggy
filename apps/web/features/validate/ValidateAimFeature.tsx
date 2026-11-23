@@ -357,7 +357,7 @@ export function ValidateAimFeature() {
   return (
     <Stack spacing={2.5}>
       {!activeWorkspace && (
-        <Alert severity="info">Select a project to validate its aim and objectives.</Alert>
+        <Alert severity="info">Select a project.</Alert>
       )}
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -383,7 +383,7 @@ export function ValidateAimFeature() {
       </Stack>
 
       {mode === "help" ? (
-        <Alert severity="info">Ask Peggy in chat to draft or refine your aim. Return here to check against literature.</Alert>
+        <Alert severity="info">Draft in Ask Peggy, then return here to check the literature.</Alert>
       ) : null}
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, overflow: "hidden" }}>

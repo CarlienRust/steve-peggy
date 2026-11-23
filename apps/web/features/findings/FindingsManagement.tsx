@@ -48,7 +48,7 @@ export function FindingsManagement({ hideIntro }: FindingsManagementProps) {
     <>
       {!hideIntro && (
         <Alert severity="info" sx={{ mb: 3 }}>
-          Our findings stay separate from the literature corpus. New uploads update the summary above. Tag each set to objectives from the table.
+          Findings stay separate from the literature. Tag objectives in the table.
         </Alert>
       )}
 

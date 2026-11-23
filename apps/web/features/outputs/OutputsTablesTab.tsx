@@ -112,7 +112,7 @@ export function OutputsTablesTab() {
   };
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to manage output tables.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   return (

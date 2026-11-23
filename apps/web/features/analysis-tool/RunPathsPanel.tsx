@@ -28,7 +28,7 @@ export function RunPathsPanel({ fn }: { fn: AnalysisFunction }) {
             </Stack>
             {paths.includes("external") ? (
               <Alert severity="warning">
-                External tools are run by third parties. Check the data class before you leave Peggy. Do not upload class C rows.
+                External tools: do not upload class C rows.
               </Alert>
             ) : null}
             {step.pitfalls[0] ? (

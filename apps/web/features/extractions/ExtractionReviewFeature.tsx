@@ -9,7 +9,7 @@ export function ExtractionReviewFeature({ initialPaperId }: { initialPaperId?: n
   const workspaceId = activeWorkspace?.id;
 
   if (!workspaceId) {
-    return <Alert severity="info">Select a project to review extractions.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   if (initialPaperId == null || initialPaperId <= 0) {

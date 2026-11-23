@@ -165,7 +165,7 @@ export function WorkspaceEditDialog({ open, onClose, workspace, studyDesign, onS
                   select
                   label="Project type"
                   fullWidth
-                  helperText="Same as Study design → Samples"
+                  helperText="Same as Samples"
                 >
                   <MenuItem value="">
                     <em>Not set</em>

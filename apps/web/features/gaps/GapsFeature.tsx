@@ -178,7 +178,7 @@ export function GapsFeature() {
   return (
     <Stack spacing={3}>
       {!activeWorkspace && (
-        <Alert severity="info">Select a project to save history and include study design context.</Alert>
+        <Alert severity="info">Select a project.</Alert>
       )}
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
@@ -189,7 +189,7 @@ export function GapsFeature() {
           Quick scan
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
-          Reads titles and abstracts only. Gaps below rest on abstracts until you add full texts.
+          Titles and abstracts only until full texts are added.
         </Typography>
 
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>

@@ -48,8 +48,8 @@ export function AskPeggyDrawer({
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
           {variant === "home"
-            ? "General help. Optionally pick a project for literature context."
-            : "Uses this project and page."}
+            ? "General help. Optional project for literature."
+            : "This project and page."}
         </Typography>
       </Box>
 

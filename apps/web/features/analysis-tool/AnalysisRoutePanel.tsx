@@ -53,11 +53,11 @@ export function AnalysisRoutePanel({
     <Paper variant="outlined" sx={{ p: 2 }}>
       <Typography fontWeight={600}>Evidence-led route</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Built after you mark the analysis plan as reviewed. Evidence (peer-reviewed papers) and feasibility (your compute profile) stay in separate columns. They are not combined into one score.
+        After the analysis plan is reviewed. Evidence and feasibility stay in separate columns.
       </Typography>
       {!planCompleted ? (
         <Alert severity="warning" sx={{ mb: 1 }}>
-          Suggestions are preliminary until Study design → Analysis plan Review is marked completed.
+          Preliminary until Methods plan → Review is marked complete.
         </Alert>
       ) : null}
       {route?.status === "stale" ? (

@@ -64,7 +64,7 @@ export function HomeAppShell({ children }: { children: ReactNode }) {
               </IconButton>
               <Box sx={{ flex: 1 }} />
               {showAskShortcut ? (
-                <Tooltip title="Open Ask Peggy side panel">
+                <Tooltip title="Ask Peggy">
                   <IconButton aria-label="Ask Peggy" onClick={() => setAskOpen(true)} sx={{ color: "text.primary" }}>
                     <ChatBubbleOutlineIcon />
                   </IconButton>
@@ -117,7 +117,7 @@ export function HomeAppShell({ children }: { children: ReactNode }) {
       </Box>
 
       {!isMobile && showAskShortcut ? (
-        <Tooltip title="General help and optional project context">
+        <Tooltip title="Ask Peggy">
           <IconButton
             aria-label="Ask Peggy"
             onClick={() => setAskOpen(true)}

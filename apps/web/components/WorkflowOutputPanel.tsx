@@ -109,7 +109,7 @@ export function WorkflowOutputPanel({
             minRows={2}
             fullWidth
             size="small"
-            helperText="Saved with the section when you click Save below."
+            helperText="Saved with the section."
           />
         )}
       </Stack>

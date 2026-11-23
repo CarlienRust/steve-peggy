@@ -158,7 +158,7 @@ export function EthicsFeature() {
   });
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project for ethics guidance.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   const dirty = isSectionDirty("ethics") || uploadsChanged;
@@ -218,7 +218,7 @@ export function EthicsFeature() {
 
       {llmBlocked && (
         <Alert severity="warning">
-          Samples are marked identifiable. Update Samples & datasets to de-identified before using AI guidance.
+          Samples are identifiable. Switch to de-identified on Samples before AI guidance.
         </Alert>
       )}
 

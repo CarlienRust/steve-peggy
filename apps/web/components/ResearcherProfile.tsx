@@ -129,7 +129,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
         </Menu>
         <PeggyAiSettingsDialog open={aiOpen} onClose={() => setAiOpen(false)} />
         <ProfileSettingsDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
-        <Tooltip title="Tips for navigation, validate, and chat">
+        <Tooltip title="Help">
           <Button
             fullWidth
             size="small"
@@ -231,7 +231,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
         <ProfileSettingsDialog open={profileOpen} onClose={() => setProfileOpen(false)} />
 
         {showSwitchProject ? (
-          <Tooltip title="Return to Home and pick another project">
+          <Tooltip title="Switch project">
             <Button
               fullWidth
               size="small"
@@ -244,7 +244,7 @@ export function ResearcherProfile({ variant = "project" }: ResearcherProfileProp
             </Button>
           </Tooltip>
         ) : null}
-        <Tooltip title="Tips for navigation, validate, and chat">
+        <Tooltip title="Help">
           <Button
             fullWidth
             size="small"

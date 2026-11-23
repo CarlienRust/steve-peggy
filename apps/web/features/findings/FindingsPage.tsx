@@ -194,7 +194,7 @@ export function FindingsPage() {
   const uploading = uploadFindingsMut.isPending || uploadFilesMut.isPending;
 
   if (!workspaceId) {
-    return <Alert severity="info">Select a project to add findings.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   return (

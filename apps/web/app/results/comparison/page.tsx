@@ -5,7 +5,7 @@ import { ResultsShell } from "@/components/ResultsShell";
 export default function ResultsComparisonPage() {
   return (
     <>
-      <ResultsShell title="Comparison" description="Compare your uploaded findings against the literature. Sample data shown.">
+      <ResultsShell title="Comparison" description="Your findings vs the literature.">
         <PageSection>
           <CompareFeature />
         </PageSection>

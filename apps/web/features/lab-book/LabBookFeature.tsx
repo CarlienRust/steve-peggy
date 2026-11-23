@@ -69,7 +69,7 @@ export function LabBookFeature() {
       <PageHeader
         eyebrow="08 · Lab book"
         title="Lab book"
-        description="Progress, meeting, idea, and methods notes for this project."
+        description="Progress, meetings, ideas, methods."
       />
       <PageSection>
         <Stack spacing={2}>

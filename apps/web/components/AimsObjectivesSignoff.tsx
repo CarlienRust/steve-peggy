@@ -24,8 +24,7 @@ export function AimsObjectivesSignoff({
       }
       label={
         <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-          I&apos;m happy with my aims and objectives for now. I can still edit them here, on the dashboard, or under
-          Study design → Methods plan → From your project.
+          Aims and objectives are ready.
         </Typography>
       }
     />

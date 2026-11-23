@@ -375,7 +375,7 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
   const saving = savingSection === "methodsPlan" || savingSection === "analysisPlan";
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to plan methods and analysis.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   return (
@@ -478,7 +478,7 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
             onCancel={cancelProjectEdit}
             editPanel={
               <Stack spacing={1.5}>
-                <TextField label="Outcome types" value={draftOutcomes} onChange={(e) => setDraftOutcomes(e.target.value)} fullWidth helperText="Comma-separated outcomes for analysis planning." />
+                <TextField label="Outcome types" value={draftOutcomes} onChange={(e) => setDraftOutcomes(e.target.value)} fullWidth helperText="Comma-separated." />
                 <Button variant="contained" size="small" disabled={saving} sx={{ alignSelf: "flex-start", textTransform: "none" }} onClick={() => { setOutcomeTypes(draftOutcomes); void commitSection("analysisPlan", { ...analysisFields, outcomeTypes: draftOutcomes }).then(() => setEditingField(null)); }}>
                   {saving ? "Saving…" : "Save outcomes"}
                 </Button>
@@ -651,7 +651,7 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
       <StudyDesignSaveBar
         dirty={dirty}
         saving={saving}
-        note="Save stores methods and analysis drafts. You can reopen any step later."
+        note="Saves methods and analysis drafts."
         onSave={() => void saveDrafts()}
       />
     </Stack>

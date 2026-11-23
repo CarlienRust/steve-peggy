@@ -120,7 +120,7 @@ export type StudyDesignPlan = {
   /** Researcher notes; saved with section Save bar, not auto-saved on LLM run */
   userNotes?: string;
   steps?: PlanStep[];
-  /** User marked the current draft as good enough for now */
+  /** User marked the current draft as ready */
   draftStatus?: "draft" | "completed";
 };
 

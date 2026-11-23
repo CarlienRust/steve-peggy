@@ -178,7 +178,7 @@ export function SamplesFeature() {
   const formatAdded = (iso?: string) => (iso ? String(iso).slice(5, 10).replace("-", " ") : "—");
 
   if (!activeWorkspace) {
-    return <Alert severity="info">Select a project to describe samples and datasets.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   return (
@@ -255,7 +255,7 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("setting", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.setting}
-                helperText={fieldWarnings.setting || "General setting only."}
+                helperText={fieldWarnings.setting || "Setting only."}
               />
             </Stack>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
@@ -270,7 +270,7 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("recruitment", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.recruitment}
-                helperText={fieldWarnings.recruitment || "Describe approach, no names."}
+                helperText={fieldWarnings.recruitment || "Approach, no names."}
               />
             </Stack>
           </Stack>
@@ -351,8 +351,7 @@ export function SamplesFeature() {
 
           {samples.identifierLevel === "identifiable" && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              Potentially identifiable data selected. AI guidance in Ethics, Methods, and Analysis is disabled until you
-              switch to de-identified descriptions. Confirm ethics approval via{" "}
+              Identifiable data. AI planners stay off until descriptions are de-identified. See{" "}
               <Link href="/study-design/ethics">Ethics</Link>.
             </Alert>
           )}

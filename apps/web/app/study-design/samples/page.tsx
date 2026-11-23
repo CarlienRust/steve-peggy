@@ -5,7 +5,7 @@ import { StudyDesignShell } from "@/components/StudyDesignShell";
 export default function SamplesPage() {
   return (
     <>
-      <StudyDesignShell title="Samples and datasets" description="Describe your cohort. Add de-identified datasets Peggy can use.">
+      <StudyDesignShell title="Samples and datasets" description="Cohort and de-identified datasets.">
         <PageSection>
           <SamplesFeature />
         </PageSection>

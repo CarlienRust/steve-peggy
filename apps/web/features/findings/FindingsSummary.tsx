@@ -41,7 +41,7 @@ export function FindingsSummary() {
   }, [papers.isLoading, summary.isLoading, stale, refresh]);
 
   if (!workspaceId) {
-    return <Alert severity="info">Select a project to view findings for this workspace.</Alert>;
+    return <Alert severity="info">Select a project.</Alert>;
   }
 
   if (papers.isLoading || summary.isLoading) {
@@ -51,7 +51,7 @@ export function FindingsSummary() {
   if (paperCount === 0) {
     return (
       <Alert severity="info">
-        No findings yet. Add a narrative or upload a PDF or HTML file below.
+        No findings yet.
       </Alert>
     );
   }

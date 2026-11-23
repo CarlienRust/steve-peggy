@@ -95,22 +95,22 @@ export function PeggyAiSettingsDialog({ open, onClose }: { open: boolean; onClos
       <DialogContent>
         <Stack spacing={2} sx={{ pt: 0.5 }}>
           {!activeWorkspace ? (
-            <Alert severity="info">Open a project first to set Strict or Standard for that project.</Alert>
+            <Alert severity="info">Open a project to set Strict or Standard.</Alert>
           ) : (
             <>
               <Typography variant="body2" color="text.secondary">
-                Privacy for {activeWorkspace.title}. Default is Standard (Ask Peggy on).
+                {activeWorkspace.title}. Default: Standard.
               </Typography>
               <ChoiceCard
                 title="Standard (recommended)"
-                description="Ask Peggy, planners, and abstracts may send project text to the hosted model. Opt out of training in that provider account."
+                description="Hosted AI on. Project text may leave Peggy. Turn off training in the provider account."
                 selected={privacy === "standard"}
                 onSelect={() => setPrivacy("standard")}
                 tag={{ label: "Hosted AI", tone: "warning" }}
               />
               <ChoiceCard
                 title="Strict (AI help off)"
-                description="Peggy will not send this project's aim, plans, findings, chat, or dataset summaries to a hosted model. Literature search and saved records still work."
+                description="No hosted AI for this project. Search and records stay on."
                 selected={privacy === "strict"}
                 onSelect={() => setPrivacy("strict")}
                 tag={{ label: "No project AI", tone: "neutral" }}
@@ -120,9 +120,7 @@ export function PeggyAiSettingsDialog({ open, onClose }: { open: boolean; onClos
 
           <Typography variant="subtitle2">Your model</Typography>
           <Typography variant="body2" color="text.secondary">
-            Default is platform Gemini (no key of yours). Paste your own key to use Claude, ChatGPT, Groq, or OpenRouter.
-            Clear the key to return to platform Gemini. Peggy sends do-not-train flags where the provider API allows it.
-            You still need to turn training off in that account. Gemini Keep Activity cannot be set from Peggy.
+            Default: platform Gemini. Paste a key for another provider. Turn training off in that account. Gemini Keep Activity cannot be set here.
           </Typography>
           <FormControl fullWidth size="small">
             <InputLabel id="peggy-llm-provider">Provider</InputLabel>
@@ -149,7 +147,7 @@ export function PeggyAiSettingsDialog({ open, onClose }: { open: boolean; onClos
             }}
             size="small"
             autoComplete="off"
-            helperText="Write-only. Leave blank to keep the stored key."
+            helperText="Leave blank to keep the stored key."
           />
           {storedLast4 ? (
             <Button
@@ -169,7 +167,7 @@ export function PeggyAiSettingsDialog({ open, onClose }: { open: boolean; onClos
             value={cap}
             onChange={(e) => setCap(e.target.value)}
             size="small"
-            helperText={`Empty uses the platform cap (${llmQuery.data?.platform_token_cap ?? "—"}). You cannot raise above that.`}
+            helperText={`Empty = platform cap (${llmQuery.data?.platform_token_cap ?? "—"}). Cannot raise above that.`}
           />
           {privacy === "standard" ? <TrainingOptOutTable /> : null}
           <FormControlLabel
