@@ -24,6 +24,7 @@ import {
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { DatasetTablePreview } from "@/components/DatasetTablePreview";
+import { DatasetValidationSkip } from "@/components/DatasetValidationSkip";
 import { ValidateDatasetDialog, type ValidateDatasetForm } from "@/components/ValidateDatasetDialog";
 import { formatApiError, peggyApi, queryKeys, type PaperRecord, type WorkflowResponse } from "@/lib/api";
 import { loadDatasetProfile } from "@/lib/datasetColumnStats";
@@ -36,7 +37,7 @@ import { monoSx, peggyColors } from "@/theme/peggyTheme";
 type UploadResult = { name: string; ok: boolean; error?: string };
 
 export function ValidateDatasetsFeature() {
-  const { activeWorkspace } = useWorkspace();
+  const { activeWorkspace, refetch } = useWorkspace();
   const queryClient = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
@@ -49,6 +50,25 @@ export function ValidateDatasetsFeature() {
   const [validatedPaper, setValidatedPaper] = useState<PaperRecord | null>(null);
   const [validateError, setValidateError] = useState<string | null>(null);
   const { studyDesign, commitSection } = useStudyDesign(activeWorkspace?.id);
+
+  const skipValidation = Boolean(
+    activeWorkspace?.settings &&
+      (activeWorkspace.settings as Record<string, unknown>).dataset_validation_not_required === true
+  );
+
+  const skipMut = useMutation({
+    mutationFn: async (skipped: boolean) => {
+      if (!activeWorkspace) throw new Error("No project selected");
+      return peggyApi.updateWorkspace(activeWorkspace.id, {
+        settings: {
+          ...(activeWorkspace.settings ?? {}),
+          dataset_validation_not_required: skipped,
+          dataset_validation_not_required_at: skipped ? new Date().toISOString() : null,
+        },
+      });
+    },
+    onSuccess: () => void refetch(),
+  });
 
   const datasets = useQuery({
     queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
@@ -166,6 +186,12 @@ export function ValidateDatasetsFeature() {
       <Alert severity="info">
         Same files as <Link href="/study-design/samples">Samples</Link>. Check format and readiness here.
       </Alert>
+      <DatasetValidationSkip
+        checked={skipValidation}
+        disabled={skipMut.isPending}
+        onChange={(skipped) => skipMut.mutate(skipped)}
+      />
+      {skipMut.isError ? <Alert severity="error">{formatApiError(skipMut.error)}</Alert> : null}
 
       <Paper variant="outlined" sx={{ overflow: "hidden" }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>

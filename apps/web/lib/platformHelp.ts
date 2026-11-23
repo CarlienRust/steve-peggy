@@ -29,7 +29,7 @@ export const PLATFORM_HELP_SECTIONS: HelpSection[] = [
       { heading: "Literature", body: "PDFs or PubMed, then extract fields." },
       { heading: "Aim and objectives", body: "Edit, save, then check against literature." },
       { heading: "Gap analysis", body: "Scan coverage in ingested papers." },
-      { heading: "Validate datasets", body: "Same de-identified files as Samples. Column names and summaries only." },
+      { heading: "Validate datasets", body: "Same files as Samples. Optional: mark validation as not required." },
     ],
   },
   {

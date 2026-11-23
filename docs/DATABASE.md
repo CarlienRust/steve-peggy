@@ -62,7 +62,7 @@ With `DATABASE_URL` in `.env`, the script also checks Postgres `public` tables a
 
 Analysis plan JSON may include `covariateEntries[]` (`description`, `scope` project|aim|objective, `scopeId`) and optional `adhocAnalyses[]` (sensitivity/ad hoc tests). Methods and analysis plans may set `draftStatus` to `completed` when the researcher is happy with the draft (Methods plan → Review checkbox). Plan step `objectiveIds` may include `project`, legacy `aim`, aim UUIDs, and objective UUIDs.
 
-`workspaces.settings` may include `aims_objectives_signoff` (boolean) from Validate → Aim and objectives. `study_design.samples` may include `validatedDatasetPaperId` (paper id) after Validate → datasets → **Use in Study design → Samples**.
+`workspaces.settings` may include `aims_objectives_signoff` (boolean) from Validate → Aim and objectives, and `dataset_validation_not_required` (boolean) from Validate → Validate datasets. `study_design.samples` may include `validatedDatasetPaperId` (paper id) after Validate → datasets → **Use in Study design → Samples**.
 
 `010_papers_workspace.sql` adds `workspace_id` FK on `papers`. Ingest and `/corpus` list filter by `workspace_id` when the active project is set.
 

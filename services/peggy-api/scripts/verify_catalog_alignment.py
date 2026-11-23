@@ -84,6 +84,7 @@ WORKSPACE_SETTINGS_KEYS_DOC = (
     "project_idea",
     "peer_reviewed_only",
     "aims_objectives_signoff",
+    "dataset_validation_not_required",
 )
 
 STUDY_DESIGN_JSON_KEYS_DOC = (

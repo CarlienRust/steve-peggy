@@ -187,7 +187,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/validate` | 03 Validate | Section hub (when to use each step); tab bar on sub-pages |
 | `/validate/gap-analysis` | 02 · Gap analysis | Quick scan, evidence coverage matrix, open gaps (Figma-aligned) |
 | `/validate/literature` | 02 · Literature search | Table + inline extraction panel; `?paperId=` / `?q=` |
-| `/validate/datasets` | · Validate datasets | Upload `sample_datasets` (shared with Study design → Samples); Peggy validates format and readiness |
+| `/validate/datasets` | · Validate datasets | Upload `sample_datasets` (shared with Samples). Optional `settings.dataset_validation_not_required`. Format/readiness check. |
 | `/validate/aim` | 02 · Aim and objectives | Multiple aims (overall required + Aim 1…); objectives each linked to one aim; **Save aims** / **Save objectives**; literature check |
 | `/study-design` | 04 Study Design | Section hub; tab bar on sub-pages |
 | `/study-design/samples` | 04 · Samples | Cohort profile (study type, data types, setting, population, recruitment, inclusion/exclusion, age range) + optional PDF/CSV/TSV/SAV upload (`sample_datasets`; confirm at own risk). **Preview** shows the data table (same parse as the Analysis tool). Edit/Delete on each row. |
@@ -195,7 +195,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/budget` | 04 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 04 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). Review also lists limitations, improvements, and supporting literature. `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
 | `/study-design/proposal` | 04 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 05 Analysis tool | Function registry (descriptives, OLS, microbiome, SNP, ML review, diet, exposome, omics). Evidence-led route (peer-reviewed counts vs feasibility, never one score). Import class D JSON. Run records. Compute profile. Reads/genotypes refused. |
+| `/analysis-tool` | 05 Analysis tool | Tabs: Function, Dataset, Tests, Scripts, Route. Registry (descriptives, OLS, microbiome, SNP, ML review, diet, exposome, omics). Evidence-led route (peer-reviewed vs feasibility, never one score). Import class D JSON. Run records. Compute profile. Reads/genotypes refused. |
 | `/results` | 06 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 06 · Methods | Placeholder |
 | `/results/findings` | 06 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |

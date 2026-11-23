@@ -13,6 +13,8 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -103,6 +105,7 @@ export function AnalysisToolFeature() {
   const [summaryCols, setSummaryCols] = useState<string[]>([]);
   const [runResult, setRunResult] = useState<string | null>(saved.lastRunSummary ?? null);
   const [functionId, setFunctionId] = useState(saved.activeFunctionId ?? "dataset-description");
+  const [toolTab, setToolTab] = useState(0);
   const [predictors, setPredictors] = useState<string[]>([]);
   const [regSummary, setRegSummary] = useState<string | null>(
     saved.lastRegression && typeof saved.lastRegression === "object"
@@ -349,6 +352,15 @@ export function AnalysisToolFeature() {
           </Alert>
         ) : null}
 
+        <Tabs value={toolTab} onChange={(_, v) => setToolTab(v)} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 1 }}>
+          <Tab label="Function" sx={{ textTransform: "none" }} />
+          <Tab label="Dataset" sx={{ textTransform: "none" }} />
+          <Tab label="Tests" sx={{ textTransform: "none" }} />
+          <Tab label="Scripts" sx={{ textTransform: "none" }} />
+          <Tab label="Route" sx={{ textTransform: "none" }} />
+        </Tabs>
+
+        {toolTab === 0 ? (
         <Box>
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>00 Analysis function</Typography>
           <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -368,6 +380,41 @@ export function AnalysisToolFeature() {
             </FormControl>
             {analysisFn ? <Box sx={{ mt: 2 }}><RunPathsPanel fn={analysisFn} /></Box> : null}
           </Paper>
+          {functionId === "gut-microbiome-feature" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("microbiome_qc.py", microbiomePython(scriptCtx))}>
+              Microbiome QC script
+            </Button>
+          ) : null}
+          {functionId === "genomics-snp-panel" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("snp_qc.txt", snpGuidance(scriptCtx))}>
+              SNP guidance
+            </Button>
+          ) : null}
+          {functionId === "ml-review" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("ml_review.txt", mlGuidance(scriptCtx))}>
+              ML review notes
+            </Button>
+          ) : null}
+          {functionId === "diet-analysis" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("diet_checklist.py", dietPython(scriptCtx))}>
+              Diet checklist script
+            </Button>
+          ) : null}
+          {functionId === "exposome" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("exposome_qc.py", exposomePython(scriptCtx))}>
+              Exposome script
+            </Button>
+          ) : null}
+          {functionId === "omics-generic" ? (
+            <Button variant="outlined" onClick={() => downloadBlob("omics_qc.py", omicsPython(scriptCtx))}>
+              Omics QC script
+            </Button>
+          ) : null}
+        </Box>
+        ) : null}
+
+        {toolTab === 1 ? (
+        <Box>
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>01 Dataset</Typography>
           <Paper
             variant="outlined"
@@ -673,7 +720,9 @@ export function AnalysisToolFeature() {
             </Stack>
           </Paper>
         </Box>
+        ) : null}
 
+        {toolTab === 2 ? (
         <Box>
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>03 Analysis guidance</Typography>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
@@ -785,7 +834,6 @@ export function AnalysisToolFeature() {
               </Typography>
             </Stack>
           </Paper>
-        </Box>
 
         {functionId === "linear-regression" ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
@@ -878,7 +926,10 @@ export function AnalysisToolFeature() {
             ) : null}
           </Paper>
         ) : null}
+        </Box>
+        ) : null}
 
+        {toolTab === 3 ? (
         <Stack spacing={1}>
           <Typography variant="body2" color="text.secondary">
             Save last results does not upload the file. Share summary is aggregates only (off on Strict and unpaid Gemini).
@@ -961,7 +1012,12 @@ export function AnalysisToolFeature() {
             </DisabledTooltipButton>
           </Stack>
         </Stack>
-        {activeWorkspace?.id ? (
+        ) : null}
+
+        {toolTab === 4 && !activeWorkspace?.id ? (
+          <Alert severity="info">Select a project.</Alert>
+        ) : null}
+        {toolTab === 4 && activeWorkspace?.id ? (
           <>
             <AnalysisRoutePanel
               workspaceId={activeWorkspace.id}
@@ -980,36 +1036,6 @@ export function AnalysisToolFeature() {
             <Paper variant="outlined" sx={{ p: 2 }}>
               <ComputeProfileEditor workspaceId={activeWorkspace.id} />
             </Paper>
-            {functionId === "gut-microbiome-feature" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("microbiome_qc.py", microbiomePython(scriptCtx))}>
-                Microbiome QC script
-              </Button>
-            ) : null}
-            {functionId === "genomics-snp-panel" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("snp_qc.txt", snpGuidance(scriptCtx))}>
-                SNP guidance
-              </Button>
-            ) : null}
-            {functionId === "ml-review" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("ml_review.txt", mlGuidance(scriptCtx))}>
-                ML review notes
-              </Button>
-            ) : null}
-            {functionId === "diet-analysis" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("diet_checklist.py", dietPython(scriptCtx))}>
-                Diet checklist script
-              </Button>
-            ) : null}
-            {functionId === "exposome" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("exposome_qc.py", exposomePython(scriptCtx))}>
-                Exposome script
-              </Button>
-            ) : null}
-            {functionId === "omics-generic" ? (
-              <Button variant="outlined" onClick={() => downloadBlob("omics_qc.py", omicsPython(scriptCtx))}>
-                Omics QC script
-              </Button>
-            ) : null}
           </>
         ) : null}
       </Stack>

@@ -231,6 +231,9 @@ Hands-on: PubMed | KEGG | HMDB | gutMGene | NCBI SRA | Google Colab | MetaPhlAn 
 
 ## Batch 27: ANALYSIS TOOLS
 
+1) Validate/Validate dataset: Add checkbox here so user can indicae dataset don't need to be validated. 
+2) We can use tabs here instead of overloading on page with all the analysis tools and sections. 
+
 ## FUTURE:
 
 **Still open:**
