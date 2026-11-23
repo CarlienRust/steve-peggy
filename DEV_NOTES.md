@@ -233,7 +233,6 @@ Hands-on: PubMed | KEGG | HMDB | gutMGene | NCBI SRA | Google Colab | MetaPhlAn 
 
 1) Validate/Validate dataset: Add checkbox here so user can indicae dataset don't need to be validated. 
 2) We can use tabs here instead of overloading on page with all the analysis tools and sections. 
-
 3) Validate/Validate dataset: "Dataset validation not required" text not proper inline with checkbox
 4) Methods plan review: "Methods and analysis plans are ready." text not proper inline with checkbox
 5) In generated proposal: "Ethics Note This study has obtained ethics approval from [insert institution] and will be conducted in accordance with all applicable regulations and guidelines." but institution is in Ethics tabs as Committee
@@ -262,3 +261,30 @@ In research groups, there might already be specific SOPs or published methods th
 Meeting scheduler/Doodle
 Invite collaborators/share project with other user
 Link invited supervisor/collaborator to specific objective/task/aim 
+
+
+
+
+**Descriptives (bottom buttons)**
+
+These do not store the table of people. They take what you already computed in the browser and either save a summary, or hand you files to run the same descriptives elsewhere.
+
+- **Save last results** — Writes column summaries (n, means, types, and similar) into the project’s analysis-tool metadata. Rows stay in this browser only.
+- **Export dictionary CSV** — A data dictionary: variable names, types, admin vs analysis role.
+- **Python / R / SPSS starter** — Scripts generated from the current columns so you can run descriptives on your own machine or HPC, not in Peggy.
+- **Project ZIP** — Those starters plus a small project layout, as a downloadable template.
+- **Share summary with Peggy** — Sends **aggregates only** (class D) so chat can talk about the dataset without seeing participant rows. Off on Strict projects.
+
+**Analysis → Record and import**
+
+This is the “I ran the real analysis outside Peggy” layer. Browser OLS is a sketch. These blocks record what you actually did and bring back numbers Peggy is allowed to keep.
+
+- **Evidence-led route** — Matches analysis-plan steps to tools mentioned in your literature, with evidence counts in one column and “can I run this here?” (Python/R/HPC) in another. Preliminary until Methods/analysis review is complete.
+- **Import class D results** — Paste JSON from `export_for_peggy()` (coefficients, n, R², and similar). Participant tables are refused. Saved as imported aggregates on the project.
+- **Run record** — Lab-book style: tool name, version, seed, where it ran. No row-level data. For reproducibility, not results.
+- **Compute profile** — Queue, walltime, memory, SLURM/PBS, CHPC/ILIFU presets. Used only to generate stage/job scripts. Peggy does not submit jobs.
+
+REVIEW
+- WHAT WORKED: Splitting Descriptives (summaries + takeaway scripts) from Record and import (external run + allowed aggregates).
+- WHAT WAS WEAK: “Class D” is project jargon; if that label is unclear in the UI, that is a copy issue, not the function.
+- WHAT TO ADD TO THIS PROMPT OR THE KNOWLEDGE BASE BEFORE NEXT RUN: Add: “Descriptives footer = save aggregates, dictionary, local scripts, optional share of summaries. Record and import = literature route, paste export_for_peggy JSON, run metadata, HPC profile. No participant rows.”

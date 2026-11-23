@@ -44,7 +44,9 @@ import { defaultAdminColumns, groupSizeWarns, smallestGroupSize } from "@/lib/id
 import { clearAnalysisRows, loadAnalysisRows, saveAnalysisRows } from "@/lib/analysisIdb";
 import { dictionaryCsv } from "@/lib/analysisDictionary";
 import { missingVsPlan } from "@/lib/analysisPlanCheck";
+import { clipTable } from "@/lib/analysis/uploadGuard";
 import { parseAnalysisFile, parseCorpusDataset } from "@/lib/analysis/parseAnalysisTable";
+import { parsePastedTable } from "@/lib/parsePastedTable";
 import { getAnalysisFunction, listAnalysisFunctions } from "@/lib/analysis/registry";
 import { DATASET_UPLOAD_ACCEPT, datasetUploadTitle } from "@/lib/datasetFiles";
 import { descriptivePython, descriptiveR, descriptiveSpss } from "@/lib/analysis/templates/descriptive";
