@@ -255,6 +255,30 @@ async def delete_workspace(workspace_id: str, user: AuthUser = Depends(get_curre
     return {"status": "deleted", "id": workspace_id, "counts": counts}
 
 
+class ComputeProfileBody(BaseModel):
+    label: str = Field(default="Default", max_length=128)
+    profile: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/{workspace_id}/compute-profile")
+async def get_compute_profile(workspace_id: str, user: AuthUser = Depends(get_current_user)):
+    from core.workspace_guard import assert_workspace_owner
+
+    await assert_workspace_owner(user.id, workspace_id)
+    row = await catalog.get_compute_profile(user.id, workspace_id)
+    return row or {"id": None, "label": "Default", "workspace_id": workspace_id, "profile": {}}
+
+
+@router.put("/{workspace_id}/compute-profile")
+async def put_compute_profile(
+    workspace_id: str, body: ComputeProfileBody, user: AuthUser = Depends(get_current_user)
+):
+    from core.workspace_guard import assert_workspace_owner
+
+    await assert_workspace_owner(user.id, workspace_id)
+    return await catalog.upsert_compute_profile(user.id, workspace_id, body.label.strip() or "Default", body.profile)
+
+
 class StudyDesignPatch(BaseModel):
     samples: Optional[dict[str, Any]] = None
     budget: Optional[dict[str, Any]] = None
@@ -363,7 +387,16 @@ async def confounder_audit(workspace_id: str, user: AuthUser = Depends(get_curre
 
     await assert_workspace_owner(user.id, workspace_id)
     rows = await catalog.list_extractions(user.id, workspace_id)
-    return {"items": audit(rows)}
+    design = await catalog.get_study_design(user.id, workspace_id) or {}
+    tool = design.get("analysisTool") or {}
+    imported_names: list[str] = []
+    for blob in (tool.get("lastRegression"), tool.get("importedResults")):
+        if not isinstance(blob, dict):
+            continue
+        for coef in blob.get("coefficients") or []:
+            if isinstance(coef, dict) and coef.get("name") and coef["name"] != "(Intercept)":
+                imported_names.append(str(coef["name"]))
+    return {"items": audit(rows), "importedCovariates": sorted(set(imported_names))}
 
 
 @router.get("/{workspace_id}/notices")
@@ -493,10 +526,15 @@ async def patch_study_design(
     if merged is None:
         raise HTTPException(404, "Workspace not found")
     from core.calendar_sync import sync_ethics_calendar, sync_plan_step_calendar
+    from core.analysis_catalog import plan_fingerprint
 
     await sync_ethics_calendar(user.id, workspace_id, merged)
     if "methodsPlan" in patch or "analysisPlan" in patch:
         await sync_plan_step_calendar(user.id, workspace_id, merged)
+    if "analysisPlan" in patch:
+        existing_route = await catalog.get_analysis_route(user.id, workspace_id)
+        if existing_route and existing_route.get("plan_fingerprint") != plan_fingerprint(merged):
+            await catalog.mark_analysis_routes_stale(user.id, workspace_id)
     return {"study_design": merged}
 
 

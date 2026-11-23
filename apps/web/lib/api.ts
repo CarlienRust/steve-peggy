@@ -981,7 +981,38 @@ export const peggyApi = {
     }),
 
   getConfounderAudit: (workspaceId: string) =>
-    apiFetch<{ items: { covariate: string; papers: number }[] }>(`/workspaces/${workspaceId}/confounder-audit`),
+    apiFetch<{ items: { covariate: string; papers: number }[]; importedCovariates?: string[] }>(
+      `/workspaces/${workspaceId}/confounder-audit`
+    ),
+
+  getComputeProfile: (workspaceId: string) =>
+    apiFetch<{ id?: string | null; label?: string; profile?: Record<string, unknown> }>(
+      `/workspaces/${workspaceId}/compute-profile`
+    ),
+
+  putComputeProfile: (workspaceId: string, body: { label: string; profile: Record<string, unknown> }) =>
+    apiFetch<{ id?: string; label?: string; profile?: Record<string, unknown> }>(
+      `/workspaces/${workspaceId}/compute-profile`,
+      { method: "PUT", body: JSON.stringify(body) }
+    ),
+
+  getAnalysisRoute: (workspaceId: string) =>
+    apiFetch<{ route: Record<string, unknown> | null }>(`/workspaces/${workspaceId}/analysis-route`),
+
+  buildAnalysisRoute: (workspaceId: string, functionId: string) =>
+    apiFetch<{ route: Record<string, unknown> }>(`/workspaces/${workspaceId}/analysis-route/build`, {
+      method: "POST",
+      body: JSON.stringify({ function_id: functionId }),
+    }),
+
+  listAnalysisRuns: (workspaceId: string) =>
+    apiFetch<{ runs: Record<string, unknown>[] }>(`/workspaces/${workspaceId}/analysis-runs`),
+
+  createAnalysisRun: (workspaceId: string, body: Record<string, unknown>) =>
+    apiFetch<Record<string, unknown>>(`/workspaces/${workspaceId}/analysis-runs`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 
   shareDatasetSummary: (
     workspaceId: string,

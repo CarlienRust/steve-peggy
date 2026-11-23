@@ -1,6 +1,8 @@
 import pytest
 
-from core.extraction.modules import field_ids_for_module, get_module, list_modules, validate_module_field
+from core.extraction.modules import _all_modules, field_ids_for_module, get_module, list_modules, validate_module_field
+
+_all_modules.cache_clear()
 
 
 def test_list_modules_includes_core_and_outcomes():
@@ -8,6 +10,7 @@ def test_list_modules_includes_core_and_outcomes():
     ids = {m["id"] for m in modules}
     assert "core" in ids
     assert "outcomes" in ids
+    assert "methods" in ids
 
 
 def test_core_fields():

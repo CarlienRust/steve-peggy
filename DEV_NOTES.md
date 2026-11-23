@@ -219,7 +219,15 @@ Meeting scheduler/Doodle
 Invite collaborators/share project with other user
 Link invited supervisor/collaborator to specific objective/task/aim 
 
-## Batch 26: ANALYSIS TOOLS:
+## Batch 26: ANALYSIS TOOLS (M0–M6 in code)
+
+- M0–M3 as before (registry, scripts, compute profile `032`, JS OLS).
+- M4: `033` tool_mentions + analysis_routes; methods extraction module; route builder; stale on plan edit; agent `get_analysis_route`.
+- M5: domain functions (microbiome, SNP, ML review, diet, exposome, omics) + catalog tools (QIIME 2, DADA2, PLINK).
+- M6: `034` analysis_runs; class D JSON import; `importedResults`; Compare + `get_analysis_results`.
+- Hosted: apply SQL `033` and `034` in Supabase (032 already applied).
+
+**Still open (domain backlog):**
 
 - Gut microbiome analysis
 NGS & Python-Based Gut Microbiome Profiling

@@ -1,0 +1,46 @@
+{
+  "id": "gut-microbiome-feature",
+  "label": "Gut microbiome (feature table)",
+  "version": "1.0.0",
+  "status": "beta",
+  "domain": "microbiome",
+  "inputs": { "dataKinds": ["feature-table"], "requiredRoles": ["analysis"], "optionalRoles": ["admin"] },
+  "steps": [
+    {
+      "id": "qc-feature-table",
+      "label": "Feature-table QC",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["pandas"],
+      "decisions": ["Minimum count per feature"],
+      "pitfalls": ["Compositional data: counts are not independent"]
+    },
+    {
+      "id": "alpha-diversity",
+      "label": "Alpha diversity",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["pandas"],
+      "decisions": ["Diversity metric"],
+      "pitfalls": ["Rarefaction choice changes richness"]
+    },
+    {
+      "id": "amplicon-pipeline",
+      "label": "Amplicon pipeline",
+      "resourceClass": "heavy",
+      "runPaths": ["script", "external", "guidance"],
+      "tools": ["qiime2", "dada2"],
+      "decisions": ["QIIME 2 vs DADA2", "Reference database version"],
+      "pitfalls": ["Do not upload FASTQ to Peggy"]
+    }
+  ],
+  "checks": [
+    { "id": "compositional", "message": "Feature tables are compositional; avoid treating counts as independent abundances." },
+    { "id": "batch", "message": "Batch and sequencing-run effects can dominate biology." },
+    { "id": "rarefaction", "message": "Rarefaction depth is a decision; document it." },
+    { "id": "multiple-testing", "message": "Differential tests need a stated correction method." }
+  ],
+  "reporting": { "guideline": "STORMS", "items": ["Report pipeline and database versions"], "confirmed": true },
+  "extractionFields": ["sequencing_approach", "region", "pipeline", "reference_database", "normalization", "diversity_metrics", "differential_method", "correction_method"],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

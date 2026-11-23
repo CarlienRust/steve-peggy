@@ -372,3 +372,41 @@ async def get_ai_consent(user_id: str) -> dict | None:
 
 async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
     return await _backend().upsert_ai_consent(user_id, acknowledged)
+
+
+async def get_compute_profile(user_id: str, workspace_id: str | None) -> dict | None:
+    return await _backend().get_compute_profile(user_id, workspace_id)
+
+
+async def upsert_compute_profile(
+    user_id: str, workspace_id: str | None, label: str, profile: dict
+) -> dict:
+    return await _backend().upsert_compute_profile(user_id, workspace_id, label, profile)
+
+
+async def list_tool_mentions(user_id: str, workspace_id: str) -> list[dict]:
+    return await _backend().list_tool_mentions(user_id, workspace_id)
+
+
+async def upsert_tool_mention(user_id: str, workspace_id: str, paper_id: int, tool_id: str, **kwargs) -> dict:
+    return await _backend().upsert_tool_mention(user_id, workspace_id, paper_id, tool_id, **kwargs)
+
+
+async def get_analysis_route(user_id: str, workspace_id: str) -> dict | None:
+    return await _backend().get_analysis_route(user_id, workspace_id)
+
+
+async def replace_analysis_route(user_id: str, workspace_id: str, route: dict, steps: list[dict]) -> dict:
+    return await _backend().replace_analysis_route(user_id, workspace_id, route, steps)
+
+
+async def mark_analysis_routes_stale(user_id: str, workspace_id: str) -> None:
+    return await _backend().mark_analysis_routes_stale(user_id, workspace_id)
+
+
+async def list_analysis_runs(user_id: str, workspace_id: str) -> list[dict]:
+    return await _backend().list_analysis_runs(user_id, workspace_id)
+
+
+async def insert_analysis_run(user_id: str, workspace_id: str, fields: dict) -> dict:
+    return await _backend().insert_analysis_run(user_id, workspace_id, fields)

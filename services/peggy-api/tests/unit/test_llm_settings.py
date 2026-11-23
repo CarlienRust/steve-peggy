@@ -35,6 +35,11 @@ EXPECTED_RLS_TABLES = {
     "agent_proposals",
     "user_llm_settings",
     "project_admin",
+    "compute_profiles",
+    "tool_mentions",
+    "analysis_routes",
+    "analysis_route_steps",
+    "analysis_runs",
 }
 
 

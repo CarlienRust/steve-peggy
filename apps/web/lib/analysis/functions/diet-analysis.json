@@ -1,0 +1,27 @@
+{
+  "id": "diet-analysis",
+  "label": "Diet analysis",
+  "version": "1.0.0",
+  "status": "planned",
+  "domain": "diet",
+  "inputs": { "dataKinds": ["table"], "requiredRoles": ["analysis"], "optionalRoles": ["admin"] },
+  "steps": [
+    {
+      "id": "method-checklist",
+      "label": "Assessment method",
+      "resourceClass": "light",
+      "runPaths": ["browser", "guidance"],
+      "tools": ["pandas"],
+      "decisions": ["FFQ vs recall vs diary"],
+      "pitfalls": ["Energy adjustment is a modelling decision"]
+    }
+  ],
+  "checks": [
+    { "id": "assessment", "message": "Document how diet was assessed." },
+    { "id": "energy", "message": "Energy adjustment method should be stated." },
+    { "id": "measurement-error", "message": "Self-report diet has measurement error; say so." }
+  ],
+  "reporting": { "guideline": "STROBE-nut", "items": ["Report dietary assessment"], "confirmed": false },
+  "extractionFields": ["analysis_tool", "normalization"],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

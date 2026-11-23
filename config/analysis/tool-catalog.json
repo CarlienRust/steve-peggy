@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "lastVerified": "2026-11-23",
+  "tools": [
+    {
+      "id": "pandas",
+      "purpose": "Tabular descriptives in Python",
+      "resourceClass": "light",
+      "runModes": ["script", "browser"],
+      "languages": ["python"],
+      "aliases": ["pandas"],
+      "links": ["https://pandas.pydata.org/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "r-base",
+      "purpose": "Tabular descriptives in R",
+      "resourceClass": "light",
+      "runModes": ["script"],
+      "languages": ["r"],
+      "aliases": ["R"],
+      "links": ["https://www.r-project.org/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "statsmodels",
+      "purpose": "OLS in Python",
+      "resourceClass": "light",
+      "runModes": ["script"],
+      "languages": ["python"],
+      "aliases": ["statsmodels"],
+      "links": ["https://www.statsmodels.org/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "js-ols",
+      "purpose": "Browser OLS for small complete-case tables",
+      "resourceClass": "light",
+      "runModes": ["browser"],
+      "languages": ["javascript"],
+      "links": [],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "qiime2",
+      "purpose": "Amplicon microbiome pipeline (prefer maintained community pipeline)",
+      "resourceClass": "heavy",
+      "runModes": ["script", "external"],
+      "languages": ["python"],
+      "aliases": ["QIIME 2", "QIIME2", "qiime"],
+      "links": ["https://qiime2.org/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "dada2",
+      "purpose": "Amplicon inference in R",
+      "resourceClass": "heavy",
+      "runModes": ["script"],
+      "languages": ["r"],
+      "aliases": ["DADA2"],
+      "links": ["https://benjjneb.github.io/dada2/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "plink",
+      "purpose": "SNP QC and association (run locally; do not upload genotypes)",
+      "resourceClass": "heavy",
+      "runModes": ["script", "guidance"],
+      "languages": ["other"],
+      "aliases": ["PLINK", "plink2"],
+      "links": ["https://www.cog-genomics.org/plink/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "sklearn",
+      "purpose": "Machine learning in Python (training stays off Peggy)",
+      "resourceClass": "heavy",
+      "runModes": ["script", "guidance"],
+      "languages": ["python"],
+      "aliases": ["scikit-learn", "sklearn"],
+      "links": ["https://scikit-learn.org/"],
+      "lastVerified": "2026-11-23"
+    },
+    {
+      "id": "mothur",
+      "purpose": "Legacy 16S pipeline",
+      "resourceClass": "heavy",
+      "runModes": ["script"],
+      "languages": ["other"],
+      "aliases": ["mothur"],
+      "superseded": true,
+      "supersededReason": "Many current amplicon studies use DADA2 or QIIME 2 instead; check the year of the paper.",
+      "supersededCite": "Callahan et al. 2016 DADA2",
+      "lastVerified": "2026-11-23"
+    }
+  ]
+}

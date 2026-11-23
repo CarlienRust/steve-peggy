@@ -1,0 +1,68 @@
+{
+  "id": "methods",
+  "version": "1",
+  "label": "Analysis methods",
+  "description": "How similar studies analysed data (tools, pipelines, correction).",
+  "fields": [
+    {
+      "id": "analysis_tool",
+      "label": "Analysis tool or pipeline",
+      "type": "text",
+      "description": "Named software, e.g. QIIME 2, DADA2, PLINK, statsmodels"
+    },
+    {
+      "id": "tool_version",
+      "label": "Tool version",
+      "type": "text",
+      "description": "Version string if reported"
+    },
+    {
+      "id": "sequencing_approach",
+      "label": "Sequencing approach",
+      "type": "text",
+      "description": "16S, shotgun, amplicon region, etc."
+    },
+    {
+      "id": "region",
+      "label": "Amplicon region",
+      "type": "text",
+      "description": "e.g. V3–V4"
+    },
+    {
+      "id": "pipeline",
+      "label": "Pipeline",
+      "type": "text",
+      "description": "Community pipeline name"
+    },
+    {
+      "id": "reference_database",
+      "label": "Reference database and version",
+      "type": "text",
+      "description": "e.g. SILVA 138"
+    },
+    {
+      "id": "normalization",
+      "label": "Normalization",
+      "type": "text",
+      "description": "Rarefaction, CLR, TSS, etc."
+    },
+    {
+      "id": "diversity_metrics",
+      "label": "Diversity metrics",
+      "type": "text",
+      "description": "Alpha/beta measures"
+    },
+    {
+      "id": "differential_method",
+      "label": "Differential method",
+      "type": "text",
+      "description": "e.g. ANCOM, DESeq2, MaAsLin2"
+    },
+    {
+      "id": "correction_method",
+      "label": "Multiple-testing correction",
+      "type": "text",
+      "description": "FDR, Bonferroni, etc."
+    }
+  ]
+}

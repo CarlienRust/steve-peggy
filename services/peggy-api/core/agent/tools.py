@@ -30,6 +30,8 @@ ALL_TOOL_NAMES = [
     "coverage_matrix",
     "list_stale_links",
     "get_dataset_summary",
+    "get_analysis_route",
+    "get_analysis_results",
     "propose_objective_edit",
     "propose_method_step",
     "propose_budget_line",
@@ -224,6 +226,22 @@ TOOL_SCHEMAS: list[dict] = [
         "function": {
             "name": "get_dataset_summary",
             "description": "Shared dataset aggregates only, if the user shared them.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_analysis_route",
+            "description": "Current analysis route: tools, evidence counts, feasibility. Class B metadata only.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_analysis_results",
+            "description": "Imported class D analysis results if the researcher saved them.",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -524,6 +542,40 @@ async def _get_dataset_summary(args: dict, ctx: dict) -> ToolResult:
     return _ok({"label": tool.get("label"), "aggregates": tool.get("aggregates"), "headers": tool.get("headers")})
 
 
+async def _get_analysis_route(args: dict, ctx: dict) -> ToolResult:
+    from core.safety.policy import CLASS_B
+
+    _policy(ctx, [CLASS_B])
+    row = await catalog.get_analysis_route(ctx["user_id"], ctx["workspace_id"])
+    if not row:
+        return {"result": None, "source_ids": [], "confidence": 0.0, "error": "No analysis route"}
+    steps = []
+    for s in row.get("steps") or []:
+        steps.append(
+            {
+                "plan_step_id": s.get("plan_step_id"),
+                "chosen_tool_id": s.get("chosen_tool_id"),
+                "evidence_peer_count": s.get("evidence_peer_count"),
+                "evidence_preprint_count": s.get("evidence_preprint_count"),
+                "feasibility": s.get("feasibility_json"),
+                "run_path": s.get("run_path"),
+            }
+        )
+    return _ok({"status": row.get("status"), "function_id": row.get("function_id"), "steps": steps})
+
+
+async def _get_analysis_results(args: dict, ctx: dict) -> ToolResult:
+    from core.safety.policy import CLASS_D
+
+    _policy(ctx, [CLASS_D])
+    design = await catalog.get_study_design(ctx["user_id"], ctx["workspace_id"]) or {}
+    tool = design.get("analysisTool") or {}
+    imported = tool.get("importedResults")
+    if not imported and not tool.get("lastRegression"):
+        return {"result": None, "source_ids": [], "confidence": 0.0, "error": "No imported class D results"}
+    return _ok({"importedResults": imported, "lastRegression": tool.get("lastRegression")})
+
+
 async def _propose(kind: str, payload: dict, ctx: dict) -> ToolResult:
     from core.safety.policy import CLASS_B
 
@@ -562,6 +614,8 @@ _EXECUTORS: dict[str, Callable[[dict, dict], Awaitable[ToolResult]]] = {
     "coverage_matrix": _coverage_matrix,
     "list_stale_links": _list_stale_links,
     "get_dataset_summary": _get_dataset_summary,
+    "get_analysis_route": _get_analysis_route,
+    "get_analysis_results": _get_analysis_results,
     "propose_objective_edit": _propose_objective_edit,
     "propose_method_step": _propose_method_step,
     "propose_budget_line": _propose_budget_line,

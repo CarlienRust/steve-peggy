@@ -1700,3 +1700,260 @@ async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
             acknowledged,
         )
     return _row_to_dict(row) if row else {"user_id": user_id, "training_opt_out_acknowledged": acknowledged}
+
+
+def _pg_compute_profile(row: asyncpg.Record | dict) -> dict:
+    d = _row_to_dict(row) if not isinstance(row, dict) else dict(row)
+    raw = d.get("profile_json") or {}
+    if isinstance(raw, str):
+        try:
+            d["profile"] = json.loads(raw)
+        except json.JSONDecodeError:
+            d["profile"] = {}
+    else:
+        d["profile"] = raw if isinstance(raw, dict) else {}
+    d.pop("profile_json", None)
+    return d
+
+
+async def get_compute_profile(user_id: str, workspace_id: str | None) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        if workspace_id:
+            row = await conn.fetchrow(
+                "SELECT * FROM compute_profiles WHERE user_id = $1::uuid AND workspace_id = $2::uuid",
+                user_id,
+                workspace_id,
+            )
+            if row:
+                return _pg_compute_profile(row)
+        row = await conn.fetchrow(
+            "SELECT * FROM compute_profiles WHERE user_id = $1::uuid AND workspace_id IS NULL",
+            user_id,
+        )
+    return _pg_compute_profile(row) if row else None
+
+
+async def upsert_compute_profile(
+    user_id: str, workspace_id: str | None, label: str, profile: dict
+) -> dict:
+    pool = await _pool_conn()
+    payload = json.dumps(profile)
+    async with pool.acquire() as conn:
+        if workspace_id:
+            existing = await conn.fetchrow(
+                "SELECT id FROM compute_profiles WHERE user_id = $1::uuid AND workspace_id = $2::uuid",
+                user_id,
+                workspace_id,
+            )
+        else:
+            existing = await conn.fetchrow(
+                "SELECT id FROM compute_profiles WHERE user_id = $1::uuid AND workspace_id IS NULL",
+                user_id,
+            )
+        if existing:
+            row = await conn.fetchrow(
+                """UPDATE compute_profiles SET label = $1, profile_json = $2::jsonb, updated_at = NOW()
+                   WHERE id = $3 RETURNING *""",
+                label,
+                payload,
+                existing["id"],
+            )
+        else:
+            row = await conn.fetchrow(
+                """INSERT INTO compute_profiles (user_id, workspace_id, label, profile_json, updated_at)
+                   VALUES ($1::uuid, $2::uuid, $3, $4::jsonb, NOW()) RETURNING *""",
+                user_id,
+                workspace_id,
+                label,
+                payload,
+            )
+    return _pg_compute_profile(row) if row else {}
+
+
+def _pg_json(raw, default):
+    if raw is None:
+        return default
+    if isinstance(raw, (dict, list)):
+        return raw
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return default
+    return default
+
+
+def _pg_route_step(row) -> dict:
+    d = _row_to_dict(row)
+    d["objective_ids"] = _pg_json(d.get("objective_ids"), [])
+    d["alternative_tool_ids"] = _pg_json(d.get("alternative_tool_ids"), [])
+    d["feasibility_json"] = _pg_json(d.get("feasibility_json"), {})
+    return d
+
+
+async def list_tool_mentions(user_id: str, workspace_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM tool_mentions WHERE user_id = $1::uuid AND workspace_id = $2::uuid ORDER BY created_at DESC",
+            user_id,
+            workspace_id,
+        )
+    return [_row_to_dict(r) for r in rows]
+
+
+async def upsert_tool_mention(
+    user_id: str,
+    workspace_id: str,
+    paper_id: int,
+    tool_id: str,
+    *,
+    version: str | None = None,
+    quote: str | None = None,
+    page: int | None = None,
+    confirmed: bool = False,
+) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO tool_mentions (workspace_id, user_id, paper_id, tool_id, version, quote, page, confirmed)
+               VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7, $8)
+               ON CONFLICT (workspace_id, paper_id, tool_id) DO UPDATE SET
+                 version = EXCLUDED.version, quote = EXCLUDED.quote, page = EXCLUDED.page, confirmed = EXCLUDED.confirmed
+               RETURNING *""",
+            workspace_id,
+            user_id,
+            paper_id,
+            tool_id,
+            version,
+            quote,
+            page,
+            confirmed,
+        )
+    return _row_to_dict(row) if row else {}
+
+
+async def get_analysis_route(user_id: str, workspace_id: str) -> dict | None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """SELECT * FROM analysis_routes WHERE user_id = $1::uuid AND workspace_id = $2::uuid
+               ORDER BY updated_at DESC LIMIT 1""",
+            user_id,
+            workspace_id,
+        )
+        if not row:
+            return None
+        route = _row_to_dict(row)
+        steps = await conn.fetch(
+            "SELECT * FROM analysis_route_steps WHERE route_id = $1::uuid",
+            route["id"],
+        )
+    route["steps"] = [_pg_route_step(s) for s in steps]
+    return route
+
+
+async def replace_analysis_route(user_id: str, workspace_id: str, route: dict, steps: list[dict]) -> dict:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "DELETE FROM analysis_routes WHERE user_id = $1::uuid AND workspace_id = $2::uuid",
+                user_id,
+                workspace_id,
+            )
+            row = await conn.fetchrow(
+                """INSERT INTO analysis_routes
+                   (workspace_id, user_id, status, plan_reviewed_at, plan_fingerprint, function_id, updated_at)
+                   VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, NOW()) RETURNING *""",
+                workspace_id,
+                user_id,
+                route.get("status") or "draft",
+                route.get("plan_reviewed_at"),
+                route.get("plan_fingerprint") or "",
+                route.get("function_id") or "dataset-description",
+            )
+            rid = row["id"]
+            for step in steps:
+                await conn.execute(
+                    """INSERT INTO analysis_route_steps (
+                        route_id, workspace_id, user_id, plan_step_id, objective_ids, function_step_id,
+                        run_path, chosen_tool_id, alternative_tool_ids, evidence_peer_count, evidence_preprint_count,
+                        evidence_year_min, evidence_year_max, evidence_full_text_count, feasibility_json
+                    ) VALUES ($1::uuid, $2::uuid, $3::uuid, $4, $5::jsonb, $6, $7, $8, $9::jsonb, $10, $11, $12, $13, $14, $15::jsonb)""",
+                    rid,
+                    workspace_id,
+                    user_id,
+                    step.get("plan_step_id"),
+                    json.dumps(step.get("objective_ids") or []),
+                    step.get("function_step_id"),
+                    step.get("run_path"),
+                    step.get("chosen_tool_id"),
+                    json.dumps(step.get("alternative_tool_ids") or []),
+                    int(step.get("evidence_peer_count") or 0),
+                    int(step.get("evidence_preprint_count") or 0),
+                    step.get("evidence_year_min"),
+                    step.get("evidence_year_max"),
+                    int(step.get("evidence_full_text_count") or 0),
+                    json.dumps(step.get("feasibility_json") or {}),
+                )
+    return (await get_analysis_route(user_id, workspace_id)) or {}
+
+
+async def mark_analysis_routes_stale(user_id: str, workspace_id: str) -> None:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """UPDATE analysis_routes SET status = 'stale', updated_at = NOW()
+               WHERE user_id = $1::uuid AND workspace_id = $2::uuid AND status <> 'stale'""",
+            user_id,
+            workspace_id,
+        )
+
+
+async def list_analysis_runs(user_id: str, workspace_id: str) -> list[dict]:
+    pool = await _pool_conn()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT * FROM analysis_runs WHERE user_id = $1::uuid AND workspace_id = $2::uuid ORDER BY created_at DESC",
+            user_id,
+            workspace_id,
+        )
+    out = []
+    for r in rows:
+        d = _row_to_dict(r)
+        d["parameters_json"] = _pg_json(d.get("parameters_json"), {})
+        out.append(d)
+    return out
+
+
+async def insert_analysis_run(user_id: str, workspace_id: str, fields: dict) -> dict:
+    pool = await _pool_conn()
+    params = fields.get("parameters_json") or fields.get("parameters") or {}
+    pool_conn = pool
+    async with pool_conn.acquire() as conn:
+        row = await conn.fetchrow(
+            """INSERT INTO analysis_runs (
+                workspace_id, user_id, function_id, route_step_id, tool_name, tool_version,
+                database_release, container_image, seed, parameters_json, run_location, run_by, run_at, notes
+            ) VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13, $14)
+            RETURNING *""",
+            workspace_id,
+            user_id,
+            fields.get("function_id") or "",
+            fields.get("route_step_id"),
+            fields.get("tool_name") or "",
+            fields.get("tool_version") or "",
+            fields.get("database_release") or "",
+            fields.get("container_image") or "",
+            str(fields.get("seed") or ""),
+            json.dumps(params if isinstance(params, dict) else {}),
+            fields.get("run_location") or "",
+            fields.get("run_by") or "",
+            fields.get("run_at"),
+            fields.get("notes") or "",
+        )
+    d = _row_to_dict(row) if row else {}
+    d["parameters_json"] = _pg_json(d.get("parameters_json"), {})
+    return d

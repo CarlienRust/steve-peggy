@@ -144,7 +144,7 @@ Factory: `core/llm/provider.py` · Health: `GET /health` (`llm_reachable`, `embe
 | `POST /workflows/setup-suggestions` | Suggest data type, outcome, aim, country, setting type, population from step 1 plus optional `idea_description` (class B). Stored on `workspaces.settings.project_idea`. |
 | `POST /workflows/validate-dataset` | Dataset readiness review from column names and aggregate stats only (class D). Used on `/validate/datasets`. |
 | `POST /workflows/idea-from-resources` | 3–5 questions from project resources (class B) |
-| `GET /workspaces/{id}/confounder-audit` | Covariates from extractions |
+| `GET /workspaces/{id}/confounder-audit` | Covariates from extractions (`items`) plus coefficient names from imported class D results (`importedCovariates`) |
 | `POST /jobs/retraction-recheck` | Weekly job token; OpenAlex/PubMed recheck |
 | `POST /jobs/reembed` | New collection; progress counts; no in-place overwrite |
 | `POST /workflows/dataset-summary` | Class D aggregates; blocked on unpaid Gemini and strict |
@@ -191,7 +191,7 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/budget` | 04 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 04 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). Review also lists limitations, improvements, and supporting literature. `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
 | `/study-design/proposal` | 04 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 05 Analysis tool | 01 Dataset: CSV/TSV/SAV uploaded on this page (not Samples files). 02 Dataset overview: admin columns, paginated table, types, descriptives. Categorical summaries list category counts and %. 03 Analysis guidance: pick participant columns, groups/design, suggested test, **Run on this dataset**. Save stores headers and types in `study_design.analysisTool` (not rows). SAV via `POST /api/parse-sav`. |
+| `/analysis-tool` | 05 Analysis tool | Function registry (descriptives, OLS, microbiome, SNP, ML review, diet, exposome, omics). Evidence-led route (peer-reviewed counts vs feasibility, never one score). Import class D JSON. Run records. Compute profile. Reads/genotypes refused. |
 | `/results` | 06 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 06 · Methods | Placeholder |
 | `/results/findings` | 06 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |
@@ -225,7 +225,7 @@ Migration: `009_objective_links.sql` adds the `objective_links` column. See [DAT
 - **Data safety** — `DataSafetyBanner` on Samples & datasets only (de-identified cohort text and optional uploads).
 - **Study design save** — each section has a Save button. It stays disabled when that section matches the stored row. Edits stay in the form until Save. Uploaded PDFs are linked on Save and do not replace typed fields.
 - **Methods + analysis review** — Review on either planner sends both pasted plans (plus steps) as one protocol. Gaps already covered in the other plan should not be listed. The same `lastResult` is stored on both sections.
-- **Analysis tool last results** — `analysisTool` may include `lastRunSummary` and aggregates. The data file is not required to stay loaded; rows stay in IndexedDB only if the researcher leaves them.
+- **Analysis tool last results** — `analysisTool` may include `lastRunSummary`, `lastRegression`, and aggregates. Rows stay in IndexedDB and are cleared when the project is deleted in the browser. Functions live in `apps/web/lib/analysis/functions/` (copies under `config/analysis/`).
 
 Protected routes require Supabase session (middleware). All API routes except `/health` require Bearer JWT when `AUTH_REQUIRED=true`.
 

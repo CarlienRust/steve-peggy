@@ -1,0 +1,38 @@
+{
+  "id": "ml-review",
+  "label": "Machine learning review",
+  "version": "1.0.0",
+  "status": "beta",
+  "domain": "ml",
+  "inputs": { "dataKinds": ["metrics"], "requiredRoles": ["analysis"], "optionalRoles": [] },
+  "steps": [
+    {
+      "id": "import-metrics",
+      "label": "Import class D metrics",
+      "resourceClass": "light",
+      "runPaths": ["guidance"],
+      "tools": ["sklearn"],
+      "decisions": ["Which metrics to report"],
+      "pitfalls": ["Peggy does not train models in the browser"]
+    },
+    {
+      "id": "validation-review",
+      "label": "Validation review",
+      "resourceClass": "heavy",
+      "runPaths": ["script", "guidance"],
+      "tools": ["sklearn"],
+      "decisions": ["Nested CV vs single split"],
+      "pitfalls": ["Leakage from preprocessing on the full set"]
+    }
+  ],
+  "checks": [
+    { "id": "leakage", "message": "Preprocessing must be fit on training folds only." },
+    { "id": "nested-cv", "message": "Hyperparameter search needs nested or independent validation." },
+    { "id": "imbalance", "message": "Class imbalance needs a stated metric (not only accuracy)." },
+    { "id": "p-n", "message": "More features than samples inflates apparent performance." },
+    { "id": "calibration", "message": "Probabilities should be calibrated if used for risk." }
+  ],
+  "reporting": { "guideline": "TRIPOD+AI", "items": ["Report validation and calibration"], "confirmed": false },
+  "extractionFields": ["analysis_tool", "tool_version"],
+  "results": { "schema": "ols-coefficients-v1", "class": "D" }
+}

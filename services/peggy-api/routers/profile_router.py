@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -132,3 +132,19 @@ async def put_llm_settings(body: LlmSettingsUpdate, user: AuthUser = Depends(get
     if body.training_opt_out_acknowledged is not None:
         consent = await catalog.upsert_ai_consent(user.id, bool(body.training_opt_out_acknowledged))
     return _llm_settings_response(row, consent)
+
+
+class ComputeProfileBody(BaseModel):
+    label: str = Field(default="Default", max_length=128)
+    profile: dict[str, Any] = Field(default_factory=dict)
+
+
+@router.get("/compute-profile")
+async def get_user_compute_profile(user: AuthUser = Depends(get_current_user)):
+    row = await catalog.get_compute_profile(user.id, None)
+    return row or {"id": None, "label": "Default", "workspace_id": None, "profile": {}}
+
+
+@router.put("/compute-profile")
+async def put_user_compute_profile(body: ComputeProfileBody, user: AuthUser = Depends(get_current_user)):
+    return await catalog.upsert_compute_profile(user.id, None, body.label.strip() or "Default", body.profile)

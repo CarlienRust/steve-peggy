@@ -22,7 +22,7 @@ Peggy’s API, files and vectors run on third-party hosts. This page is what is 
 
 On Render, embeddings default to **hash** unless `EMBEDDING_BACKEND` is set otherwise. Hash vectors are not semantic. Gemini embed calls use class A for literature and class B for own findings; `strict` skips findings embed. Chunk text is not written to logs.
 
-Analysis table rows stay in IndexedDB on the researcher’s browser (“stored in this browser only”). The API stores dataset label, headers, roles, types, and aggregates. Sharing that summary is class D, confirm each time, and is blocked on unpaid Gemini and strict projects.
+Analysis table rows stay in IndexedDB on the researcher’s browser (“stored in this browser only”) and are deleted from that browser when the project is deleted. The API stores dataset label, headers, roles, types, aggregates, and optional OLS coefficients (`lastRegression`). Sharing that summary is class D, confirm each time, and is blocked on unpaid Gemini and strict projects. Sequence and genotype files are refused at upload (reads and PLINK/VCF). Admin columns stay in the browser and are omitted from shared aggregates.
 
 ## Project privacy mode
 

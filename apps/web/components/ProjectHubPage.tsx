@@ -23,6 +23,7 @@ import { useWorkspace } from "@/lib/workspaceContext";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { eyebrowSx } from "@/theme/peggyTheme";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { clearAnalysisRows } from "@/lib/analysisIdb";
 import { ProjectCard } from "@/components/ProjectCard";
 
 export function ProjectHubPage() {
@@ -55,7 +56,8 @@ export function ProjectHubPage() {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => peggyApi.deleteWorkspace(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      void clearAnalysisRows(id);
       if (userId) void queryClient.invalidateQueries({ queryKey: queryKeys.workspaces(userId) });
       setDeleteId(null);
     },

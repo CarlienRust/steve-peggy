@@ -1,0 +1,27 @@
+{
+  "id": "omics-generic",
+  "label": "Omics (generic QC)",
+  "version": "1.0.0",
+  "status": "planned",
+  "domain": "omics",
+  "inputs": { "dataKinds": ["table"], "requiredRoles": ["analysis"], "optionalRoles": [] },
+  "steps": [
+    {
+      "id": "qc",
+      "label": "QC summaries",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script", "external"],
+      "tools": ["pandas"],
+      "decisions": ["Normalization method"],
+      "pitfalls": ["Batch effects can dominate"]
+    }
+  ],
+  "checks": [
+    { "id": "normalization", "message": "Normalization must match the data type." },
+    { "id": "batch", "message": "Batch and plate effects need a stated correction." },
+    { "id": "fdr", "message": "Feature-wise tests need FDR or another stated correction." }
+  ],
+  "reporting": { "guideline": "by data type", "items": ["Report normalization and batch correction"], "confirmed": false },
+  "extractionFields": ["normalization", "correction_method", "pipeline"],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

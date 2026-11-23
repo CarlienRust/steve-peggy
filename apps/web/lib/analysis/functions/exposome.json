@@ -1,0 +1,27 @@
+{
+  "id": "exposome",
+  "label": "Exposome",
+  "version": "1.0.0",
+  "status": "planned",
+  "domain": "exposome",
+  "inputs": { "dataKinds": ["table"], "requiredRoles": ["analysis"], "optionalRoles": ["admin"] },
+  "steps": [
+    {
+      "id": "missing-corr",
+      "label": "Missingness and correlation",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["pandas"],
+      "decisions": ["How to handle correlated exposures"],
+      "pitfalls": ["Many tests without correction inflate false positives"]
+    }
+  ],
+  "checks": [
+    { "id": "missingness", "message": "Exposure missingness is often informative." },
+    { "id": "correlation", "message": "Correlated exposures are not independent tests." },
+    { "id": "multiple-testing", "message": "State the correction method for exposome-wide tests." }
+  ],
+  "reporting": { "guideline": "STROBE", "items": ["Report missing data and multiple testing"], "confirmed": true },
+  "extractionFields": ["correction_method", "normalization"],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

@@ -1,13 +1,26 @@
+import { descriptivePython, descriptiveR, descriptiveSpss } from "@/lib/analysis/templates/descriptive";
+
+function ctx(headers: string[], roles: Record<string, string>, planSteps: string[]) {
+  return {
+    headers,
+    roles,
+    adminColumns: headers.filter((h) => roles[h] === "admin"),
+    cellThreshold: 5,
+    covariates: [],
+    planSteps,
+    seed: 1,
+    dataPath: "data/your-file.csv",
+  };
+}
+
 export function starterPython(headers: string[], roles: Record<string, string>, planSteps: string[]): string {
-  const cols = headers.map((h) => JSON.stringify(h)).join(", ");
-  const roleLines = headers.map((h) => `# ${h}: ${roles[h] || "analysis"}`).join("\n");
-  const plan = planSteps.map((s) => `# - ${s}`).join("\n");
-  return `import pandas as pd\n# Column names only. Peggy does not run this.\n${roleLines}\n${plan}\ncols = [${cols}]\n# df = pd.read_csv("your-file.csv", usecols=cols)\n`;
+  return descriptivePython(ctx(headers, roles, planSteps));
 }
 
 export function starterR(headers: string[], roles: Record<string, string>, planSteps: string[]): string {
-  const cols = headers.map((h) => `"${h.replace(/"/g, '\\"')}"`).join(", ");
-  const roleLines = headers.map((h) => `# ${h}: ${roles[h] || "analysis"}`).join("\n");
-  const plan = planSteps.map((s) => `# - ${s}`).join("\n");
-  return `# Column names only. Peggy does not run this.\n${roleLines}\n${plan}\ncols <- c(${cols})\n# d <- read.csv("your-file.csv")[, cols]\n`;
+  return descriptiveR(ctx(headers, roles, planSteps));
+}
+
+export function starterSpss(headers: string[], roles: Record<string, string>, planSteps: string[]): string {
+  return descriptiveSpss(ctx(headers, roles, planSteps));
 }

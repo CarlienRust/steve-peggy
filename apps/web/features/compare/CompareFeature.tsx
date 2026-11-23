@@ -23,9 +23,18 @@ import { peggyApi, formatApiError, queryKeys } from "@/lib/api";
 import { StatusChip } from "@/components/StatusChip";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
 import { useWorkspace } from "@/lib/workspaceContext";
+import { useStudyDesign } from "@/lib/useStudyDesign";
 
 export function CompareFeature() {
   const { activeWorkspace } = useWorkspace();
+  const { studyDesign } = useStudyDesign(activeWorkspace?.id);
+  const lastReg = studyDesign.analysisTool?.lastRegression as
+    | { coefficients?: { name: string; estimate: number }[]; n?: number; rSquared?: number }
+    | undefined;
+  const imported = studyDesign.analysisTool?.importedResults as
+    | { coefficients?: { name: string; estimate: number }[]; schema?: string }
+    | undefined;
+  const effectSource = lastReg?.coefficients?.length ? lastReg : imported;
   const [finding, setFinding] = useState("");
   const [selectedPaperId, setSelectedPaperId] = useState<number | "">("");
   const [usedOpen, setUsedOpen] = useState(false);
@@ -54,6 +63,27 @@ export function CompareFeature() {
 
   return (
     <Stack spacing={3}>
+      {effectSource?.coefficients?.length ? (
+        <Alert severity="info">
+          Saved class D effects from the analysis tool
+          {imported && !lastReg?.coefficients?.length ? " (imported)" : ""}.{" "}
+          {effectSource.coefficients
+            .slice(0, 6)
+            .map((c) => `${c.name}=${Number(c.estimate).toFixed(3)}`)
+            .join("; ")}
+          <Button
+            size="small"
+            sx={{ ml: 1, textTransform: "none" }}
+            onClick={() =>
+              setFinding(
+                `Effect estimates: ${effectSource.coefficients!.map((c) => `${c.name} ${Number(c.estimate).toFixed(3)}`).join(", ")}`
+              )
+            }
+          >
+            Use in comparison text
+          </Button>
+        </Alert>
+      ) : null}
       <Stack direction="row" spacing={1} alignItems="center">
         <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>
           FINDING SET

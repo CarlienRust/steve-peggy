@@ -1,0 +1,9 @@
+{
+  "comment": "Expected outputs for [1,2,3,4,5] using sample SD (n-1) and this repo's iqr() (median of halves).",
+  "values": ["1", "2", "3", "4", "5"],
+  "mean": 3,
+  "sd": 1.5811388300841898,
+  "median": 3,
+  "iqr": 3,
+  "n": 5
+}

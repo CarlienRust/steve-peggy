@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare local SQLite catalog shape to the hosted Supabase migration set (001–031).
+"""Compare local SQLite catalog shape to the hosted Supabase migration set (001–034).
 
 Run from services/peggy-api with the venv active:
   .venv/bin/python scripts/verify_catalog_alignment.py
@@ -45,6 +45,11 @@ EXPECTED_TABLES = frozenset(
         "ai_consent",
         "agent_proposals",
         "user_llm_settings",
+        "compute_profiles",
+        "tool_mentions",
+        "analysis_routes",
+        "analysis_route_steps",
+        "analysis_runs",
     }
 )
 
@@ -125,7 +130,7 @@ async def _postgres_check() -> list[str]:
         tables = {r["table_name"] for r in rows}
         missing = EXPECTED_TABLES - tables
         if missing:
-            errors.append(f"Postgres missing tables (run migrations 001–031): {sorted(missing)}")
+            errors.append(f"Postgres missing tables (run migrations 001–034): {sorted(missing)}")
         cols = await conn.fetch(
             "SELECT column_name FROM information_schema.columns WHERE table_name = 'papers'"
         )

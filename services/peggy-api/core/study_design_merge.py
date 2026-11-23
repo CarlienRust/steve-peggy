@@ -19,6 +19,9 @@ _ANALYSIS_TOOL_KEYS = frozenset(
         "sharedAt",
         "cellThreshold",
         "lastRunSummary",
+        "lastRegression",
+        "activeFunctionId",
+        "importedResults",
     }
 )
 

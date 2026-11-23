@@ -1,0 +1,8 @@
+{
+  "comment": "y = 1 + 2x for x=1..5. Exact OLS intercept 1, slope 2, R^2 1.",
+  "x": ["1", "2", "3", "4", "5"],
+  "y": ["3", "5", "7", "9", "11"],
+  "intercept": 1,
+  "slope": 2,
+  "rSquared": 1
+}

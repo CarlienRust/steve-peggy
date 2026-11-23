@@ -1,0 +1,77 @@
+{
+  "id": "dataset-description",
+  "label": "Dataset description",
+  "version": "1.0.0",
+  "status": "stable",
+  "domain": "general",
+  "inputs": {
+    "dataKinds": ["table"],
+    "requiredRoles": ["analysis"],
+    "optionalRoles": ["admin"]
+  },
+  "steps": [
+    {
+      "id": "parse-preview",
+      "label": "Parse and preview",
+      "resourceClass": "light",
+      "runPaths": ["browser"],
+      "tools": [],
+      "decisions": ["Which file is the analysis table (not reads or genotypes)"],
+      "pitfalls": ["Do not upload FASTQ, BAM, VCF, or PLINK files"]
+    },
+    {
+      "id": "classify-columns",
+      "label": "Classify columns",
+      "resourceClass": "light",
+      "runPaths": ["browser", "guidance"],
+      "tools": [],
+      "decisions": ["Admin vs analysis columns", "Continuous vs categorical"],
+      "pitfalls": ["Identifier-like columns must stay admin"]
+    },
+    {
+      "id": "describe",
+      "label": "Describe",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["pandas", "r-base", "spss"],
+      "decisions": ["Small-cell threshold"],
+      "pitfalls": ["Counts below the threshold must be suppressed"]
+    },
+    {
+      "id": "group-size",
+      "label": "Group-size check",
+      "resourceClass": "light",
+      "runPaths": ["browser", "guidance"],
+      "tools": [],
+      "decisions": ["Quasi-identifiers used for uniqueness"],
+      "pitfalls": ["Small groups can identify people"]
+    },
+    {
+      "id": "dictionary-export",
+      "label": "Dictionary export",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": [],
+      "decisions": [],
+      "pitfalls": ["Admin columns are excluded from shared outputs"]
+    },
+    {
+      "id": "share-aggregates",
+      "label": "Share aggregates",
+      "resourceClass": "light",
+      "runPaths": ["browser"],
+      "tools": [],
+      "decisions": ["Confirm class D preview before share"],
+      "pitfalls": ["Rows never leave the browser"]
+    }
+  ],
+  "checks": [
+    { "id": "small-cells", "message": "Counts below the small-cell threshold are shown as less than the threshold." },
+    { "id": "identifiers", "message": "Columns that look like identifiers should be marked admin and stay in the browser." },
+    { "id": "quasi-groups", "message": "Combinations of quasi-identifiers can still identify people when groups are small." },
+    { "id": "plan-covariates", "message": "Covariates used in similar studies may be missing from this table." }
+  ],
+  "reporting": { "guideline": "STROBE", "items": ["Describe the study sample"], "confirmed": true },
+  "extractionFields": [],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

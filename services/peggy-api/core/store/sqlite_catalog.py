@@ -187,6 +187,8 @@ async def init_catalog(db_path: str | None = None) -> None:
         await _migrate_llm_027(db)
         await _migrate_project_admin(db)
         await _migrate_papers_guidance_role(db)
+        await _migrate_compute_profiles(db)
+        await _migrate_analysis_routes(db)
         await db.commit()
 
 
@@ -543,6 +545,94 @@ async def _migrate_agent_026(db: aiosqlite.Connection) -> None:
             kind TEXT NOT NULL,
             payload TEXT NOT NULL DEFAULT '{}',
             status TEXT NOT NULL DEFAULT 'pending',
+            created_at TEXT
+        )"""
+    )
+
+
+async def _migrate_compute_profiles(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS compute_profiles (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL,
+            workspace_id TEXT,
+            label TEXT NOT NULL DEFAULT 'Default',
+            profile_json TEXT NOT NULL DEFAULT '{}',
+            updated_at TEXT
+        )"""
+    )
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_compute_profiles_user_ws ON compute_profiles (user_id, ifnull(workspace_id, ''))"
+    )
+
+
+async def _migrate_analysis_routes(db: aiosqlite.Connection) -> None:
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS tool_mentions (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            paper_id INTEGER NOT NULL,
+            tool_id TEXT NOT NULL,
+            version TEXT,
+            quote TEXT,
+            page INTEGER,
+            confirmed INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT
+        )"""
+    )
+    await db.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_tool_mentions_unique ON tool_mentions (workspace_id, paper_id, tool_id)"
+    )
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS analysis_routes (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'draft',
+            plan_reviewed_at TEXT,
+            plan_fingerprint TEXT NOT NULL DEFAULT '',
+            function_id TEXT NOT NULL DEFAULT 'dataset-description',
+            updated_at TEXT
+        )"""
+    )
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS analysis_route_steps (
+            id TEXT PRIMARY KEY,
+            route_id TEXT NOT NULL,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            plan_step_id TEXT,
+            objective_ids TEXT NOT NULL DEFAULT '[]',
+            function_step_id TEXT,
+            run_path TEXT,
+            chosen_tool_id TEXT,
+            alternative_tool_ids TEXT NOT NULL DEFAULT '[]',
+            evidence_peer_count INTEGER NOT NULL DEFAULT 0,
+            evidence_preprint_count INTEGER NOT NULL DEFAULT 0,
+            evidence_year_min INTEGER,
+            evidence_year_max INTEGER,
+            evidence_full_text_count INTEGER NOT NULL DEFAULT 0,
+            feasibility_json TEXT NOT NULL DEFAULT '{}'
+        )"""
+    )
+    await db.execute(
+        """CREATE TABLE IF NOT EXISTS analysis_runs (
+            id TEXT PRIMARY KEY,
+            workspace_id TEXT NOT NULL,
+            user_id TEXT NOT NULL,
+            function_id TEXT NOT NULL,
+            route_step_id TEXT,
+            tool_name TEXT NOT NULL DEFAULT '',
+            tool_version TEXT NOT NULL DEFAULT '',
+            database_release TEXT NOT NULL DEFAULT '',
+            container_image TEXT NOT NULL DEFAULT '',
+            seed TEXT NOT NULL DEFAULT '',
+            parameters_json TEXT NOT NULL DEFAULT '{}',
+            run_location TEXT NOT NULL DEFAULT '',
+            run_by TEXT NOT NULL DEFAULT '',
+            run_at TEXT,
+            notes TEXT NOT NULL DEFAULT '',
             created_at TEXT
         )"""
     )
@@ -2136,3 +2226,280 @@ async def upsert_ai_consent(user_id: str, acknowledged: bool) -> dict:
         "user_id": user_id,
         "training_opt_out_acknowledged": acknowledged,
     }
+
+
+def _compute_profile_dict(row: dict) -> dict:
+    d = dict(row)
+    raw = d.get("profile_json") or "{}"
+    if isinstance(raw, str):
+        try:
+            d["profile"] = json.loads(raw)
+        except json.JSONDecodeError:
+            d["profile"] = {}
+    else:
+        d["profile"] = raw if isinstance(raw, dict) else {}
+    d.pop("profile_json", None)
+    return d
+
+
+async def get_compute_profile(user_id: str, workspace_id: str | None) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        if workspace_id:
+            cur = await db.execute(
+                "SELECT * FROM compute_profiles WHERE user_id = ? AND workspace_id = ?",
+                (user_id, workspace_id),
+            )
+            row = await cur.fetchone()
+            if row:
+                return _compute_profile_dict(dict(row))
+        cur = await db.execute(
+            "SELECT * FROM compute_profiles WHERE user_id = ? AND (workspace_id IS NULL OR workspace_id = '')",
+            (user_id,),
+        )
+        row = await cur.fetchone()
+    return _compute_profile_dict(dict(row)) if row else None
+
+
+async def upsert_compute_profile(
+    user_id: str, workspace_id: str | None, label: str, profile: dict
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    payload = json.dumps(profile)
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        if workspace_id:
+            cur = await db.execute(
+                "SELECT id FROM compute_profiles WHERE user_id = ? AND workspace_id = ?",
+                (user_id, workspace_id),
+            )
+        else:
+            cur = await db.execute(
+                "SELECT id FROM compute_profiles WHERE user_id = ? AND (workspace_id IS NULL OR workspace_id = '')",
+                (user_id,),
+            )
+        existing = await cur.fetchone()
+        if existing:
+            await db.execute(
+                "UPDATE compute_profiles SET label = ?, profile_json = ?, updated_at = ? WHERE id = ?",
+                (label, payload, now, existing["id"]),
+            )
+            pid = existing["id"]
+        else:
+            pid = str(uuid.uuid4())
+            await db.execute(
+                """INSERT INTO compute_profiles (id, user_id, workspace_id, label, profile_json, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?)""",
+                (pid, user_id, workspace_id, label, payload, now),
+            )
+        await db.commit()
+    row = await get_compute_profile(user_id, workspace_id)
+    return row or {
+        "id": pid,
+        "user_id": user_id,
+        "workspace_id": workspace_id,
+        "label": label,
+        "profile": profile,
+        "updated_at": now,
+    }
+
+
+def _json_field(raw: Any, default: Any):
+    if raw is None or raw == "":
+        return default
+    if isinstance(raw, (dict, list)):
+        return raw
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
+async def list_tool_mentions(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM tool_mentions WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC",
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["confirmed"] = bool(d.get("confirmed"))
+        out.append(d)
+    return out
+
+
+async def upsert_tool_mention(
+    user_id: str,
+    workspace_id: str,
+    paper_id: int,
+    tool_id: str,
+    *,
+    version: str | None = None,
+    quote: str | None = None,
+    page: int | None = None,
+    confirmed: bool = False,
+) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT id FROM tool_mentions WHERE workspace_id = ? AND paper_id = ? AND tool_id = ?",
+            (workspace_id, paper_id, tool_id),
+        )
+        existing = await cur.fetchone()
+        if existing:
+            await db.execute(
+                """UPDATE tool_mentions SET version = ?, quote = ?, page = ?, confirmed = ?
+                   WHERE id = ?""",
+                (version, quote, page, 1 if confirmed else 0, existing["id"]),
+            )
+            pid = existing["id"]
+        else:
+            pid = str(uuid.uuid4())
+            await db.execute(
+                """INSERT INTO tool_mentions
+                   (id, workspace_id, user_id, paper_id, tool_id, version, quote, page, confirmed, created_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (pid, workspace_id, user_id, paper_id, tool_id, version, quote, page, 1 if confirmed else 0, now),
+            )
+        await db.commit()
+    return {"id": pid, "workspace_id": workspace_id, "paper_id": paper_id, "tool_id": tool_id, "confirmed": confirmed}
+
+
+async def get_analysis_route(user_id: str, workspace_id: str) -> dict | None:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM analysis_routes WHERE user_id = ? AND workspace_id = ? ORDER BY updated_at DESC LIMIT 1",
+            (user_id, workspace_id),
+        )
+        row = await cur.fetchone()
+        if not row:
+            return None
+        route = dict(row)
+        cur = await db.execute(
+            "SELECT * FROM analysis_route_steps WHERE route_id = ? ORDER BY id",
+            (route["id"],),
+        )
+        steps = []
+        for s in await cur.fetchall():
+            d = dict(s)
+            d["objective_ids"] = _json_field(d.get("objective_ids"), [])
+            d["alternative_tool_ids"] = _json_field(d.get("alternative_tool_ids"), [])
+            d["feasibility_json"] = _json_field(d.get("feasibility_json"), {})
+            steps.append(d)
+    route["steps"] = steps
+    return route
+
+
+async def replace_analysis_route(user_id: str, workspace_id: str, route: dict, steps: list[dict]) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    rid = str(uuid.uuid4())
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute("DELETE FROM analysis_routes WHERE user_id = ? AND workspace_id = ?", (user_id, workspace_id))
+        await db.execute(
+            """INSERT INTO analysis_routes
+               (id, workspace_id, user_id, status, plan_reviewed_at, plan_fingerprint, function_id, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                rid,
+                workspace_id,
+                user_id,
+                route.get("status") or "draft",
+                route.get("plan_reviewed_at"),
+                route.get("plan_fingerprint") or "",
+                route.get("function_id") or "dataset-description",
+                now,
+            ),
+        )
+        for step in steps:
+            await db.execute(
+                """INSERT INTO analysis_route_steps (
+                    id, route_id, workspace_id, user_id, plan_step_id, objective_ids, function_step_id,
+                    run_path, chosen_tool_id, alternative_tool_ids, evidence_peer_count, evidence_preprint_count,
+                    evidence_year_min, evidence_year_max, evidence_full_text_count, feasibility_json
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    str(uuid.uuid4()),
+                    rid,
+                    workspace_id,
+                    user_id,
+                    step.get("plan_step_id"),
+                    json.dumps(step.get("objective_ids") or []),
+                    step.get("function_step_id"),
+                    step.get("run_path"),
+                    step.get("chosen_tool_id"),
+                    json.dumps(step.get("alternative_tool_ids") or []),
+                    int(step.get("evidence_peer_count") or 0),
+                    int(step.get("evidence_preprint_count") or 0),
+                    step.get("evidence_year_min"),
+                    step.get("evidence_year_max"),
+                    int(step.get("evidence_full_text_count") or 0),
+                    json.dumps(step.get("feasibility_json") or {}),
+                ),
+            )
+        await db.commit()
+    return (await get_analysis_route(user_id, workspace_id)) or {}
+
+
+async def mark_analysis_routes_stale(user_id: str, workspace_id: str) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            "UPDATE analysis_routes SET status = 'stale', updated_at = ? WHERE user_id = ? AND workspace_id = ? AND status != 'stale'",
+            (now, user_id, workspace_id),
+        )
+        await db.commit()
+
+
+async def list_analysis_runs(user_id: str, workspace_id: str) -> list[dict]:
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT * FROM analysis_runs WHERE user_id = ? AND workspace_id = ? ORDER BY created_at DESC",
+            (user_id, workspace_id),
+        )
+        rows = await cur.fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["parameters_json"] = _json_field(d.get("parameters_json"), {})
+        out.append(d)
+    return out
+
+
+async def insert_analysis_run(user_id: str, workspace_id: str, fields: dict) -> dict:
+    now = datetime.now(timezone.utc).isoformat()
+    rid = str(uuid.uuid4())
+    params = fields.get("parameters_json") or fields.get("parameters") or {}
+    async with aiosqlite.connect(config.SQLITE_DB) as db:
+        await db.execute(
+            """INSERT INTO analysis_runs (
+                id, workspace_id, user_id, function_id, route_step_id, tool_name, tool_version,
+                database_release, container_image, seed, parameters_json, run_location, run_by, run_at, notes, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                rid,
+                workspace_id,
+                user_id,
+                fields.get("function_id") or "",
+                fields.get("route_step_id"),
+                fields.get("tool_name") or "",
+                fields.get("tool_version") or "",
+                fields.get("database_release") or "",
+                fields.get("container_image") or "",
+                str(fields.get("seed") or ""),
+                json.dumps(params if isinstance(params, dict) else {}),
+                fields.get("run_location") or "",
+                fields.get("run_by") or "",
+                fields.get("run_at") or now,
+                fields.get("notes") or "",
+                now,
+            ),
+        )
+        await db.commit()
+    rows = await list_analysis_runs(user_id, workspace_id)
+    return next((r for r in rows if r["id"] == rid), {"id": rid})

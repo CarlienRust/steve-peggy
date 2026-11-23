@@ -167,13 +167,25 @@ export type StudyDesignOutputs = {
   tables?: OutputTableDraft[];
 };
 
+export type ColumnAggregate = {
+  name: string;
+  kind?: string;
+  n?: number;
+  missingPercent?: number;
+  mean?: number;
+  sd?: number;
+  median?: number;
+  iqr?: number;
+  frequencies?: { value: string; count: string | number }[];
+};
+
 export type AnalysisToolMeta = {
   label?: string;
   headers?: string[];
   columnRoles?: Record<string, string>;
   columnTypes?: Record<string, "continuous" | "categorical">;
   adminColumns?: string[];
-  aggregates?: Record<string, unknown>;
+  aggregates?: Record<string, unknown> | ColumnAggregate[];
   sharedAt?: string | null;
   lastSelector?: {
     outcome?: "continuous" | "ordinal" | "categorical";
@@ -182,6 +194,9 @@ export type AnalysisToolMeta = {
   };
   cellThreshold?: number;
   lastRunSummary?: string;
+  lastRegression?: Record<string, unknown>;
+  activeFunctionId?: string;
+  importedResults?: Record<string, unknown>;
 };
 
 export type ProjectTask = {

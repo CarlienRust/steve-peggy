@@ -38,7 +38,26 @@ import { defaultAdminColumns, groupSizeWarns, smallestGroupSize } from "@/lib/id
 import { clearAnalysisRows, loadAnalysisRows, saveAnalysisRows } from "@/lib/analysisIdb";
 import { dictionaryCsv } from "@/lib/analysisDictionary";
 import { missingVsPlan } from "@/lib/analysisPlanCheck";
-import { starterPython, starterR } from "@/lib/analysisStarterScript";
+import { blockedUploadReason, clipTable } from "@/lib/analysis/uploadGuard";
+import { getAnalysisFunction, listAnalysisFunctions } from "@/lib/analysis/registry";
+import { descriptivePython, descriptiveR, descriptiveSpss } from "@/lib/analysis/templates/descriptive";
+import { regressionPython, regressionR } from "@/lib/analysis/templates/regressionScripts";
+import { analysisProjectFiles, buildZip } from "@/lib/analysis/projectZip";
+import { fitOls } from "@/lib/analysis/engines/regression";
+import { ComputeProfileEditor } from "@/components/ComputeProfileEditor";
+import { RunPathsPanel } from "@/features/analysis-tool/RunPathsPanel";
+import { AnalysisRoutePanel } from "@/features/analysis-tool/AnalysisRoutePanel";
+import { AnalysisRunsPanel } from "@/features/analysis-tool/AnalysisRunsPanel";
+import { ResultsImportPanel } from "@/features/analysis-tool/ResultsImportPanel";
+import {
+  microbiomePython,
+  snpGuidance,
+  mlGuidance,
+  dietPython,
+  exposomePython,
+  omicsPython,
+} from "@/lib/analysis/templates/domainScripts";
+import type { ScriptContext } from "@/lib/analysis/templates/render";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { peggyApi } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
@@ -83,6 +102,13 @@ export function AnalysisToolFeature() {
   const [page, setPage] = useState(0);
   const [summaryCols, setSummaryCols] = useState<string[]>([]);
   const [runResult, setRunResult] = useState<string | null>(saved.lastRunSummary ?? null);
+  const [functionId, setFunctionId] = useState(saved.activeFunctionId ?? "dataset-description");
+  const [predictors, setPredictors] = useState<string[]>([]);
+  const [regSummary, setRegSummary] = useState<string | null>(
+    saved.lastRegression && typeof saved.lastRegression === "object"
+      ? JSON.stringify(saved.lastRegression)
+      : null
+  );
 
   useEffect(() => {
     if (hydrated) return;
@@ -151,16 +177,18 @@ export function AnalysisToolFeature() {
     setDatasetNote(parsed.warning ?? null);
     setFileName(name);
     setDatasetLabel((prev) => prev || name.replace(/\.[^.]+$/, ""));
-    setHeaders(parsed.headers);
-    setRows(parsed.rows);
-    setAdminCols(defaultAdminColumns(parsed.headers));
-    if (activeWorkspace?.id) void saveAnalysisRows(activeWorkspace.id, parsed.rows);
+    const clipped = clipTable(parsed.headers, parsed.rows);
+    if (clipped.note) setDatasetNote((parsed.warning ? parsed.warning + " " : "") + clipped.note);
+    setHeaders(clipped.headers);
+    setRows(clipped.rows);
+    setAdminCols(defaultAdminColumns(clipped.headers));
+    if (activeWorkspace?.id) void saveAnalysisRows(activeWorkspace.id, clipped.rows);
     setPage(0);
-    setSummaryCols(parsed.headers.slice(0, Math.min(3, parsed.headers.length)));
+    setSummaryCols(clipped.headers.slice(0, Math.min(3, clipped.headers.length)));
     const inferred: Record<string, ColumnKind> = {};
-    for (const p of profileTable(parsed.headers, parsed.rows)) inferred[p.name] = p.kind;
+    for (const p of profileTable(clipped.headers, clipped.rows)) inferred[p.name] = p.kind;
     setKindOverrides(inferred);
-    const first = parsed.headers[0] ?? "";
+    const first = clipped.headers[0] ?? "";
     setOutcomeColumn(first);
     setGuideCols(first ? [first] : []);
     if (first && inferred[first]) {
@@ -171,6 +199,11 @@ export function AnalysisToolFeature() {
   const onFile = async (file: File) => {
     setParseError(null);
     setDatasetNote(null);
+    const blockedFile = blockedUploadReason(file.name);
+    if (blockedFile) {
+      setParseError(blockedFile);
+      return;
+    }
     const lower = file.name.toLowerCase();
     if (lower.endsWith(".sav") || lower.endsWith(".zsav") || (await looksLikeSavFile(file))) {
       applyParsed(file.name, await parseSavTable(file));
@@ -230,7 +263,8 @@ export function AnalysisToolFeature() {
       headers.filter((h) => !adminCols.includes(h)),
       planText,
       items,
-      similarN || 6
+      similarN || 6,
+      (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? { title: s } : s))
     );
   }, [studyDesign.analysisPlan, coverage.data, headers, adminCols]);
 
@@ -247,7 +281,34 @@ export function AnalysisToolFeature() {
       lastSelector: selector,
       cellThreshold,
       lastRunSummary: runResult ?? undefined,
+      activeFunctionId: functionId,
+      lastRegression: (() => {
+        if (!regSummary) return undefined;
+        try {
+          return JSON.parse(regSummary) as Record<string, unknown>;
+        } catch {
+          return undefined;
+        }
+      })(),
     });
+  };
+
+  const analysisFn = getAnalysisFunction(functionId) ?? getAnalysisFunction("dataset-description");
+
+  const scriptCtx: ScriptContext = {
+    headers,
+    roles: columnRoles,
+    adminColumns: adminCols,
+    cellThreshold,
+    covariates: [
+      ...(studyDesign.analysisPlan?.covariateEntries ?? []).map((c) => c.description),
+      ...(coverage.data?.items ?? []).map((i) => i.covariate),
+    ].filter(Boolean),
+    planSteps: (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title)),
+    seed: 1,
+    dataPath: "data/your-file.csv",
+    outcome: outcomeColumn,
+    predictors,
   };
 
   const downloadBlob = (name: string, text: string) => {
@@ -289,6 +350,24 @@ export function AnalysisToolFeature() {
         ) : null}
 
         <Box>
+          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>00 Analysis function</Typography>
+          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+            <FormControl size="small" sx={{ minWidth: 280 }}>
+              <InputLabel>Function</InputLabel>
+              <Select
+                label="Function"
+                value={functionId}
+                onChange={(e) => setFunctionId(e.target.value)}
+              >
+                {listAnalysisFunctions().map((f) => (
+                  <MenuItem key={f.id} value={f.id}>
+                    {f.label} ({f.status})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {analysisFn ? <Box sx={{ mt: 2 }}><RunPathsPanel fn={analysisFn} /></Box> : null}
+          </Paper>
           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>01 Dataset</Typography>
           <Paper
             variant="outlined"
@@ -533,7 +612,9 @@ export function AnalysisToolFeature() {
                           {p.iqr != null ? ` IQR=${p.iqr.toFixed(3)}` : ""}
                           {p.min != null ? ` min=${p.min}` : ""}
                           {p.max != null ? ` max=${p.max}` : ""}
-                          {p.shapiroW != null ? ` Shapiro-like W'=${p.shapiroW.toFixed(3)}` : ""}
+                          {p.shapiroW != null
+                            ? ` Shapiro–Francia-style W′=${p.shapiroW.toFixed(3)} (approximate, not a Shapiro–Wilk p-value)`
+                            : ""}
                           {` → ${p.parametricHint === "parametric" ? "parametric tests OK" : p.parametricHint === "nonparametric" ? "prefer non-parametric" : ""}`}
                         </Typography>
                       ) : (
@@ -707,7 +788,81 @@ export function AnalysisToolFeature() {
           </Paper>
         </Box>
 
-        {planGaps.length ? (
+        {functionId === "linear-regression" ? (
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Typography fontWeight={600} sx={{ mb: 1 }}>
+              Linear regression (browser OLS)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              Engine is JavaScript OLS, not Pyodide. Confirm in R or statsmodels before publication. Covariates from similar studies are listed for you to decide — they are not auto-fit.
+            </Typography>
+            {(coverage.data?.items ?? []).length ? (
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Similar-study covariates: {(coverage.data?.items ?? []).map((i) => i.covariate).join(", ")}
+              </Typography>
+            ) : null}
+            {(studyDesign.analysisPlan?.covariateEntries ?? []).length ? (
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Plan covariates: {(studyDesign.analysisPlan?.covariateEntries ?? []).map((c) => c.description).join(", ")}
+              </Typography>
+            ) : null}
+            <Autocomplete
+              multiple
+              size="small"
+              options={dataHeaders.filter((h) => h !== outcomeColumn)}
+              value={predictors}
+              onChange={(_, v) => setPredictors(v)}
+              renderInput={(params) => <TextField {...params} label="Predictors (numeric)" />}
+              sx={{ maxWidth: 480, mb: 1 }}
+            />
+            <Button
+              variant="contained"
+              disabled={!outcomeColumn || !predictors.length || !rows.length}
+              onClick={() => {
+                const y = rows.map((r) => r[headers.indexOf(outcomeColumn)] ?? "");
+                const preds = predictors.map((name) => ({
+                  name,
+                  values: rows.map((r) => r[headers.indexOf(name)] ?? ""),
+                }));
+                const out = fitOls(y, preds);
+                if ("error" in out) {
+                  setRegSummary(null);
+                  setRunResult(out.error);
+                  return;
+                }
+                setRegSummary(JSON.stringify(out));
+                setRunResult(
+                  `OLS n=${out.n} R²=${out.rSquared.toFixed(3)} (approx. p / 1.96 CI). Influential rows (Cook’s D > ${out.cookThreshold.toFixed(3)}): ${out.nInfluential}.`
+                );
+              }}
+            >
+              Fit OLS on this dataset
+            </Button>
+            {regSummary ? (
+              <Alert severity="info" sx={{ mt: 1, whiteSpace: "pre-wrap" }}>
+                {regSummary.slice(0, 1200)}
+              </Alert>
+            ) : null}
+            <Stack direction="row" spacing={1} sx={{ mt: 1 }} flexWrap="wrap" useFlexGap>
+              <Button
+                variant="outlined"
+                disabled={!outcomeColumn || !predictors.length}
+                onClick={() => downloadBlob("ols.py", regressionPython(scriptCtx))}
+              >
+                OLS Python script
+              </Button>
+              <Button
+                variant="outlined"
+                disabled={!outcomeColumn || !predictors.length}
+                onClick={() => downloadBlob("ols.R", regressionR(scriptCtx))}
+              >
+                OLS R script
+              </Button>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {planGaps.length || (coverage.data?.importedCovariates ?? []).length ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography fontWeight={600} sx={{ mb: 1 }}>
               Check against the analysis plan
@@ -717,6 +872,11 @@ export function AnalysisToolFeature() {
                 {g}
               </Typography>
             ))}
+            {(coverage.data?.importedCovariates ?? []).length ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                From imported class D results: {(coverage.data?.importedCovariates ?? []).join(", ")}
+              </Typography>
+            ) : null}
           </Paper>
         ) : null}
 
@@ -744,34 +904,44 @@ export function AnalysisToolFeature() {
             <Button
               variant="outlined"
               disabled={!headers.length}
-              onClick={() =>
-                downloadBlob(
-                  "starter.py",
-                  starterPython(
-                    headers.filter((h) => !adminCols.includes(h)),
-                    columnRoles,
-                    (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
-                  )
-                )
-              }
+              onClick={() => downloadBlob("describe.py", descriptivePython(scriptCtx))}
             >
               Python starter
             </Button>
             <Button
               variant="outlined"
               disabled={!headers.length}
-              onClick={() =>
-                downloadBlob(
-                  "starter.R",
-                  starterR(
-                    headers.filter((h) => !adminCols.includes(h)),
-                    columnRoles,
-                    (studyDesign.analysisPlan?.steps ?? []).map((s) => (typeof s === "string" ? s : s.title))
-                  )
-                )
-              }
+              onClick={() => downloadBlob("describe.R", descriptiveR(scriptCtx))}
             >
               R starter
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() => downloadBlob("describe.sps", descriptiveSpss(scriptCtx))}
+            >
+              SPSS syntax
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() => {
+                const blob = buildZip(
+                  analysisProjectFiles({
+                    "scripts/describe.py": descriptivePython(scriptCtx),
+                    "scripts/describe.R": descriptiveR(scriptCtx),
+                    "scripts/describe.sps": descriptiveSpss(scriptCtx),
+                  })
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "peggy-analysis-template.zip";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Project ZIP
             </Button>
             <DisabledTooltipButton
               title={
@@ -793,6 +963,57 @@ export function AnalysisToolFeature() {
             </DisabledTooltipButton>
           </Stack>
         </Stack>
+        {activeWorkspace?.id ? (
+          <>
+            <AnalysisRoutePanel
+              workspaceId={activeWorkspace.id}
+              functionId={functionId}
+              planCompleted={studyDesign.analysisPlan?.draftStatus === "completed"}
+            />
+            <ResultsImportPanel
+              onSave={(payload) => {
+                void commitSection("analysisTool", {
+                  ...(studyDesign.analysisTool ?? {}),
+                  importedResults: payload,
+                });
+              }}
+            />
+            <AnalysisRunsPanel workspaceId={activeWorkspace.id} functionId={functionId} />
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <ComputeProfileEditor workspaceId={activeWorkspace.id} />
+            </Paper>
+            {functionId === "gut-microbiome-feature" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("microbiome_qc.py", microbiomePython(scriptCtx))}>
+                Microbiome QC script
+              </Button>
+            ) : null}
+            {functionId === "genomics-snp-panel" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("snp_qc.txt", snpGuidance(scriptCtx))}>
+                SNP guidance
+              </Button>
+            ) : null}
+            {functionId === "ml-review" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("ml_review.txt", mlGuidance(scriptCtx))}>
+                ML review notes
+              </Button>
+            ) : null}
+            {functionId === "diet-analysis" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("diet_checklist.py", dietPython(scriptCtx))}>
+                Diet checklist script
+              </Button>
+            ) : null}
+            {functionId === "exposome" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("exposome_qc.py", exposomePython(scriptCtx))}>
+                Exposome script
+              </Button>
+            ) : null}
+            {functionId === "omics-generic" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("omics_qc.py", omicsPython(scriptCtx))}>
+                Omics QC script
+              </Button>
+            ) : null}
+          </>
+        ) : null}
       </Stack>
       <ConfirmDialog
         open={shareOpen}

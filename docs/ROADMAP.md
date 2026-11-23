@@ -27,7 +27,7 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 | Phase 2A (evidence schema) | `extractions` table (migration 012), module JSON (`core` + `outcomes`), CRUD API, SQLite + Postgres catalog |
 | Phase 2B (extraction job) | `POST /workflows/extract`, batch size 2, benchmark script, skips confirmed/corrected fields on re-run |
 | Phase 2 evidence labels | Migration 025, `classify_peer_review` default unknown, retraction filter, citation_check, Gemini embed option, weekly retraction job |
-| Phase 4 analysis tool | Rows in IndexedDB only; identifier/admin; small-cell; dictionary CSV; class D share blocked on unpaid+strict |
+| Phase 4 analysis tool | Rows in IndexedDB; identifier/admin; small-cell; dictionary CSV; class D share blocked on unpaid+strict; M0–M6 registry, scripts, compute profile, JS OLS, routes, domain functions, run records, import |
 | Phase 5 agent | ToolContext (no model user/project ids); propose-not-write; 026 proposals; eval gold not yet run |
 | Phase 3 hub + corpus | `/projects/new`, ProjectHub cards, corpus CSV formula guard, hosted setup status, Playwright smokes, objective-changed flags |
 | Phase 1 privacy (hosted) | `strict`/`standard` privacy mode, required `workspace_id` on search, no stored `analysisTool.rows`, project purge + account delete, PHI on chat/ingest/headers, daily LLM token cap, [PRIVACY.md](PRIVACY.md) |
@@ -96,7 +96,7 @@ Hosted API (Render + Qdrant Cloud + Gemini) and local solo stack both exist. Use
 | Project admin | Done | `/project-admin` — `project_admin` table; dates, grants, outputs; PDFs for MOU, registration, co-investigator, data transfer, funding |
 | Reading journal | Done | `/reading-journal` — `papers.notes` + `read_at`; stored-PDF iframe preview when the file exists, else extracted text plus DOI/PubMed |
 | Lab book | Done | `/lab-book` — per-project notes and images |
-| Analysis tool | Done | `/analysis-tool` — CSV/SAV upload on that page; Samples Preview uses the same table parse |
+| Analysis tool | M0–M6 | Registry through domain functions, evidence routes, run records, class D import |
 | Dashboard evidence coverage | Done | Exposure × design from `GET /workspaces/{id}/coverage` |
 | Inner pages polish | Basic |
 

@@ -1,0 +1,62 @@
+{
+  "id": "linear-regression",
+  "label": "Linear regression",
+  "version": "1.0.0",
+  "status": "beta",
+  "domain": "general",
+  "inputs": {
+    "dataKinds": ["table"],
+    "requiredRoles": ["analysis"],
+    "optionalRoles": ["admin"]
+  },
+  "steps": [
+    {
+      "id": "specify-model",
+      "label": "Specify model",
+      "resourceClass": "light",
+      "runPaths": ["browser", "guidance"],
+      "tools": [],
+      "decisions": ["Outcome column", "Covariates to include", "Whether similar-study covariates belong in this model"],
+      "pitfalls": ["Do not auto-fit every covariate listed in the literature"]
+    },
+    {
+      "id": "fit",
+      "label": "Fit OLS",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["js-ols", "statsmodels", "r-lm"],
+      "decisions": ["Reference category for factors (script path)"],
+      "pitfalls": ["Browser fit uses complete cases only"]
+    },
+    {
+      "id": "diagnostics",
+      "label": "Diagnostics",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": ["js-ols"],
+      "decisions": ["What to do with high VIF or high Cook’s D"],
+      "pitfalls": ["Residual plots of individual rows stay off the server"]
+    },
+    {
+      "id": "export-results",
+      "label": "Export class D results",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script"],
+      "tools": [],
+      "decisions": ["Share coefficients with Peggy or Compare"],
+      "pitfalls": ["Do not export residual tables with one row per participant"]
+    }
+  ],
+  "checks": [
+    { "id": "multicollinearity", "message": "Variance inflation factors above 10 often mean two covariates carry the same information." },
+    { "id": "influential", "message": "A high Cook’s D count means a few rows pull the fit; inspect them in your own software." },
+    { "id": "strobe", "message": "Report the model, confounders, and missingness using STROBE observational reporting items." }
+  ],
+  "reporting": {
+    "guideline": "STROBE",
+    "items": ["Report the statistical methods", "Report confounders", "Report missing data"],
+    "confirmed": true
+  },
+  "extractionFields": ["regression_method", "covariates_adjusted"],
+  "results": { "schema": "ols-coefficients-v1", "class": "D" }
+}

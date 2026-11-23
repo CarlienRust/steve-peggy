@@ -1,0 +1,38 @@
+{
+  "id": "genomics-snp-panel",
+  "label": "SNP panel / summary statistics",
+  "version": "1.0.0",
+  "status": "beta",
+  "domain": "genomics",
+  "inputs": { "dataKinds": ["snp-table"], "requiredRoles": ["analysis"], "optionalRoles": [] },
+  "steps": [
+    {
+      "id": "qc-summary",
+      "label": "Panel QC",
+      "resourceClass": "light",
+      "runPaths": ["browser", "script", "guidance"],
+      "tools": ["plink"],
+      "decisions": ["Call-rate and MAF thresholds"],
+      "pitfalls": ["Do not upload VCF or PLINK binaries to Peggy"]
+    },
+    {
+      "id": "hwe-maf",
+      "label": "HWE and allele frequency",
+      "resourceClass": "light",
+      "runPaths": ["script", "guidance"],
+      "tools": ["plink"],
+      "decisions": ["HWE filter in cases vs controls"],
+      "pitfalls": ["Stratification can look like association"]
+    }
+  ],
+  "checks": [
+    { "id": "call-rate", "message": "Low call rate SNPs should be dropped in your own software." },
+    { "id": "hwe", "message": "Hardy–Weinberg filters need a stated P threshold." },
+    { "id": "maf", "message": "Rare variants need a stated MAF cutoff." },
+    { "id": "stratification", "message": "Population structure is a confounder; document ancestry adjustment." },
+    { "id": "multiple-testing", "message": "Genome-wide or panel-wide tests need a correction method." }
+  ],
+  "reporting": { "guideline": "STREGA", "items": ["Report genotyping and QC"], "confirmed": true },
+  "extractionFields": ["analysis_tool", "tool_version", "correction_method"],
+  "results": { "schema": "column-aggregates-v1", "class": "D" }
+}

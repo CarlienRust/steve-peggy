@@ -140,6 +140,8 @@ Study-design `POST /workflows/study-design/analysis-plan` is still single-shot (
 | Proactive monitoring | Deferred |
 | MCP server | Optional later |
 
+`get_dataset_summary` returns shared class D aggregates only (`sharedAt` required). `get_analysis_route` returns route tool choices plus separate evidence and feasibility fields (class B). `get_analysis_results` returns `importedResults` / `lastRegression` (class D).
+
 See [ROADMAP.md](ROADMAP.md).
 
 ## Related docs

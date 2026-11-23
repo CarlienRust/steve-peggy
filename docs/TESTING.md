@@ -30,6 +30,8 @@ Unit (many)        chunker, pubmed, dedup, intent, pdf, llm health, analysis row
 | Unit | `test_phi_guard.py` | PHI heuristics and identifiable-samples gate |
 | Unit | `test_policy.py` | `strict` blocks LLM; unpaid Gemini does not |
 | Unit | `test_analysis_tool_rows.py` | Reject/strip `analysisTool.rows` |
+| Unit | `test_compute_profiles.py` | Compute profile roundtrip; `lastRegression` allowlist |
+| Unit | `test_analysis_routes.py` | Methods extraction module; route build; stale; analysis_runs |
 | Unit | `test_no_debug_agent_log.py` | `debug_agent_log` removed |
 | Unit | `test_isolation_canary.py` | Qdrant filter includes user + workspace |
 | Unit | `test_upload_guardrails.py` | LLM source filters; Storage paths; hosted put requires Storage credentials; legacy file migrate + delete |
@@ -65,9 +67,9 @@ pytest -m "not integration"
 
 ## Frontend (`apps/web/`)
 
-**Not implemented yet.** Planned: Vitest + React Testing Library for `lib/api.ts`, `SourceCards`, ingest forms.
+**Vitest** (`npm test` in `apps/web`): `columnStats`, `analysisRun`, upload guard, registry, OLS fixture, script templates (including `.gitignore` patterns). Fixtures in `fixtures/analysis/`.
 
-CI today: `npm ci` then `npm run build` (see `.github/workflows/test.yml`). Keep `package-lock.json` in sync with `package.json` (includes `@playwright/test` for `npm run test:e2e`).
+CI today: `npm ci`, `npm test`, `npm run build` (see `.github/workflows/test.yml`). Keep `package-lock.json` in sync with `package.json` (includes `@playwright/test` for `npm run test:e2e`).
 
 ## CI (GitHub Actions)
 

@@ -92,7 +92,7 @@ Embeddings run on the **API host**. Render defaults to hash (not semantic). Host
 | `EXTRACTION_BATCH_SIZE` | No | `2` | Papers processed concurrently per extraction job |
 | `MAX_EXTRACTION_TEXT_LEN` | No | `12000` | Truncate paper text sent to LLM |
 | `MAX_STUDY_PLAN_LEN` | No | `20000` | Max chars for methods/analysis plan paste on `/workflows/methods-plan` and `/workflows/analysis-plan` |
-| `EXTRACTION_MODULES` | No | `core,outcomes` | Default modules for `/workflows/extract` |
+| `EXTRACTION_MODULES` | No | `core,outcomes,methods` | Default modules for `/workflows/extract` |
 | `CORS_ORIGINS` | Render | `http://localhost:3000` | Comma-separated origins, **no spaces** |
 | `NCBI_EMAIL` | **Yes** (PubMed) | — | Your email |
 | `MAX_DISCOVER_RESULTS` | No | `50` | Max papers returned per discover request |
@@ -168,3 +168,7 @@ API_URL=https://your-peggy-api.onrender.com ./scripts/smoke-remote.sh
 Optional Blueprint: [`render.yaml`](../render.yaml).
 
 See [SCALE.md](SCALE.md) for topology and free-tier tips.
+
+## Analysis tool (M3)
+
+Browser linear regression uses a small JavaScript OLS implementation (`apps/web/lib/analysis/engines/regression.ts`). Pyodide is not in the web bundle (load size). Coefficients should be checked in R or statsmodels before publication. p-values and intervals in the browser are normal approximations.

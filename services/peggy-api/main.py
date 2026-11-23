@@ -17,6 +17,7 @@ from core.store.qdrant_store import ensure_collections, get_client
 from routers import (
     account_router,
     agent_router,
+    analysis_platform_router,
     calendar_router,
     chat_router,
     corpus_router,
@@ -141,6 +142,7 @@ app.include_router(corpus_router.router)
 app.include_router(feedback_router.router)
 app.include_router(profile_router.router)
 app.include_router(workspace_router.router)
+app.include_router(analysis_platform_router.router)
 app.include_router(extractions_router.router)
 app.include_router(extractions_router.workspace_router)
 app.include_router(github_router.router)
