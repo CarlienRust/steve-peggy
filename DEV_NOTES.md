@@ -234,6 +234,24 @@ Hands-on: PubMed | KEGG | HMDB | gutMGene | NCBI SRA | Google Colab | MetaPhlAn 
 1) Validate/Validate dataset: Add checkbox here so user can indicae dataset don't need to be validated. 
 2) We can use tabs here instead of overloading on page with all the analysis tools and sections. 
 
+3) Validate/Validate dataset: "Dataset validation not required" text not proper inline with checkbox
+4) Methods plan review: "Methods and analysis plans are ready." text not proper inline with checkbox
+5) In generated proposal: "Ethics Note This study has obtained ethics approval from [insert institution] and will be conducted in accordance with all applicable regulations and guidelines." but institution is in Ethics tabs as Committee
+6) Analysis tool error: Error:   × Expected '</', got 'variant'
+     ╭─[/Users/carlienrust/Library/Mobile Documents/com~apple~CloudDocs/steve+peggy/apps/web/features/analysis-tool/AnalysisToolFeature.tsx:481:1]
+ 478 │ 
+ 479 │         <Box>
+ 480 │           <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>02 Dataset overview</Typography>
+ 481 │           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
+     ·                  ───────
+ 482 │             <Stack spacing={2}>
+ 483 │               {headers.length > 0 ? (
+ 484 │                 <>
+     ╰────
+
+Caused by:
+    Syntax Error
+
 ## FUTURE:
 
 **Still open:**

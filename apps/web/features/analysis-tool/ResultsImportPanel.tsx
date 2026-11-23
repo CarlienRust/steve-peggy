@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Paper, Stack, TextField, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { useState } from "react";
 import { parseImportedResults } from "@/lib/analysis/importResults";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
@@ -17,10 +18,10 @@ export function ResultsImportPanel({
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography fontWeight={600}>Import class D results</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        Paste JSON written by export_for_peggy(). Participant tables are refused.
-      </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+        <Typography fontWeight={600}>Import class D results</Typography>
+        <InfoTip title="Paste export_for_peggy() JSON. No participant tables." />
+      </Stack>
       <TextField
         multiline
         minRows={4}

@@ -1,4 +1,4 @@
-from core.project_context import format_project_context
+from core.project_context import fill_proposal_ethics_note, format_project_context
 
 
 def test_format_project_context_includes_settings():
@@ -46,6 +46,23 @@ def test_format_project_context_includes_plans():
     assert "Outpatient clinic" in text
     assert "Faculty seed grant" in text
     assert "No paid software" in text
+
+
+def test_fill_proposal_ethics_note_replaces_placeholder():
+    body = {
+        "ethics_note": "This study has obtained ethics approval from [insert institution] and will be conducted in accordance with all applicable regulations and guidelines."
+    }
+    out = fill_proposal_ethics_note(body, {"fmhsTrack": "FMHS HREC", "approvalObtained": True})
+    assert "[insert institution]" not in out["ethics_note"]
+    assert "FMHS HREC" in out["ethics_note"]
+
+
+def test_format_project_context_includes_ethics_committee():
+    ws = {"title": "X", "aim": "Y"}
+    sd = {"ethics": {"fmhsTrack": "UCT HREC", "approvalObtained": True}}
+    text = format_project_context(ws, sd)
+    assert "Ethics committee: UCT HREC" in text
+    assert "Ethics approval: obtained" in text
 
 
 def test_format_project_context_withholds_identifiable_summary():

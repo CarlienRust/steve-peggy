@@ -10,7 +10,7 @@ type SectionPlaceholderProps = {
 export function SectionPlaceholder({ eyebrow, title, description }: SectionPlaceholderProps) {
   return (
     <>
-      <PageHeader eyebrow={eyebrow} title={title} description={description} />
+      <PageHeader eyebrow={eyebrow} title={title} info={description} />
       <Paper sx={{ p: 3 }}>
         <Alert severity="info" sx={{ mb: 2 }}>
           Coming soon — this section is planned for a future release.

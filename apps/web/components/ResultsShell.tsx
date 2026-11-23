@@ -2,7 +2,8 @@
 
 import { PropsWithChildren } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { Box, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { eyebrowSx } from "@/theme/peggyTheme";
 
 const TABS = [
@@ -25,12 +26,12 @@ export function ResultsShell({
   return (
     <Box sx={{ width: "100%" }}>
       <Typography sx={{ ...eyebrowSx, mb: 2 }}>RESULTS</Typography>
-      <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em", mb: 1 }}>
-        {title}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, mb: 2.5 }}>
-        {description}
-      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 2.5 }}>
+        <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          {title}
+        </Typography>
+        {description ? <InfoTip title={description} /> : null}
+      </Stack>
 
       <Tabs
         value={active}

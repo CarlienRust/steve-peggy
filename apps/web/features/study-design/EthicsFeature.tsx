@@ -26,6 +26,7 @@ import {
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { EthicsApprovalSection } from "@/features/study-design/EthicsApprovalSection";
 import { StudyDesignSaveBar } from "@/features/study-design/StudyDesignSaveBar";
+import { InfoTip } from "@/components/InfoTip";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
 import { monoSx, peggyColors } from "@/theme/peggyTheme";
@@ -225,12 +226,12 @@ export function EthicsFeature() {
       {guidance.isError && <Alert severity="error">{formatApiError(guidance.error)}</Alert>}
 
       <Paper variant="outlined" sx={{ p: 2.5 }}>
-        <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
-          CHECKLIST FROM YOUR COHORT
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, mb: 1 }}>
-          Guidance only. Your committee decides what is required.
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>
+            CHECKLIST FROM YOUR COHORT
+          </Typography>
+          <InfoTip title="Guidance only. Your committee decides." />
+        </Stack>
         {checklist.length === 0 ? (
           <Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>
             Build a checklist to see what your committee may ask for.

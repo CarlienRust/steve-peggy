@@ -23,6 +23,9 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import FactCheckOutlinedIcon from "@mui/icons-material/FactCheckOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import { InfoTip } from "@/components/InfoTip";
 import { DatasetTablePreview } from "@/components/DatasetTablePreview";
 import { DatasetValidationSkip } from "@/components/DatasetValidationSkip";
 import { ValidateDatasetDialog, type ValidateDatasetForm } from "@/components/ValidateDatasetDialog";
@@ -195,13 +198,11 @@ export function ValidateDatasetsFeature() {
 
       <Paper variant="outlined" sx={{ overflow: "hidden" }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>
-          <Stack spacing={0.4}>
+          <Stack direction="row" spacing={0.5} alignItems="center">
             <Typography variant="subtitle1" fontWeight={600}>
               Project datasets
             </Typography>
-            <Typography variant="body2" color="text.secondary">
-              De-identified CSV, TSV, TXT, SAV, or dictionary PDF.
-            </Typography>
+            <InfoTip title="De-identified CSV, TSV, TXT, SAV, or PDF." />
           </Stack>
           <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: "none" }}>
             Upload dataset
@@ -286,27 +287,25 @@ export function ValidateDatasetsFeature() {
                   </TableCell>
                   <TableCell sx={{ width: 90 }}>{formatAdded(p.ingested_at)}</TableCell>
                   <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                    <Button size="small" variant="text" sx={{ textTransform: "none" }} disabled={!p.id} onClick={() => setPreviewPaper(p)}>
-                      Preview
-                    </Button>
-                    <Button
+                    <IconButton size="small" aria-label="Preview" disabled={!p.id} onClick={() => setPreviewPaper(p)}>
+                      <VisibilityOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
                       size="small"
-                      variant="text"
-                      sx={{ textTransform: "none" }}
+                      aria-label="Validate"
                       disabled={!p.id}
                       onClick={() => setValidateDialogPaper(p)}
                     >
-                      Validate
-                    </Button>
-                    <Button
+                      <FactCheckOutlinedIcon fontSize="small" />
+                    </IconButton>
+                    <IconButton
                       size="small"
-                      variant="text"
-                      sx={{ textTransform: "none" }}
+                      aria-label="Delete"
                       disabled={!p.id || deleteMut.isPending}
                       onClick={() => p.id && deleteMut.mutate(p.id)}
                     >
-                      Delete
-                    </Button>
+                      <DeleteOutlineIcon fontSize="small" />
+                    </IconButton>
                   </TableCell>
                 </TableRow>
               ))

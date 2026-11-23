@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Paper, Stack, TextField, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { peggyApi } from "@/lib/api";
@@ -35,10 +36,10 @@ export function AnalysisRunsPanel({ workspaceId, functionId }: { workspaceId: st
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography fontWeight={600}>Run record</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        After you run a script or external tool, record version, seed, and where it ran. No row-level data.
-      </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+        <Typography fontWeight={600}>Run record</Typography>
+        <InfoTip title="Version, seed, location. No row-level data." />
+      </Stack>
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
         <TextField size="small" label="Tool" value={toolName} onChange={(e) => setToolName(e.target.value)} />
         <TextField size="small" label="Version" value={toolVersion} onChange={(e) => setToolVersion(e.target.value)} />

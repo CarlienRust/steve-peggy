@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, FormControl, FormControlLabel, InputLabel, MenuItem, Select, Stack, Switch, TextField, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { peggyApi } from "@/lib/api";
@@ -53,10 +54,10 @@ export function ComputeProfileEditor({ workspaceId }: { workspaceId: string }) {
 
   return (
     <Stack spacing={1.5}>
-      <Typography fontWeight={600}>Compute profile</Typography>
-      <Typography variant="body2" color="text.secondary">
-        Used for stage and job scripts. Peggy does not guess queue names or limits. South African HPC presets must be checked against site docs.
-      </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center">
+        <Typography fontWeight={600}>Compute profile</Typography>
+        <InfoTip title="Stage and job scripts. Check HPC site docs." />
+      </Stack>
       <TextField size="small" label="Label" value={label} onChange={(e) => setLabel(e.target.value)} sx={{ maxWidth: 280 }} />
       <FormControl size="small" sx={{ maxWidth: 360 }}>
         <InputLabel>Preset</InputLabel>

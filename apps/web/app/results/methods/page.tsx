@@ -5,7 +5,7 @@ import { PageSection } from "@/components/PageSection";
 export default function ResultsMethodsPage() {
   return (
     <>
-      <PageHeader compact title="Methods" description="Methods write-up for manuscripts." />
+      <PageHeader compact title="Methods" info="Methods write-up for manuscripts." />
       <PageSection>
         <Alert severity="info">Coming soon.</Alert>
       </PageSection>

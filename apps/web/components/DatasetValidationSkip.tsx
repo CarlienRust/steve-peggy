@@ -1,6 +1,6 @@
 "use client";
 
-import { Checkbox, FormControlLabel, Typography } from "@mui/material";
+import { Checkbox, FormControlLabel } from "@mui/material";
 
 export function DatasetValidationSkip({
   checked,
@@ -13,20 +13,8 @@ export function DatasetValidationSkip({
 }) {
   return (
     <FormControlLabel
-      sx={{ alignItems: "flex-start" }}
-      control={
-        <Checkbox
-          checked={checked}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.checked)}
-          sx={{ pt: 0.5 }}
-        />
-      }
-      label={
-        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-          Dataset validation not required.
-        </Typography>
-      }
+      control={<Checkbox checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />}
+      label="Dataset validation not required"
     />
   );
 }

@@ -12,7 +12,7 @@
   "steps": [
     {
       "id": "specify-model",
-      "label": "Specify model",
+      "label": "Choose outcome and predictors",
       "resourceClass": "light",
       "runPaths": ["browser", "guidance"],
       "tools": [],

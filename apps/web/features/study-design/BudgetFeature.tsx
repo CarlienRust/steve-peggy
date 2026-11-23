@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import AddIcon from "@mui/icons-material/Add";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import {
   Alert,
   Box,
@@ -11,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  IconButton,
   Paper,
   Stack,
   TextField,
@@ -206,23 +209,13 @@ export function BudgetFeature() {
                 <Typography sx={{ ...monoSx, width: 120, textAlign: "right", color: "text.primary" }}>
                   {row.amount ? row.amount : "—"}
                 </Typography>
-                <Stack direction="row" spacing={0.5} sx={{ width: 130, justifyContent: "flex-end" }}>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => openEdit(row)}
-                    sx={{ textTransform: "none", color: peggyColors.accent }}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => removeLine(row.id)}
-                    sx={{ textTransform: "none", color: peggyColors.accent }}
-                  >
-                    Delete
-                  </Button>
+                <Stack direction="row" spacing={0.25} sx={{ width: 88, justifyContent: "flex-end" }}>
+                  <IconButton size="small" aria-label="Edit" onClick={() => openEdit(row)}>
+                    <EditOutlinedIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton size="small" aria-label="Delete" onClick={() => removeLine(row.id)}>
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
                 </Stack>
               </Stack>
             </Box>

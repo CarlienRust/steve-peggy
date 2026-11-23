@@ -27,6 +27,7 @@ import { useAuthSession } from "@/lib/authContext";
 import { attachObjectiveAimIds, newObjective, normalizeObjectives } from "@/lib/objectives";
 import { useWorkspace } from "@/lib/workspaceContext";
 import { useStudyDesign } from "@/lib/useStudyDesign";
+import { InfoTip } from "@/components/InfoTip";
 import { StatusChip } from "@/components/StatusChip";
 import { monoSx, peggyColors, textWrapSx } from "@/theme/peggyTheme";
 
@@ -388,7 +389,10 @@ export function ValidateAimFeature() {
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, overflow: "hidden" }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-          <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>AIMS</Typography>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>AIMS</Typography>
+            <InfoTip title="Overall aim. Add more if needed." />
+          </Stack>
           {!editingAim ? (
             <Tooltip title="Edit aims">
               <IconButton
@@ -406,9 +410,6 @@ export function ValidateAimFeature() {
             </Tooltip>
           ) : null}
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, ...textWrapSx }}>
-          Overall aim for the project. Add more aims if needed.
-        </Typography>
         {editingAim ? (
           <>
             <AimListEditor
@@ -474,9 +475,12 @@ export function ValidateAimFeature() {
             <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: "text.secondary" }}>
               OBJECTIVES
             </Typography>
-            <Typography fontWeight={600} sx={{ mt: 0.5 }}>
-              Objectives and status
-            </Typography>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
+              <Typography fontWeight={600}>
+                Objectives and status
+              </Typography>
+              <InfoTip title="History kept if an objective changes." />
+            </Stack>
           </Box>
           {!editingObjectives ? (
             <Tooltip title="Edit objectives list">
@@ -493,10 +497,6 @@ export function ValidateAimFeature() {
             </Tooltip>
           ) : null}
         </Stack>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
-          Objectives can change. Peggy keeps a history and flags work linked to a changed objective.
-        </Typography>
-
         {editingObjectives ? (
           <ObjectiveListEditor
             value={draftObjectives}

@@ -22,6 +22,7 @@ import { peggyApi, formatApiError, queryKeys, type GapAnalysisRunSummary } from 
 import { SourceCards } from "@/components/SourceCards";
 import { EvidenceCoverageMatrix } from "@/components/EvidenceCoverageMatrix";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { InfoTip } from "@/components/InfoTip";
 import { StatusChip } from "@/components/StatusChip";
 import { useAuthSession } from "@/lib/authContext";
 import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
@@ -185,12 +186,12 @@ export function GapsFeature() {
         <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent, mb: 0.5 }}>
           SCAN
         </Typography>
-        <Typography fontWeight={600} sx={{ mb: 0.5 }}>
-          Quick scan
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.6 }}>
-          Titles and abstracts only until full texts are added.
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 2 }}>
+          <Typography fontWeight={600}>
+            Quick scan
+          </Typography>
+          <InfoTip title="Titles and abstracts until full texts are added." />
+        </Stack>
 
         <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
           <StatusChip tone={abstractsOnly ? "accent" : "neutral"} label="Abstracts only" />

@@ -6,8 +6,12 @@ import {
   Autocomplete,
   Box,
   Button,
+  Checkbox,
   Chip,
+  CircularProgress,
   FormControl,
+  FormControlLabel,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -25,13 +29,13 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { PageHeader } from "@/components/PageHeader";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { InfoTip } from "@/components/InfoTip";
 import { suggestTest, type GroupCount, type OutcomeType, type Pairing, type TestSelector } from "@/lib/analysisTestSelector";
 import { runSuggestedTest } from "@/lib/analysisRun";
 import { formatSuppressedCount, profileTable, type ColumnKind } from "@/lib/columnStats";
-import { parsePastedTable } from "@/lib/parsePastedTable";
-import { looksLikeSavFile, parseSavTable } from "@/lib/parseSavTable";
 import { blocksLlmGuidance } from "@/lib/sensitiveData";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useWorkspace } from "@/lib/workspaceContext";
@@ -40,8 +44,9 @@ import { defaultAdminColumns, groupSizeWarns, smallestGroupSize } from "@/lib/id
 import { clearAnalysisRows, loadAnalysisRows, saveAnalysisRows } from "@/lib/analysisIdb";
 import { dictionaryCsv } from "@/lib/analysisDictionary";
 import { missingVsPlan } from "@/lib/analysisPlanCheck";
-import { blockedUploadReason, clipTable } from "@/lib/analysis/uploadGuard";
+import { parseAnalysisFile, parseCorpusDataset } from "@/lib/analysis/parseAnalysisTable";
 import { getAnalysisFunction, listAnalysisFunctions } from "@/lib/analysis/registry";
+import { DATASET_UPLOAD_ACCEPT, datasetUploadTitle } from "@/lib/datasetFiles";
 import { descriptivePython, descriptiveR, descriptiveSpss } from "@/lib/analysis/templates/descriptive";
 import { regressionPython, regressionR } from "@/lib/analysis/templates/regressionScripts";
 import { analysisProjectFiles, buildZip } from "@/lib/analysis/projectZip";
@@ -61,8 +66,8 @@ import {
 } from "@/lib/analysis/templates/domainScripts";
 import type { ScriptContext } from "@/lib/analysis/templates/render";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
-import { peggyApi } from "@/lib/api";
-import { useQuery } from "@tanstack/react-query";
+import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 function kindToOutcome(kind: ColumnKind | undefined): OutcomeType {
   if (kind === "categorical") return "categorical";
@@ -71,8 +76,11 @@ function kindToOutcome(kind: ColumnKind | undefined): OutcomeType {
 
 const PAGE_SIZE = 20;
 
+const ANALYSIS_FUNCTIONS = listAnalysisFunctions().filter((f) => f.id !== "dataset-description");
+
 export function AnalysisToolFeature() {
   const { activeWorkspace } = useWorkspace();
+  const queryClient = useQueryClient();
   const { studyDesign, commitSection, isSaving } = useStudyDesign(activeWorkspace?.id);
   const blocked = blocksLlmGuidance(studyDesign.samples?.identifierLevel);
   const saved = studyDesign.analysisTool ?? {};
@@ -104,8 +112,18 @@ export function AnalysisToolFeature() {
   const [page, setPage] = useState(0);
   const [summaryCols, setSummaryCols] = useState<string[]>([]);
   const [runResult, setRunResult] = useState<string | null>(saved.lastRunSummary ?? null);
-  const [functionId, setFunctionId] = useState(saved.activeFunctionId ?? "dataset-description");
+  const [functionId, setFunctionId] = useState(
+    saved.activeFunctionId && saved.activeFunctionId !== "dataset-description"
+      ? saved.activeFunctionId
+      : "linear-regression"
+  );
   const [toolTab, setToolTab] = useState(0);
+  const [descIds, setDescIds] = useState<number[]>([]);
+  const [descPrimary, setDescPrimary] = useState<number | null>(null);
+  const [analysisIds, setAnalysisIds] = useState<number[]>([]);
+  const [analysisPrimary, setAnalysisPrimary] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [tableLoading, setTableLoading] = useState(false);
   const [predictors, setPredictors] = useState<string[]>([]);
   const [regSummary, setRegSummary] = useState<string | null>(
     saved.lastRegression && typeof saved.lastRegression === "object"
@@ -202,21 +220,99 @@ export function AnalysisToolFeature() {
   const onFile = async (file: File) => {
     setParseError(null);
     setDatasetNote(null);
-    const blockedFile = blockedUploadReason(file.name);
-    if (blockedFile) {
-      setParseError(blockedFile);
+    const parsed = await parseAnalysisFile(file);
+    if ("error" in parsed) {
+      setParseError(parsed.error);
       return;
     }
-    const lower = file.name.toLowerCase();
-    if (lower.endsWith(".sav") || lower.endsWith(".zsav") || (await looksLikeSavFile(file))) {
-      applyParsed(file.name, await parseSavTable(file));
+    applyParsed(parsed.name, { headers: parsed.headers, rows: parsed.rows, warning: parsed.warning });
+  };
+
+  const datasetsQuery = useQuery({
+    queryKey: queryKeys.corpus("sample_datasets", activeWorkspace?.id),
+    queryFn: () => peggyApi.listCorpus("sample_datasets", activeWorkspace?.id),
+    enabled: !!activeWorkspace?.id,
+  });
+  const datasetPapers = datasetsQuery.data?.papers ?? [];
+
+  const loadPaper = async (paper: PaperRecord) => {
+    if (!paper.id) return;
+    setParseError(null);
+    setTableLoading(true);
+    try {
+      const parsed = await parseCorpusDataset(paper);
+      if ("error" in parsed) {
+        setParseError(parsed.error);
+        return;
+      }
+      applyParsed(parsed.name, { headers: parsed.headers, rows: parsed.rows, warning: parsed.warning });
+      setDatasetLabel(paper.title || parsed.name.replace(/\.[^.]+$/, ""));
+    } catch (e) {
+      setParseError(formatApiError(e));
+    } finally {
+      setTableLoading(false);
+    }
+  };
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => peggyApi.deletePaper(id),
+    onSuccess: (_, id) => {
+      if (activeWorkspace?.id) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.corpus("sample_datasets", activeWorkspace.id) });
+      }
+      setDescIds((prev) => prev.filter((x) => x !== id));
+      setAnalysisIds((prev) => prev.filter((x) => x !== id));
+      setDescPrimary((prev) => (prev === id ? null : prev));
+      setAnalysisPrimary((prev) => (prev === id ? null : prev));
+    },
+    onError: (e) => setParseError(formatApiError(e)),
+  });
+
+  const toggleDataset = (
+    paper: PaperRecord,
+    ids: number[],
+    setIds: (next: number[]) => void,
+    primary: number | null,
+    setPrimary: (id: number | null) => void,
+    on: boolean
+  ) => {
+    const id = paper.id;
+    if (id == null) return;
+    const next = on ? (ids.includes(id) ? ids : [...ids, id]) : ids.filter((x) => x !== id);
+    setIds(next);
+    const nextPrimary = primary && next.includes(primary) ? primary : next[0] ?? null;
+    setPrimary(nextPrimary);
+    if (nextPrimary != null) {
+      const toLoad = nextPrimary === id ? paper : datasetPapers.find((p) => p.id === nextPrimary);
+      if (toLoad) void loadPaper(toLoad);
+    }
+  };
+
+  const uploadAndStore = async (file: File) => {
+    setParseError(null);
+    setDatasetNote(null);
+    const parsed = await parseAnalysisFile(file);
+    if ("error" in parsed) {
+      setParseError(parsed.error);
       return;
     }
-    if (!lower.endsWith(".csv") && !lower.endsWith(".tsv") && !lower.endsWith(".txt")) {
-      setParseError("Use CSV, TSV, plain text, or SPSS SAV.");
+    if (!activeWorkspace?.id) {
+      applyParsed(parsed.name, { headers: parsed.headers, rows: parsed.rows, warning: parsed.warning });
       return;
     }
-    applyParsed(file.name, parsePastedTable(await file.text()));
+    setUploading(true);
+    try {
+      await peggyApi.uploadDocument(file, {
+        sourceType: "sample_datasets",
+        title: datasetUploadTitle(file),
+        workspaceId: activeWorkspace.id,
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.corpus("sample_datasets", activeWorkspace.id) });
+    } catch (e) {
+      setParseError((e as Error).message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const columnRoles = useMemo(() => {
@@ -296,7 +392,7 @@ export function AnalysisToolFeature() {
     });
   };
 
-  const analysisFn = getAnalysisFunction(functionId) ?? getAnalysisFunction("dataset-description");
+  const analysisFn = getAnalysisFunction(functionId) ?? ANALYSIS_FUNCTIONS[0];
 
   const scriptCtx: ScriptContext = {
     headers,
@@ -328,11 +424,11 @@ export function AnalysisToolFeature() {
     <input
       type="file"
       hidden
-      accept=".csv,.tsv,.txt,.sav,.zsav,text/csv,text/tab-separated-values,application/x-spss-sav"
+      accept={DATASET_UPLOAD_ACCEPT}
       disabled={blocked}
       onChange={(e) => {
         const file = e.target.files?.[0];
-        if (file) void onFile(file);
+        if (file) void uploadAndStore(file);
         e.target.value = "";
       }}
     />
@@ -343,7 +439,7 @@ export function AnalysisToolFeature() {
       <PageHeader
         eyebrow="ANALYSIS TOOL"
         title="Statistical analysis"
-        description="Configure and prepare your statistical analysis."
+        info="Upload. Descriptives. Then one function."
       />
       <Stack spacing={3}>
         {blocked ? (
@@ -352,70 +448,25 @@ export function AnalysisToolFeature() {
           </Alert>
         ) : null}
 
-        <Tabs value={toolTab} onChange={(_, v) => setToolTab(v)} variant="scrollable" allowScrollButtonsMobile sx={{ mb: 1 }}>
-          <Tab label="Function" sx={{ textTransform: "none" }} />
-          <Tab label="Dataset" sx={{ textTransform: "none" }} />
-          <Tab label="Tests" sx={{ textTransform: "none" }} />
-          <Tab label="Scripts" sx={{ textTransform: "none" }} />
-          <Tab label="Route" sx={{ textTransform: "none" }} />
+        <Tabs
+          value={toolTab}
+          onChange={(_, v) => {
+            setToolTab(v);
+            const id = v === 1 ? descPrimary : v === 2 ? analysisPrimary : null;
+            const paper = id != null ? datasetPapers.find((p) => p.id === id) : undefined;
+            if (paper) void loadPaper(paper);
+          }}
+          variant="scrollable"
+          allowScrollButtonsMobile
+          sx={{ mb: 1 }}
+        >
+          <Tab label="Datasets" sx={{ textTransform: "none" }} />
+          <Tab label="Descriptives" sx={{ textTransform: "none" }} />
+          <Tab label="Analysis" sx={{ textTransform: "none" }} />
         </Tabs>
 
         {toolTab === 0 ? (
         <Box>
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>00 Analysis function</Typography>
-          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-            <FormControl size="small" sx={{ minWidth: 280 }}>
-              <InputLabel>Function</InputLabel>
-              <Select
-                label="Function"
-                value={functionId}
-                onChange={(e) => setFunctionId(e.target.value)}
-              >
-                {listAnalysisFunctions().map((f) => (
-                  <MenuItem key={f.id} value={f.id}>
-                    {f.label} ({f.status})
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            {analysisFn ? <Box sx={{ mt: 2 }}><RunPathsPanel fn={analysisFn} /></Box> : null}
-          </Paper>
-          {functionId === "gut-microbiome-feature" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("microbiome_qc.py", microbiomePython(scriptCtx))}>
-              Microbiome QC script
-            </Button>
-          ) : null}
-          {functionId === "genomics-snp-panel" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("snp_qc.txt", snpGuidance(scriptCtx))}>
-              SNP guidance
-            </Button>
-          ) : null}
-          {functionId === "ml-review" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("ml_review.txt", mlGuidance(scriptCtx))}>
-              ML review notes
-            </Button>
-          ) : null}
-          {functionId === "diet-analysis" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("diet_checklist.py", dietPython(scriptCtx))}>
-              Diet checklist script
-            </Button>
-          ) : null}
-          {functionId === "exposome" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("exposome_qc.py", exposomePython(scriptCtx))}>
-              Exposome script
-            </Button>
-          ) : null}
-          {functionId === "omics-generic" ? (
-            <Button variant="outlined" onClick={() => downloadBlob("omics_qc.py", omicsPython(scriptCtx))}>
-              Omics QC script
-            </Button>
-          ) : null}
-        </Box>
-        ) : null}
-
-        {toolTab === 1 ? (
-        <Box>
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>01 Dataset</Typography>
           <Paper
             variant="outlined"
             sx={{
@@ -424,6 +475,7 @@ export function AnalysisToolFeature() {
               textAlign: "center",
               borderStyle: dragOver ? "dashed" : "solid",
               bgcolor: dragOver ? "action.hover" : "background.paper",
+              mb: 2,
             }}
             onDragOver={(e) => {
               e.preventDefault();
@@ -434,53 +486,141 @@ export function AnalysisToolFeature() {
               e.preventDefault();
               setDragOver(false);
               const file = e.dataTransfer.files?.[0];
-              if (file && !blocked) void onFile(file);
+              if (file && !blocked) void uploadAndStore(file);
             }}
           >
-            <Typography fontWeight={600} sx={{ mb: 0.5 }}>
-              Upload dataset
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              CSV, TSV, or SPSS SAV. Rows stay in this browser. Save last results stores setup and summaries, not rows.
-            </Typography>
-            <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
-              <Button component="label" variant="contained" disabled={blocked}>
+            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center" sx={{ mb: 2 }}>
+              <Typography fontWeight={600}>
                 Upload dataset
+              </Typography>
+              <InfoTip title="CSV, TSV, or SPSS SAV. Rows stay in this browser." />
+            </Stack>
+            <DisabledTooltipButton title={blocked ? "Blocked while samples are identifiable" : ""}>
+              <Button component="label" variant="contained" disabled={blocked || uploading}>
+                {uploading ? "Uploading…" : "Upload dataset"}
                 {fileInput}
               </Button>
             </DisabledTooltipButton>
           </Paper>
-          {parseError ? <Alert severity="error" sx={{ mt: 1.5 }}>{parseError}</Alert> : null}
-          {datasetNote ? <Alert severity="info" sx={{ mt: 1.5 }}>{datasetNote}</Alert> : null}
+          {parseError ? <Alert severity="error" sx={{ mb: 1.5 }}>{parseError}</Alert> : null}
+          {datasetNote ? <Alert severity="info" sx={{ mb: 1.5 }}>{datasetNote}</Alert> : null}
+          <Paper variant="outlined">
+            {datasetsQuery.isLoading ? (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                Loading datasets…
+              </Typography>
+            ) : datasetsQuery.isError ? (
+              <Typography variant="body2" color="error" sx={{ p: 2 }}>
+                {formatApiError(datasetsQuery.error)}
+              </Typography>
+            ) : datasetPapers.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ p: 2 }}>
+                No datasets yet. Upload above or on Samples.
+              </Typography>
+            ) : (
+              datasetPapers.map((p) => (
+                <Stack
+                  key={p.id ?? p.title}
+                  direction="row"
+                  alignItems="center"
+                  justifyContent="space-between"
+                  sx={{ px: 2, py: 0.5, borderBottom: 1, borderColor: "divider" }}
+                >
+                  <Typography variant="body2">{p.title || "Untitled"}</Typography>
+                  <IconButton
+                    size="small"
+                    aria-label="Delete"
+                    disabled={!p.id || deleteMut.isPending}
+                    onClick={() => {
+                      if (p.id) deleteMut.mutate(p.id);
+                    }}
+                  >
+                    <DeleteOutlineIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              ))
+            )}
+          </Paper>
+        </Box>
+        ) : null}
+
+        {toolTab === 1 ? (
+        <Box>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography sx={eyebrowSx}>Descriptives</Typography>
+            <InfoTip title="Tick a file from Datasets." />
+          </Stack>
+          {datasetPapers.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Upload files on Datasets first.
+            </Alert>
+          ) : (
+            <Paper variant="outlined" sx={{ mb: 1.5 }}>
+              {datasetPapers.map((p) => {
+                const id = p.id;
+                if (id == null) return null;
+                return (
+                  <FormControlLabel
+                    key={id}
+                    sx={{ display: "flex", mx: 0, px: 2, py: 0.5, borderBottom: 1, borderColor: "divider" }}
+                    control={
+                      <Checkbox
+                        checked={descIds.includes(id)}
+                        onChange={(_, on) =>
+                          toggleDataset(p, descIds, setDescIds, descPrimary, setDescPrimary, on)
+                        }
+                      />
+                    }
+                    label={p.title || "Untitled"}
+                  />
+                );
+              })}
+            </Paper>
+          )}
+          {descIds.length > 1 ? (
+            <FormControl size="small" sx={{ mb: 1.5, minWidth: 240 }}>
+              <InputLabel>Show table</InputLabel>
+              <Select
+                label="Show table"
+                value={descPrimary ?? ""}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setDescPrimary(id);
+                  const paper = datasetPapers.find((p) => p.id === id);
+                  if (paper) void loadPaper(paper);
+                }}
+              >
+                {descIds.map((id) => (
+                  <MenuItem key={id} value={id}>
+                    {datasetPapers.find((p) => p.id === id)?.title || id}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
+          {descIds.length === 0 && datasetPapers.length > 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Choose one or more files uploaded on Datasets.
+            </Alert>
+          ) : null}
           <TextField
             size="small"
             label="Dataset label"
             value={datasetLabel}
             onChange={(e) => setDatasetLabel(e.target.value)}
-            sx={{ mt: 1.5, maxWidth: 360 }}
+            sx={{ mb: 1.5, maxWidth: 360 }}
           />
-          {rows.length ? (
-            <Alert severity="info" sx={{ mt: 1.5 }}>
-              In this browser only ({rows.length} rows{fileName ? `, ${fileName}` : ""}).
-              <Button
-                size="small"
-                sx={{ ml: 1, textTransform: "none" }}
-                onClick={() => {
-                  setRows([]);
-                  if (activeWorkspace?.id) void clearAnalysisRows(activeWorkspace.id);
-                }}
-              >
-                Clear table
-              </Button>
-            </Alert>
+          {parseError ? <Alert severity="error" sx={{ mb: 1.5 }}>{parseError}</Alert> : null}
+          {datasetNote ? <Alert severity="info" sx={{ mb: 1.5 }}>{datasetNote}</Alert> : null}
+          {tableLoading ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2">Loading table…</Typography>
+            </Stack>
           ) : null}
-        </Box>
-
-        <Box>
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>02 Dataset overview</Typography>
           <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
             <Stack spacing={2}>
-              {headers.length > 0 ? (
+              {headers.length > 0 && !tableLoading ? (
                 <>
                   <Autocomplete
                     multiple
@@ -625,7 +765,6 @@ export function AnalysisToolFeature() {
                         {...params}
                         label="Column summaries to show"
                         placeholder="Participant columns only"
-                        helperText="Excluded from stats."
                       />
                     )}
                   />
@@ -719,130 +858,283 @@ export function AnalysisToolFeature() {
               )}
             </Stack>
           </Paper>
+          {headers.length ? (
+            <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2, mt: 2 }}>
+              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+                <Typography fontWeight={600}>
+                  Which tests fit these columns
+                </Typography>
+                <InfoTip title="First column is outcome. Second is grouping." />
+              </Stack>
+              <Stack spacing={2}>
+                <Autocomplete
+                  multiple
+                  size="small"
+                  options={dataHeaders}
+                  value={guideCols.filter((c) => dataHeaders.includes(c))}
+                  onChange={(_, value) => {
+                    setGuideCols(value);
+                    const first = value[0] ?? "";
+                    setOutcomeColumn(first);
+                    const kind = profiles.find((p) => p.name === first)?.kind;
+                    if (kind) setSelector((s) => ({ ...s, outcome: kindToOutcome(kind) }));
+                  }}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Columns" placeholder="Outcome, then grouping column" />
+                  )}
+                />
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Groups</InputLabel>
+                  <Select
+                    label="Groups"
+                    value={selector.groups}
+                    onChange={(e) => setSelector({ ...selector, groups: e.target.value as GroupCount })}
+                  >
+                    <MenuItem value="1">1</MenuItem>
+                    <MenuItem value="2">2</MenuItem>
+                    <MenuItem value="3plus">3 or more</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Study design</InputLabel>
+                  <Select
+                    label="Study design"
+                    value={selector.pairing}
+                    onChange={(e) => setSelector({ ...selector, pairing: e.target.value as Pairing })}
+                  >
+                    <MenuItem value="independent">Independent</MenuItem>
+                    <MenuItem value="paired">Paired / repeated</MenuItem>
+                  </Select>
+                </FormControl>
+                <FormControl size="small" fullWidth>
+                  <InputLabel>Outcome type</InputLabel>
+                  <Select
+                    label="Outcome type"
+                    value={selector.outcome}
+                    onChange={(e) => setSelector({ ...selector, outcome: e.target.value as OutcomeType })}
+                  >
+                    <MenuItem value="continuous">Continuous</MenuItem>
+                    <MenuItem value="ordinal">Ordinal</MenuItem>
+                    <MenuItem value="categorical">Categorical</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography fontWeight={600}>{suggestion.test}</Typography>
+                {whyOpen ? (
+                  <Typography variant="body2">
+                    {suggestion.why}
+                    {guideCols.length ? ` Columns: ${guideCols.join(", ")}.` : ""}
+                  </Typography>
+                ) : null}
+                <Button size="small" variant="outlined" onClick={() => setWhyOpen((v) => !v)}>
+                  Why this test?
+                </Button>
+                <Button
+                  size="small"
+                  variant="contained"
+                  disabled={!outcomeColumn || rows.length === 0}
+                  onClick={() => {
+                    const oi = headers.indexOf(outcomeColumn);
+                    const gi = guideCols[1] ? headers.indexOf(guideCols[1]) : -1;
+                    const outcomeVals = rows.map((r) => (oi >= 0 ? r[oi] ?? "" : ""));
+                    const groupVals = gi >= 0 ? rows.map((r) => r[gi] ?? "") : undefined;
+                    const result = runSuggestedTest(suggestion, outcomeVals, groupVals);
+                    setRunResult(result.summary);
+                    setWhyOpen(true);
+                    void commitSection("analysisTool", {
+                      ...(studyDesign.analysisTool ?? {}),
+                      lastRunSummary: result.summary,
+                      lastSelector: selector,
+                    });
+                  }}
+                >
+                  Run on this dataset
+                </Button>
+                {runResult ? (
+                  <Alert severity="success">Last result: {runResult}</Alert>
+                ) : null}
+              </Stack>
+            </Paper>
+          ) : null}
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 2 }}>
+            <Button variant="contained" disabled={isSaving || !headers.length} onClick={saveMeta}>
+              {isSaving ? "Saving…" : "Save last results"}
+            </Button>
+            <InfoTip title="Stores summaries. Not rows." />
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() =>
+                downloadBlob(
+                  "data-dictionary.csv",
+                  dictionaryCsv(headers, columnRoles, Object.fromEntries(profiles.map((p) => [p.name, p.kind])), profiles, cellThreshold, adminCols)
+                )
+              }
+            >
+              Export dictionary CSV
+            </Button>
+            <Button variant="outlined" disabled={!headers.length} onClick={() => downloadBlob("describe.py", descriptivePython(scriptCtx))}>
+              Python starter
+            </Button>
+            <Button variant="outlined" disabled={!headers.length} onClick={() => downloadBlob("describe.R", descriptiveR(scriptCtx))}>
+              R starter
+            </Button>
+            <Button variant="outlined" disabled={!headers.length} onClick={() => downloadBlob("describe.sps", descriptiveSpss(scriptCtx))}>
+              SPSS syntax
+            </Button>
+            <Button
+              variant="outlined"
+              disabled={!headers.length}
+              onClick={() => {
+                const blob = buildZip(
+                  analysisProjectFiles({
+                    "scripts/describe.py": descriptivePython(scriptCtx),
+                    "scripts/describe.R": descriptiveR(scriptCtx),
+                    "scripts/describe.sps": descriptiveSpss(scriptCtx),
+                  })
+                );
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "peggy-analysis-template.zip";
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              Project ZIP
+            </Button>
+            <DisabledTooltipButton
+              title={
+                activeWorkspace?.privacy_mode === "strict"
+                  ? "Share is off on Strict projects (no dataset summary to a hosted model)."
+                  : ""
+              }
+            >
+              <Button
+                variant="outlined"
+                disabled={!headers.length || activeWorkspace?.privacy_mode === "strict"}
+                onClick={() => {
+                  setSharePreview(JSON.stringify({ label: datasetLabel, headers: headers.filter((h) => !adminCols.includes(h)), columnRoles, aggregates }, null, 2));
+                  setShareOpen(true);
+                }}
+              >
+                Share summary with Peggy
+              </Button>
+            </DisabledTooltipButton>
+          </Stack>
+          {headers.length ? (
+            <Button sx={{ mt: 2, textTransform: "none" }} onClick={() => setToolTab(2)}>
+              Next: Analysis
+            </Button>
+          ) : null}
         </Box>
         ) : null}
 
         {toolTab === 2 ? (
         <Box>
-          <Typography sx={{ ...eyebrowSx, mb: 1.5 }}>03 Analysis guidance</Typography>
-          <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-            <Stack spacing={2}>
-              <Autocomplete
-                multiple
-                size="small"
-                options={dataHeaders}
-                value={guideCols.filter((c) => dataHeaders.includes(c))}
-                onChange={(_, value) => {
-                  setGuideCols(value);
-                  const first = value[0] ?? "";
-                  setOutcomeColumn(first);
-                  const kind = profiles.find((p) => p.name === first)?.kind;
-                  if (kind) setSelector((s) => ({ ...s, outcome: kindToOutcome(kind) }));
-                }}
-                disabled={dataHeaders.length === 0}
-                renderTags={(value, getTagProps) =>
-                  value.map((option, i) => <Chip {...getTagProps({ index: i })} key={option} label={option} size="small" />)
-                }
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Columns to guide the test"
-                    placeholder="Select participant columns"
-                    helperText="Used to suggest a test. Admin columns excluded."
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1.5 }}>
+            <Typography sx={eyebrowSx}>Analysis</Typography>
+            <InfoTip title="Pick a function. Tick datasets." />
+          </Stack>
+          <FormControl size="small" sx={{ minWidth: 280, mb: 2, mr: 1 }}>
+            <InputLabel>Function</InputLabel>
+            <Select
+              label="Function"
+              value={functionId}
+              onChange={(e) => setFunctionId(e.target.value)}
+            >
+              {ANALYSIS_FUNCTIONS.map((f) => (
+                <MenuItem key={f.id} value={f.id}>
+                  {f.label} ({f.status})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          {datasetPapers.length === 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Upload files on Datasets first.
+            </Alert>
+          ) : (
+            <Paper variant="outlined" sx={{ mb: 1.5, maxWidth: 560 }}>
+              {datasetPapers.map((p) => {
+                const id = p.id;
+                if (id == null) return null;
+                return (
+                  <FormControlLabel
+                    key={id}
+                    sx={{ display: "flex", mx: 0, px: 2, py: 0.5, borderBottom: 1, borderColor: "divider" }}
+                    control={
+                      <Checkbox
+                        checked={analysisIds.includes(id)}
+                        onChange={(_, on) =>
+                          toggleDataset(p, analysisIds, setAnalysisIds, analysisPrimary, setAnalysisPrimary, on)
+                        }
+                      />
+                    }
+                    label={p.title || "Untitled"}
                   />
-                )}
-              />
-              <FormControl size="small" fullWidth>
-                <InputLabel>Groups</InputLabel>
-                <Select
-                  label="Groups"
-                  value={selector.groups}
-                  onChange={(e) => setSelector({ ...selector, groups: e.target.value as GroupCount })}
-                >
-                  <MenuItem value="1">1</MenuItem>
-                  <MenuItem value="2">2</MenuItem>
-                  <MenuItem value="3plus">3 or more</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Study design</InputLabel>
-                <Select
-                  label="Study design"
-                  value={selector.pairing}
-                  onChange={(e) => setSelector({ ...selector, pairing: e.target.value as Pairing })}
-                >
-                  <MenuItem value="independent">Independent</MenuItem>
-                  <MenuItem value="paired">Paired / repeated</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControl size="small" fullWidth>
-                <InputLabel>Outcome type</InputLabel>
-                <Select
-                  label="Outcome type"
-                  value={selector.outcome}
-                  onChange={(e) => setSelector({ ...selector, outcome: e.target.value as OutcomeType })}
-                >
-                  <MenuItem value="continuous">Continuous</MenuItem>
-                  <MenuItem value="ordinal">Ordinal</MenuItem>
-                  <MenuItem value="categorical">Categorical</MenuItem>
-                </Select>
-              </FormControl>
-              <Typography variant="body2" color="text.secondary">
-                Suggested test
-              </Typography>
-              <Typography fontWeight={600}>
-                {suggestion.test}
-              </Typography>
-              {whyOpen ? (
-                <Typography variant="body2">
-                  {suggestion.why}
-                  {guideCols.length ? ` Columns: ${guideCols.join(", ")}.` : ""}
-                </Typography>
-              ) : null}
-              <Button size="small" variant="outlined" onClick={() => setWhyOpen((v) => !v)}>
-                Why this test?
-              </Button>
-              <Button
-                size="small"
-                variant="contained"
-                disabled={!outcomeColumn || rows.length === 0}
-                onClick={() => {
-                  const oi = headers.indexOf(outcomeColumn);
-                  const gi = guideCols[1] ? headers.indexOf(guideCols[1]) : -1;
-                  const outcomeVals = rows.map((r) => (oi >= 0 ? r[oi] ?? "" : ""));
-                  const groupVals = gi >= 0 ? rows.map((r) => r[gi] ?? "") : undefined;
-                  const result = runSuggestedTest(suggestion, outcomeVals, groupVals);
-                  setRunResult(result.summary);
-                  setWhyOpen(true);
-                  void commitSection("analysisTool", {
-                    ...(studyDesign.analysisTool ?? {}),
-                    lastRunSummary: result.summary,
-                    lastSelector: selector,
-                  });
+                );
+              })}
+            </Paper>
+          )}
+          {analysisIds.length > 1 ? (
+            <FormControl size="small" sx={{ mb: 1.5, minWidth: 240 }}>
+              <InputLabel>Show table</InputLabel>
+              <Select
+                label="Show table"
+                value={analysisPrimary ?? ""}
+                onChange={(e) => {
+                  const id = Number(e.target.value);
+                  setAnalysisPrimary(id);
+                  const paper = datasetPapers.find((p) => p.id === id);
+                  if (paper) void loadPaper(paper);
                 }}
               >
-                Run on this dataset
-              </Button>
-              {runResult ? (
-                <Alert severity="success">
-                  Last result (saved with Save last results): {runResult}
-                </Alert>
-              ) : null}
-              <Typography variant="caption" color="text.secondary">
-                Uses the first selected guide column as the outcome and the second as the grouping column when present.
-                p-values are normal approximations, not a full stats package.
-              </Typography>
+                {analysisIds.map((id) => (
+                  <MenuItem key={id} value={id}>
+                    {datasetPapers.find((p) => p.id === id)?.title || id}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : null}
+          {analysisIds.length === 0 && datasetPapers.length > 0 ? (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              Choose one or more files uploaded on Datasets.
+            </Alert>
+          ) : null}
+          {parseError && toolTab === 2 ? <Alert severity="error" sx={{ mb: 1.5 }}>{parseError}</Alert> : null}
+          {tableLoading && toolTab === 2 ? (
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+              <CircularProgress size={18} />
+              <Typography variant="body2">Loading table…</Typography>
             </Stack>
-          </Paper>
-
-        {functionId === "linear-regression" ? (
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Typography fontWeight={600} sx={{ mb: 1 }}>
-              Linear regression (browser OLS)
+          ) : null}
+          {analysisFn ? (
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              Steps: {analysisFn.steps.map((s, i) => `${i + 1}. ${s.label}`).join(" → ")}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              Engine is JavaScript OLS, not Pyodide. Confirm in R or statsmodels before publication. Covariates from similar studies are listed for you to decide — they are not auto-fit.
-            </Typography>
+          ) : null}
+          {functionId === "linear-regression" ? (
+          <>
+          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+              <Typography fontWeight={600}>OLS</Typography>
+              <InfoTip title="JavaScript OLS. Confirm in R or statsmodels." />
+            </Stack>
+            <FormControl size="small" sx={{ minWidth: 240, mb: 1, mr: 1 }}>
+              <InputLabel>Outcome</InputLabel>
+              <Select
+                label="Outcome"
+                value={outcomeColumn}
+                onChange={(e) => setOutcomeColumn(e.target.value)}
+              >
+                {dataHeaders.map((h) => (
+                  <MenuItem key={h} value={h}>
+                    {h}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
             {(coverage.data?.items ?? []).length ? (
               <Typography variant="body2" sx={{ mb: 1 }}>
                 Similar-study covariates: {(coverage.data?.items ?? []).map((i) => i.covariate).join(", ")}
@@ -907,7 +1199,42 @@ export function AnalysisToolFeature() {
               </Button>
             </Stack>
           </Paper>
-        ) : null}
+          </>
+          ) : (
+          <Stack spacing={1.5} sx={{ mb: 2 }}>
+            {analysisFn ? <RunPathsPanel fn={analysisFn} /> : null}
+            {functionId === "gut-microbiome-feature" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("microbiome_qc.py", microbiomePython(scriptCtx))}>
+                Microbiome QC script
+              </Button>
+            ) : null}
+            {functionId === "genomics-snp-panel" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("snp_qc.txt", snpGuidance(scriptCtx))}>
+                SNP guidance
+              </Button>
+            ) : null}
+            {functionId === "ml-review" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("ml_review.txt", mlGuidance(scriptCtx))}>
+                ML review notes
+              </Button>
+            ) : null}
+            {functionId === "diet-analysis" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("diet_checklist.py", dietPython(scriptCtx))}>
+                Diet checklist script
+              </Button>
+            ) : null}
+            {functionId === "exposome" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("exposome_qc.py", exposomePython(scriptCtx))}>
+                Exposome script
+              </Button>
+            ) : null}
+            {functionId === "omics-generic" ? (
+              <Button variant="outlined" onClick={() => downloadBlob("omics_qc.py", omicsPython(scriptCtx))}>
+                Omics QC script
+              </Button>
+            ) : null}
+          </Stack>
+          )}
 
         {planGaps.length || (coverage.data?.importedCovariates ?? []).length ? (
           <Paper variant="outlined" sx={{ p: 2 }}>
@@ -926,98 +1253,8 @@ export function AnalysisToolFeature() {
             ) : null}
           </Paper>
         ) : null}
-        </Box>
-        ) : null}
-
-        {toolTab === 3 ? (
-        <Stack spacing={1}>
-          <Typography variant="body2" color="text.secondary">
-            Save last results does not upload the file. Share summary is aggregates only (off on Strict and unpaid Gemini).
-          </Typography>
-          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-            <Button variant="contained" disabled={isSaving} onClick={saveMeta}>
-              {isSaving ? "Saving…" : "Save last results"}
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!headers.length}
-              onClick={() =>
-                downloadBlob(
-                  "data-dictionary.csv",
-                  dictionaryCsv(headers, columnRoles, Object.fromEntries(profiles.map((p) => [p.name, p.kind])), profiles, cellThreshold, adminCols)
-                )
-              }
-            >
-              Export dictionary CSV
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!headers.length}
-              onClick={() => downloadBlob("describe.py", descriptivePython(scriptCtx))}
-            >
-              Python starter
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!headers.length}
-              onClick={() => downloadBlob("describe.R", descriptiveR(scriptCtx))}
-            >
-              R starter
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!headers.length}
-              onClick={() => downloadBlob("describe.sps", descriptiveSpss(scriptCtx))}
-            >
-              SPSS syntax
-            </Button>
-            <Button
-              variant="outlined"
-              disabled={!headers.length}
-              onClick={() => {
-                const blob = buildZip(
-                  analysisProjectFiles({
-                    "scripts/describe.py": descriptivePython(scriptCtx),
-                    "scripts/describe.R": descriptiveR(scriptCtx),
-                    "scripts/describe.sps": descriptiveSpss(scriptCtx),
-                  })
-                );
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "peggy-analysis-template.zip";
-                a.click();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              Project ZIP
-            </Button>
-            <DisabledTooltipButton
-              title={
-                activeWorkspace?.privacy_mode === "strict"
-                  ? "Share is off on Strict projects (no dataset summary to a hosted model)."
-                  : ""
-              }
-            >
-              <Button
-                variant="outlined"
-                disabled={!headers.length || activeWorkspace?.privacy_mode === "strict"}
-                onClick={() => {
-                  setSharePreview(JSON.stringify({ label: datasetLabel, headers: headers.filter((h) => !adminCols.includes(h)), columnRoles, aggregates }, null, 2));
-                  setShareOpen(true);
-                }}
-              >
-                Share summary with Peggy
-              </Button>
-            </DisabledTooltipButton>
-          </Stack>
-        </Stack>
-        ) : null}
-
-        {toolTab === 4 && !activeWorkspace?.id ? (
-          <Alert severity="info">Select a project.</Alert>
-        ) : null}
-        {toolTab === 4 && activeWorkspace?.id ? (
+          <Typography fontWeight={600} sx={{ mt: 2, mb: 1 }}>Record and import</Typography>
+        {activeWorkspace?.id ? (
           <>
             <AnalysisRoutePanel
               workspaceId={activeWorkspace.id}
@@ -1037,6 +1274,10 @@ export function AnalysisToolFeature() {
               <ComputeProfileEditor workspaceId={activeWorkspace.id} />
             </Paper>
           </>
+        ) : (
+          <Alert severity="info">Select a project.</Alert>
+        )}
+        </Box>
         ) : null}
       </Stack>
       <ConfirmDialog

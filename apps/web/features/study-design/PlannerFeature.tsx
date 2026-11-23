@@ -16,6 +16,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { ObjectiveListEditor } from "@/components/ObjectiveListEditor";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { AdhocAnalysesEditor } from "@/features/study-design/AdhocAnalysesEditor";
@@ -542,8 +543,10 @@ export function PlannerFeature(_props?: { section?: "methods" | "analysis" }) {
       {wizardStep === 2 ? (
         <Paper variant="outlined" sx={{ p: 2.5 }}>
           <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.accent }}>ANALYSIS</Typography>
-          <Typography variant="h6" sx={{ mt: 0.5 }}>Paste your draft analysis plan</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>Optional until you have one. Review later looks at methods and analysis together if both are filled.</Typography>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5, mb: 2 }}>
+            <Typography variant="h6">Paste your draft analysis plan</Typography>
+            <InfoTip title="Optional. Review uses methods plus analysis if both are filled." />
+          </Stack>
           <TextField placeholder="Paste or type your analysis plan" multiline minRows={6} value={analysisUserPlan} onChange={(e) => { setAnalysisUserPlan(e.target.value); saveSection("analysisPlan", { userPlan: e.target.value }); }} fullWidth />
           <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px", color: peggyColors.mutedForeground, mt: 2, mb: 1 }}>CONSTRAINTS (OPTIONAL)</Typography>
           <TextField placeholder="Software, skills, time" value={analysisConstraints} onChange={(e) => { setAnalysisConstraints(e.target.value); saveSection("analysisPlan", { constraints: e.target.value }); }} fullWidth />

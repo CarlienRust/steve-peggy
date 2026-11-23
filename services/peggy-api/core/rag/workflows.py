@@ -707,6 +707,9 @@ async def run_proposal(
         json_mode=True,
     )
     body = _parse_json(raw)
+    from core.project_context import fill_proposal_ethics_note
+
+    body = fill_proposal_ethics_note(body, sd.get("ethics") if isinstance(sd.get("ethics"), dict) else {})
     await catalog.patch_study_design(
         user_id,
         workspace_id,

@@ -1,6 +1,7 @@
 "use client";
 
 import { Alert, Button, Paper, Stack, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { peggyApi } from "@/lib/api";
 
@@ -51,10 +52,10 @@ export function AnalysisRoutePanel({
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>
-      <Typography fontWeight={600}>Evidence-led route</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        After the analysis plan is reviewed. Evidence and feasibility stay in separate columns.
-      </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+        <Typography fontWeight={600}>Evidence-led route</Typography>
+        <InfoTip title="After plan review. Evidence stays separate from feasibility." />
+      </Stack>
       {!planCompleted ? (
         <Alert severity="warning" sx={{ mb: 1 }}>
           Preliminary until Methods plan → Review is marked complete.

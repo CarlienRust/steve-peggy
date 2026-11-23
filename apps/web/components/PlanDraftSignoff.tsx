@@ -1,6 +1,6 @@
 "use client";
 
-import { Checkbox, FormControlLabel, Typography } from "@mui/material";
+import { Checkbox, FormControlLabel } from "@mui/material";
 
 export function PlanDraftSignoff({
   checked,
@@ -11,19 +11,9 @@ export function PlanDraftSignoff({
 }) {
   return (
     <FormControlLabel
-      sx={{ alignItems: "flex-start", mt: 1 }}
-      control={
-        <Checkbox
-          checked={checked}
-          onChange={(e) => onChange(e.target.checked)}
-          sx={{ pt: 0.5 }}
-        />
-      }
-      label={
-        <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
-          Methods and analysis plans are ready.
-        </Typography>
-      }
+      sx={{ mt: 1 }}
+      control={<Checkbox checked={checked} onChange={(e) => onChange(e.target.checked)} />}
+      label="Methods and analysis plans are ready"
     />
   );
 }

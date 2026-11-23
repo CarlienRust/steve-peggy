@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import { InfoTip } from "@/components/InfoTip";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { formatApiError, peggyApi, queryKeys, type CalendarEvent, type CalendarEventKind } from "@/lib/api";
 import { useAuthSession } from "@/lib/authContext";
@@ -175,12 +176,12 @@ export function CalendarFeature() {
     <Box>
       <LocalDevBanner />
       <Typography sx={eyebrowSx}>HOME</Typography>
-      <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-        Calendar
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: 720 }}>
-        Account-level dates. Link an event to a project if you want. Dates are only created when you pick them.
-      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="h4" fontWeight={600}>
+          Calendar
+        </Typography>
+        <InfoTip title="Account-level dates. Link to a project if you want." />
+      </Stack>
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
         <FormControl size="small" sx={{ minWidth: 200 }}>
           <InputLabel>Project</InputLabel>

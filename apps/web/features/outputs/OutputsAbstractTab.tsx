@@ -13,6 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { InfoTip } from "@/components/InfoTip";
 import { WorkflowOutputPanel } from "@/components/WorkflowOutputPanel";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { formatApiError, peggyApi, queryKeys } from "@/lib/api";
@@ -100,9 +101,10 @@ export function OutputsAbstractTab() {
   return (
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2, lineHeight: 1.7 }}>
-          Each generate creates a new version you can compare. Versions are saved on this project.
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 2 }}>
+          <Typography fontWeight={600}>Abstract drafts</Typography>
+          <InfoTip title="Each generate is a saved version." />
+        </Stack>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "flex-end" }}>
           <TextField
             label="Minimum words"

@@ -4,6 +4,7 @@ import NextLink from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Alert, Button, Link, Paper, Stack, Typography } from "@mui/material";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
+import { InfoTip } from "@/components/InfoTip";
 import { peggyApi, queryKeys } from "@/lib/api";
 import { useWorkspace } from "@/lib/workspaceContext";
 
@@ -24,24 +25,24 @@ export function OutputsFiguresTab() {
   return (
     <Stack spacing={2}>
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography fontWeight={600} sx={{ mb: 1 }}>
-          External design tools
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5, lineHeight: 1.7 }}>
-          Curated links for figures and posters (Canva, BioRender, Figma, GraphPad).
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+          <Typography fontWeight={600}>
+            External design tools
+          </Typography>
+          <InfoTip title="Canva, BioRender, Figma, GraphPad." />
+        </Stack>
         <Link component={NextLink} href="/useful-links" underline="hover">
           Open useful links
         </Link>
       </Paper>
 
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography fontWeight={600} sx={{ mb: 1 }}>
-          Start from your results
-        </Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          Uses findings already uploaded on this project. Upload de-identified results first if this is disabled.
-        </Typography>
+        <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+          <Typography fontWeight={600}>
+            Start from your results
+          </Typography>
+          <InfoTip title="Uses findings already on this project." />
+        </Stack>
         <DisabledTooltipButton title={disabledReason}>
           {hasResults ? (
             <Button component={NextLink} href="/results/findings" variant="outlined" sx={{ textTransform: "none" }}>

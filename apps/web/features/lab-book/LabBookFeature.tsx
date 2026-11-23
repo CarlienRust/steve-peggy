@@ -6,6 +6,7 @@ import {
   Alert,
   Button,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -14,6 +15,8 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
 import { formatApiError, peggyApi, queryKeys, type LabBookCategory, type LabBookEntry } from "@/lib/api";
@@ -69,7 +72,7 @@ export function LabBookFeature() {
       <PageHeader
         eyebrow="08 · Lab book"
         title="Lab book"
-        description="Progress, meetings, ideas, methods."
+        info="Progress, meetings, ideas, methods."
       />
       <PageSection>
         <Stack spacing={2}>
@@ -172,13 +175,13 @@ export function LabBookFeature() {
                         View image
                       </Button>
                     ) : null}
-                    <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                      <Button size="small" onClick={() => setEditing(entry)}>
-                        Edit
-                      </Button>
-                      <Button size="small" color="warning" onClick={() => deleteEntry.mutate(entry.id)}>
-                        Delete
-                      </Button>
+                    <Stack direction="row" spacing={0.25} sx={{ mt: 1 }}>
+                      <IconButton size="small" aria-label="Edit" onClick={() => setEditing(entry)}>
+                        <EditOutlinedIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" aria-label="Delete" onClick={() => deleteEntry.mutate(entry.id)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
                     </Stack>
                   </>
                 )}

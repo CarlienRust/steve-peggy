@@ -8,7 +8,7 @@ Peggy ingests **literature** (labelled peer-reviewed only when `classify_peer_re
 
 ## UI copy
 
-Product strings are short and professional. Checkboxes name the action. Alerts are one sentence. Help states facts, not tours. Rule: [`.cursor/rules/ui-copy.mdc`](../.cursor/rules/ui-copy.mdc).
+Product strings are short and professional. Checkboxes name the action. Alerts are one sentence. Help states facts, not tours. Guidance sits in an (i) tip next to the heading (Dashboard keeps visible copy). Table row actions are icons, except Reading journal, Calendar, Ethics, and Methods plan. Rule: [`.cursor/rules/ui-copy.mdc`](../.cursor/rules/ui-copy.mdc).
 
 ## Active codebase
 
@@ -194,8 +194,8 @@ Workflow and chat responses include `sources[]`, `confidence`, `limitations`. Ch
 | `/study-design/ethics` | 04 · Ethics | Open at any time (not gated on samples or methods). Approval summary (committee/status/letter), optional question, cohort checklist, documents table (`ethics_documents`). Saving an expiry date upserts an `ethics_renewal` calendar event. |
 | `/study-design/budget` | 04 · Budget | Grid-style line-item budget (category, amount, notes) |
 | `/study-design/methods-plan` | 04 · Methods plan | Four steps: From your project → Methods → Analysis → Review (output, steps, checklist). Review also lists limitations, improvements, and supporting literature. `/study-design/analysis-plan` redirects here. Combined review runs when at least one plan has text. |
-| `/study-design/proposal` | 04 · Proposal | 1–2 page draft; export saved result as `.md` or `.docx` |
-| `/analysis-tool` | 05 Analysis tool | Tabs: Function, Dataset, Tests, Scripts, Route. Registry (descriptives, OLS, microbiome, SNP, ML review, diet, exposome, omics). Evidence-led route (peer-reviewed vs feasibility, never one score). Import class D JSON. Run records. Compute profile. Reads/genotypes refused. |
+| `/study-design/proposal` | 04 · Proposal | 1–2 page draft; ethics note uses Ethics → Committee (`fmhsTrack`); export `.md` or `.docx` |
+| `/analysis-tool` | 05 Analysis tool | Three tabs. **Datasets**: upload (same `sample_datasets` as Samples) and delete. **Descriptives**: tick which uploaded files to load; table preview, stats, dictionary, and which tests fit those columns. **Analysis**: pick a function, then tick datasets independently; linear regression is OLS (outcome + predictors), not the descriptives test selector. Reads/genotypes refused. |
 | `/results` | 06 Results | Section hub; tab bar on sub-pages |
 | `/results/methods` | 06 · Methods | Placeholder |
 | `/results/findings` | 06 · Findings | Summary, upload (narrative/PDF/HTML), objective tags; `/results/report` redirects here |

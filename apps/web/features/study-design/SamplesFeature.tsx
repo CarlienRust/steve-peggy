@@ -35,6 +35,9 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import { InfoTip } from "@/components/InfoTip";
 import { DatasetTablePreview } from "@/components/DatasetTablePreview";
 import { DisabledTooltipButton } from "@/components/DisabledTooltipButton";
 import { StatusChip } from "@/components/StatusChip";
@@ -188,14 +191,14 @@ export function SamplesFeature() {
           <Typography sx={monoSx} fontSize={10} letterSpacing="1.2px" color={peggyColors.accent}>
             COHORT PROFILE
           </Typography>
-          <Typography variant="h6" sx={{ mt: 0.5 }}>
-            Who will take part
-          </Typography>
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
+            <Typography variant="h6">
+              Who will take part
+            </Typography>
+            <InfoTip title="Groups, not individuals. Files stay on this computer." />
+          </Stack>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
             <StatusChip tone="warning" label="De-identified data only" />
-            <Typography variant="body2" color="text.secondary">
-              Describe groups, not individuals. Files stay on this computer.
-            </Typography>
           </Stack>
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} sx={{ mt: 2 }}>
@@ -244,9 +247,12 @@ export function SamplesFeature() {
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} sx={{ mt: 2 }}>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
-              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
-                SETTING
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                  SETTING
+                </Typography>
+                <InfoTip title="Setting only." />
+              </Stack>
               <TextField
                 size="small"
                 placeholder="e.g. Peri-urban sites"
@@ -255,13 +261,16 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("setting", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.setting}
-                helperText={fieldWarnings.setting || "Setting only."}
+                helperText={fieldWarnings.setting}
               />
             </Stack>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
-              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
-                RECRUITMENT
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                  RECRUITMENT
+                </Typography>
+                <InfoTip title="Approach, no names." />
+              </Stack>
               <TextField
                 size="small"
                 placeholder="e.g. Clinic-based sampling"
@@ -270,7 +279,7 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("recruitment", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.recruitment}
-                helperText={fieldWarnings.recruitment || "Approach, no names."}
+                helperText={fieldWarnings.recruitment}
               />
             </Stack>
           </Stack>
@@ -299,9 +308,12 @@ export function SamplesFeature() {
               />
             </Stack>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
-              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
-                AGE RANGE
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                  AGE RANGE
+                </Typography>
+                <InfoTip title="General range only." />
+              </Stack>
               <TextField
                 placeholder="e.g. 18 to 65 years"
                 value={samples.ageRange ?? ""}
@@ -309,16 +321,19 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("ageRange", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.ageRange}
-                helperText={fieldWarnings.ageRange || "General range only."}
+                helperText={fieldWarnings.ageRange}
               />
             </Stack>
           </Stack>
 
           <Stack direction={{ xs: "column", md: "row" }} spacing={2.5} sx={{ mt: 2 }}>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
-              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
-                INCLUSION CRITERIA
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                  INCLUSION CRITERIA
+                </Typography>
+                <InfoTip title="General terms only." />
+              </Stack>
               <TextField
                 multiline
                 minRows={4}
@@ -328,13 +343,16 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("inclusionCriteria", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.inclusionCriteria}
-                helperText={fieldWarnings.inclusionCriteria || "General terms only."}
+                helperText={fieldWarnings.inclusionCriteria}
               />
             </Stack>
             <Stack spacing={0.5} sx={{ flex: 1 }}>
-              <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
-                EXCLUSION CRITERIA
-              </Typography>
+              <Stack direction="row" spacing={0.5} alignItems="center">
+                <Typography sx={{ ...monoSx, fontSize: 10, letterSpacing: "1.2px" }} color="text.secondary">
+                  EXCLUSION CRITERIA
+                </Typography>
+                <InfoTip title="General terms only." />
+              </Stack>
               <TextField
                 multiline
                 minRows={4}
@@ -344,7 +362,7 @@ export function SamplesFeature() {
                 onBlur={(e) => onPhiBlur("exclusionCriteria", e.target.value)}
                 fullWidth
                 error={!!fieldWarnings.exclusionCriteria}
-                helperText={fieldWarnings.exclusionCriteria || "General terms only."}
+                helperText={fieldWarnings.exclusionCriteria}
               />
             </Stack>
           </Stack>
@@ -374,14 +392,12 @@ export function SamplesFeature() {
 
         <Paper variant="outlined" sx={{ overflow: "hidden" }}>
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2.5, py: 2 }}>
-            <Stack spacing={0.4}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
               <Typography variant="subtitle1" fontWeight={600}>
                 Sample datasets
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Optional. De-identified PDF, CSV, TSV, or SPSS SAV. Format check:{" "}
-                <Link href="/validate/datasets">Validate datasets</Link>.
-              </Typography>
+              <InfoTip title="Optional. PDF, CSV, TSV, or SAV." />
+              <Link href="/validate/datasets">Validate datasets</Link>
             </Stack>
             <Button variant="outlined" onClick={() => fileInputRef.current?.click()} sx={{ textTransform: "none" }}>
               Upload dataset
@@ -512,20 +528,18 @@ export function SamplesFeature() {
                           <StatusChip tone={linked ? "accent" : "neutral"} label={linked ? "Linked" : "Not linked"} />
                         </TableCell>
                         <TableCell sx={{ width: 220, overflow: "visible" }}>
-                          <Stack direction="row" spacing={0.5} justifyContent="flex-end" flexWrap="wrap">
-                            <Button
+                          <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+                            <IconButton
                               size="small"
-                              variant="text"
-                              sx={{ textTransform: "none", color: peggyColors.accent }}
+                              aria-label="Preview"
                               disabled={!p.id}
                               onClick={() => setPreviewPaper(p)}
                             >
-                              Preview
-                            </Button>
-                            <Button
+                              <VisibilityOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
                               size="small"
-                              variant="text"
-                              sx={{ textTransform: "none", color: peggyColors.accent }}
+                              aria-label="Edit"
                               onClick={() => {
                                 if (!p.id) return;
                                 setEditPaperId(p.id);
@@ -535,20 +549,19 @@ export function SamplesFeature() {
                                 setEditLinked(linked);
                               }}
                             >
-                              Edit
-                            </Button>
-                            <Button
+                              <EditOutlinedIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
                               size="small"
-                              variant="text"
-                              sx={{ textTransform: "none", color: peggyColors.accent }}
+                              aria-label="Delete"
                               disabled={!p.id || deleteMut.isPending}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 if (p.id) deleteMut.mutate(p.id);
                               }}
                             >
-                              Delete
-                            </Button>
+                              <DeleteOutlineIcon fontSize="small" />
+                            </IconButton>
                           </Stack>
                         </TableCell>
                       </TableRow>

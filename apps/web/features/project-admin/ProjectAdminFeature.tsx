@@ -12,6 +12,7 @@ import {
   Typography,
 } from "@mui/material";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
+import { InfoTip } from "@/components/InfoTip";
 import { PageHeader } from "@/components/PageHeader";
 import { PageSection } from "@/components/PageSection";
 import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
@@ -176,7 +177,7 @@ export function ProjectAdminFeature() {
       <PageHeader
         eyebrow="02 · Project admin"
         title="Project admin"
-        description="Registration, dates, grants, outputs, files."
+        info="Registration, dates, grants, outputs, files."
       />
       <PageSection>
         <Stack spacing={2}>
@@ -187,7 +188,9 @@ export function ProjectAdminFeature() {
             value={admin.studentRegistration ?? ""}
             onChange={(e) => patch({ studentRegistration: e.target.value })}
             fullWidth
-            helperText="Optional. Upload the PDF below. Peggy does not look this up."
+            InputProps={{
+              endAdornment: <InfoTip title="Optional. Upload the PDF below." />,
+            }}
           />
           <Button
             variant="outlined"
@@ -251,10 +254,10 @@ export function ProjectAdminFeature() {
           </Button>
           {renderDocs("coInvestigatorPaperIds")}
 
-          <Typography variant="subtitle2">Data transfer (optional)</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Data transfer agreements or similar PDFs.
-          </Typography>
+          <Stack direction="row" spacing={0.5} alignItems="center">
+            <Typography variant="subtitle2">Data transfer (optional)</Typography>
+            <InfoTip title="Data transfer agreements or similar PDFs." />
+          </Stack>
           <Button
             variant="outlined"
             sx={{ textTransform: "none", alignSelf: "flex-start" }}

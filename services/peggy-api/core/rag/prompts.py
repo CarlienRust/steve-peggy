@@ -192,7 +192,7 @@ Return JSON only:
   "analysis": "string paragraph",
   "sample_size": "string",
   "timeline": "string",
-  "ethics_note": "string",
+  "ethics_note": "string — name the Ethics committee from project context. Never write [insert institution]. If committee is missing, say it is not yet named.",
   "full_text": "complete 1–2 page proposal in markdown (headings, paragraphs, bullet lists as appropriate)",
   "limitations": ["string"]
 }}"""

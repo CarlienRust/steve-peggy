@@ -23,6 +23,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { LocalDevBanner } from "@/components/LocalDevBanner";
 import { CorpusFilePreview } from "@/components/CorpusFilePreview";
 import { formatApiError, peggyApi, queryKeys, type PaperRecord } from "@/lib/api";
@@ -115,12 +116,12 @@ export function ReadingJournalFeature() {
     <Box>
       <LocalDevBanner />
       <Typography sx={eyebrowSx}>READING JOURNAL</Typography>
-      <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
-        Manage and track your literature reading.
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 720 }}>
-        Research papers from your literature corpus only. Ethics letters and uploaded results are not listed.
-      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 3 }}>
+        <Typography variant="h4" fontWeight={600}>
+          Manage and track your literature reading.
+        </Typography>
+        <InfoTip title="Literature papers only. Not ethics letters or results." />
+      </Stack>
 
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6}>

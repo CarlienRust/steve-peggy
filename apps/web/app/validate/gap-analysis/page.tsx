@@ -5,7 +5,7 @@ import { ValidateShell } from "@/components/ValidateShell";
 export default function ValidateGapAnalysisPage() {
   return (
     <>
-      <ValidateShell title="Gap analysis" description="Where evidence is thin. Abstracts first; full text when PDFs are in.">
+      <ValidateShell title="Gap analysis" description="Thin evidence. Abstracts first.">
         <PageSection>
           <GapsFeature />
         </PageSection>

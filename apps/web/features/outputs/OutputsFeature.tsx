@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Box, Tab, Tabs, Typography } from "@mui/material";
+import { Box, Stack, Tab, Tabs, Typography } from "@mui/material";
+import { InfoTip } from "@/components/InfoTip";
 import { OutputsAbstractTab } from "@/features/outputs/OutputsAbstractTab";
 import { OutputsFiguresTab } from "@/features/outputs/OutputsFiguresTab";
 import { OutputsTablesTab } from "@/features/outputs/OutputsTablesTab";
@@ -21,12 +22,12 @@ export function OutputsFeature() {
   return (
     <Box sx={{ width: "100%" }}>
       <Typography sx={{ ...eyebrowSx, mb: 2 }}>OUTPUTS</Typography>
-      <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em", mb: 1 }}>
-        Figures, tables, and abstract
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, mb: 2.5 }}>
-        Design figures externally, build tables from findings, and iterate conference abstract drafts.
-      </Typography>
+      <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 2.5 }}>
+        <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
+          Figures, tables, and abstract
+        </Typography>
+        <InfoTip title="Figures elsewhere. Tables from findings. Abstract drafts here." />
+      </Stack>
 
       <Tabs
         value={tab}

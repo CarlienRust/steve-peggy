@@ -146,6 +146,8 @@ def format_project_context(ws: dict, study_design: dict) -> str:
         if rows:
             parts.append("Budget line items: " + "; ".join(rows)[:1500])
 
+    if ethics.get("fmhsTrack"):
+        parts.append(f"Ethics committee: {ethics['fmhsTrack']}")
     if ethics.get("approvalObtained"):
         parts.append("Ethics approval: obtained")
         if ethics.get("approvalDate"):
@@ -159,6 +161,31 @@ def format_project_context(ws: dict, study_design: dict) -> str:
     parts.extend(_plan_snippet(study_design.get("analysisPlan"), "Analysis plan"))
 
     return "\n".join(p for p in parts if p.strip())
+
+
+def fill_proposal_ethics_note(body: dict, ethics: dict | None) -> dict:
+    """Use Ethics → Committee (`fmhsTrack`) in the proposal ethics note."""
+    if not isinstance(body, dict):
+        return body
+    committee = str((ethics or {}).get("fmhsTrack") or "").strip()
+    note = str(body.get("ethics_note") or "")
+    if committee:
+        filled = (
+            note.replace("[insert institution]", committee)
+            .replace("[Insert institution]", committee)
+            .replace("[INSERT INSTITUTION]", committee)
+        )
+        if filled != note:
+            body["ethics_note"] = filled
+        elif not note.strip():
+            if (ethics or {}).get("approvalObtained"):
+                body["ethics_note"] = (
+                    f"This study has obtained ethics approval from {committee} "
+                    "and will be conducted in accordance with all applicable regulations and guidelines."
+                )
+            else:
+                body["ethics_note"] = f"Ethics review is planned with {committee}."
+    return body
 
 
 async def load_project_context(user_id: str, workspace_id: str | None) -> str:

@@ -39,6 +39,7 @@ import { useAuthSession } from "@/lib/authContext";
 import { useResearchQuestionPrefill } from "@/lib/useResearchQuestionPrefill";
 import { useStudyDesign } from "@/lib/useStudyDesign";
 import { useOptionalWorkspace } from "@/lib/workspaceContext";
+import { InfoTip } from "@/components/InfoTip";
 import { eyebrowSx, monoSx, peggyColors } from "@/theme/peggyTheme";
 
 const HOME_MODES: { id: ChatMode; label: string }[] = [
@@ -349,12 +350,12 @@ export function HomeAskPeggyFeature({
       {!embedded ? (
         <Stack spacing={1}>
           <Typography sx={{ ...eyebrowSx, color: peggyColors.accent }}>ASK PEGGY</Typography>
-          <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
-            Research assistant
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, maxWidth: 720 }}>
-            Ask questions grounded in your research.
-          </Typography>
+          <Stack direction="row" spacing={0.75} alignItems="center">
+            <Typography variant="h1" sx={{ fontSize: { xs: 28, md: 36 }, fontWeight: 600, letterSpacing: "-0.02em" }}>
+              Research assistant
+            </Typography>
+            <InfoTip title="Questions grounded in your research." />
+          </Stack>
         </Stack>
       ) : null}
 
